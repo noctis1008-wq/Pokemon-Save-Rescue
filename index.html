@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-9139206140818266">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9139206140818266" crossorigin="anonymous"></script>
+<title>ポケモン破損セーブ救出 | NER Pokémon Recovery</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap">
+<section class="hero">
+<p class="eyebrow">POKÉMON SAVE RECOVERY</p>
+<h1>破損セーブから<br>ポケモンを救出<br><span>NER Pokémon Recovery</span></h1>
+<p class="lead">破損したポケモンのセーブデータをブラウザ内で解析し、内部に残っている個体データを抽出し、PKHeXでボックス情報として読み込める <code>boxdata.bin</code> にまとめます。抽出したデータは、PKHeXで元のボックス位置を維持した1つの <code>boxdata.bin</code> にまとめて保存できます。</p>
+</section>
+<section class="card">
+<label class="drop" id="drop">
+<input id="file" type="file" accept=".main,.sav,.bin,.dat,application/octet-stream">
+<div class="drop-icon">PK</div>
+<span class="drop-title">破損セーブを選択</span>
+<span class="drop-sub">.main / .sav / .bin / .dat をドラッグ＆ドロップ</span>
+</label>
+<div id="status" class="status hidden"></div>
+<div id="result" class="hidden">
+<div class="summary">
+<div><span>推定ソフト</span><strong id="game"></strong></div>
+<div><span>入力サイズ</span><strong id="size"></strong></div>
+<div><span>抽出数</span><strong id="count"></strong></div>
+</div>
+<div id="selectionSummary" class="selection-summary">選択中 0 匹</div>
+<div id="list" class="pokemon-list"></div>
+<button id="download" class="button">選択したポケモンで boxdata.bin を作成してZIPでダウンロード</button>
+</div>
+</section>
+<section class="info">
+<h2>対応予定・現在の対応</h2>
+<ul><li><strong>第6世代：X / Y / オメガルビー / アルファサファイア</strong>（PKHeX用 boxdata.bin（複数ボックスを1ファイルに保持））</li><li><strong>第7世代：サン / ムーン / ウルトラサン / ウルトラムーン</strong>（PKHeX用 boxdata.bin（複数ボックスを1ファイルに保持））</li><li>正常なセーブだけでなく、セーブ全体のチェックサムが壊れている場合でも内部をスキャンします。</li><li>処理はすべてブラウザ内で行われ、セーブデータはサーバーへ送信されません。</li></ul>
+<h2>重要</h2>
+<p class="note">これは「セーブを修復して元に戻す」ツールではなく、<strong>残存しているポケモン個体データを救出するためのツール</strong>です。検出結果は「完全復元」「一部破損」「低信頼候補」に分けて表示されます。復元に含める個体はユーザー自身がチェックボックスで選択できます。</p>
+<p class="note">検出されたデータは、内部構造・チェックサムなどを検証したうえで出力します。最終的な利用可否はPKHeX等でも確認してください。</p>
+</section>
+<footer><a href="../">NER Converter</a> · <a href="privacy.html">プライバシーポリシー</a> · <a href="https://github.com/kwsch/PKHeX" target="_blank" rel="noopener">PKHeX reference</a></footer>
+</main>
+<script src="app.js"></script>
+</body></html>
