@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "15";
+const APP_VERSION = "16";
 const APP_VERSION_DATE = "2026-10-14";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -222,16 +222,152 @@ function renderList(hits){
         <button type="button" class="small-button" data-action="none">すべて解除</button>
       </div>
     </div>
-    <div class="candidate-list${BALL_IMAGE_DIR?' ball-images':''}">${renderHeader()}${hits.map(p=>renderCandidate(p)).join('')}</div>
-    <div class="list-resizer" role="separator" aria-orientation="horizontal" aria-label="一覧の縦幅を変更(ドラッグ、または上下キー)" tabindex="0"><span></span></div>`;
+    <div class="view-tabs" role="tablist">
+      <button type="button" class="view-tab active" role="tab" aria-selected="true" data-view="list">一覧表示</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="box">ボックス表示</button>
+    </div>
+    <div class="view-panel active" data-view="list">
+      <div class="candidate-list${BALL_IMAGE_DIR?' ball-images':''}">${renderHeader()}${hits.map(p=>renderCandidate(p)).join('')}</div>
+      <div class="list-resizer" role="separator" aria-orientation="horizontal" aria-label="一覧の縦幅を変更(ドラッグ、または上下キー)" tabindex="0"><span></span></div>
+    </div>
+    <div class="view-panel" data-view="box"><div class="box-viewer"></div></div>`;
   setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
-  listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',updateSelectionSummary));
+  listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',()=>{updateSelectionSummary();refreshBoxSelection()}));
   listEl.querySelectorAll('.small-button').forEach(btn=>btn.addEventListener('click',()=>{
     const action=btn.dataset.action;
     listEl.querySelectorAll('.candidate-check').forEach(cb=>{cb.checked=action==='all'});
-    updateSelectionSummary();
+    updateSelectionSummary();refreshBoxSelection();
   }));
+  listEl.querySelectorAll('.view-tab').forEach(tab=>tab.addEventListener('click',()=>showView(tab.dataset.view)));
+  boxState.slots=buildSlotMap(hits);
+  boxState.current=firstBoxWithPokemon(boxState.slots);
+  renderBoxViewer();
   updateSelectionSummary();
+}
+function showView(view){
+  listEl.querySelectorAll('.view-tab').forEach(t=>{const on=t.dataset.view===view;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false')});
+  listEl.querySelectorAll('.view-panel').forEach(p=>p.classList.toggle('active',p.dataset.view===view));
+  if(view==='box')refreshBoxSelection();
+}
+
+// ---------------------------------------------------------------------------
+// ボックス表示(v16)。PKHeX のように 1 ボックス = 6 列 × 5 段で表示する。
+// 各スロットを「個体(完全復元)」「空き」「破損(読めないデータ)」に分ける。
+//   空き = 232 バイトがすべて 0、または EC=0 の空データを暗号化したもの(ゲームが書く空きスロット)
+// 位置は一覧と同じ getLocation() の考え方(第6世代はブロック表のずれ補正、第7世代は推定)。
+// マスをクリックすると、一覧のチェックと連動して救出に含める/外すを切り替える。
+// ポケモンのアイコン画像は同梱していない(ゲームのキャラクター画像は権利者の著作物のため)。
+// POKEMON_ICON_DIR に権利上問題のない画像を置いたディレクトリを指定すると <dir><全国図鑑番号>.png を表示し、
+// null(既定)または読めない場合はポケモン名を表示する。
+// ---------------------------------------------------------------------------
+const POKEMON_ICON_DIR=null;
+const boxState={slots:null,current:0};
+let BLANK_SLOT=null;
+function blankSlotBytes(){
+  if(BLANK_SLOT)return BLANK_SLOT;
+  const b=new Uint8Array(232);crypt(b,8,232,0);BLANK_SLOT=b;return b;
+}
+function isEmptySlot(raw){
+  if(raw.every(v=>v===0))return true;
+  const blank=blankSlotBytes();
+  for(let i=0;i<232;i++)if(raw[i]!==blank[i])return false;
+  return true;
+}
+function slotFileOffset(index){
+  const gen=window.__gen,layout=getStorageLayout(window.__game,gen);
+  if(!layout)return null;
+  if(gen===6){
+    const l6=window.__layout6,orig=layout.base+index*232;
+    return l6?l6.toFile(orig):orig;
+  }
+  const base=window.__gen7Base;
+  return base==null?null:base+index*232;
+}
+function buildSlotMap(hits){
+  const layout=getStorageLayout(window.__game,window.__gen);
+  if(!layout)return null;
+  const byOffset=new Map(hits.map(h=>[h.offset,h]));
+  const input=window.__input,slots=[];
+  for(let i=0;i<layout.slots;i++){
+    const off=slotFileOffset(i);
+    if(off===null||off<0||off>=input.length){slots.push({status:'missing'});continue}
+    const hit=byOffset.get(off);
+    if(hit){slots.push({status:'pokemon',hit});continue}
+    let raw;
+    if(off+232<=input.length)raw=input.subarray(off,off+232);
+    else if(window.__layout6&&window.__layout6.rotated){   // ファイル末尾と先頭にまたがるスロット
+      raw=new Uint8Array(232);raw.set(input.subarray(off));raw.set(input.subarray(0,232-(input.length-off)),input.length-off);
+    }else{slots.push({status:'missing'});continue}
+    slots.push({status:isEmptySlot(raw)?'empty':'damaged'});
+  }
+  return slots;
+}
+function firstBoxWithPokemon(slots){
+  if(!slots)return 0;
+  const i=slots.findIndex(s=>s.status==='pokemon');
+  return i<0?0:Math.floor(i/30);
+}
+function boxCounts(slots,box){
+  const c={pokemon:0,empty:0,damaged:0,missing:0};
+  for(let i=box*30;i<box*30+30;i++)c[slots[i].status]++;
+  return c;
+}
+function isHitChecked(hit){
+  const cb=listEl.querySelector(`.candidate-check[data-offset="${hit.offset}"]`);
+  return cb?cb.checked:false;
+}
+function renderBoxViewer(){
+  const viewer=listEl.querySelector('.box-viewer');
+  if(!viewer)return;
+  const slots=boxState.slots;
+  if(!slots){viewer.innerHTML='<p class="box-empty-note">このセーブではボックスの位置を特定できないため、ボックス表示はできません。</p>';return}
+  const boxes=slots.length/30,b=boxState.current;
+  const opts=[];
+  for(let i=0;i<boxes;i++){const c=boxCounts(slots,i);opts.push(`<option value="${i}"${i===b?' selected':''}>ボックス${i+1}${c.pokemon?`(${c.pokemon}匹)`:''}</option>`)}
+  const cells=[];
+  for(let i=b*30;i<b*30+30;i++){
+    const s=slots[i],slotNo=i-b*30+1;
+    if(s.status==='pokemon'){
+      const sm=pkSummary(s.hit);
+      const tip=`${sm.name}${sm.gender?' '+sm.gender:''} ${sm.isEgg?'タマゴ':sm.level!==null?'Lv.'+sm.level:''} / 親名: ${sm.ot} / ${sm.ability} / ${sm.ball}`;
+      const icon=POKEMON_ICON_DIR?`<img class="box-icon" src="${POKEMON_ICON_DIR}${s.hit.species}.png" alt="${escapeHtml(sm.name)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'box-name',textContent:this.alt}))">`:`<span class="box-name">${escapeHtml(sm.name)}</span>`;
+      const shinyIcon=sm.shiny?`<img class="box-shiny" src="${SHINY_ICON}" alt="色違い">`:'';
+      const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
+      cells.push(`<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}" data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${icon}${ballIcon}<span class="box-check" aria-hidden="true">✓</span></button>`);
+    }else{
+      const label={empty:'空き',damaged:'破損',missing:'データなし'}[s.status];
+      cells.push(`<div class="box-cell is-${s.status}" title="${slotNo}番: ${label}" aria-label="${slotNo}番 ${label}">${s.status==='damaged'?'<span class="box-damaged">破損</span>':''}</div>`);
+    }
+  }
+  const c=boxCounts(slots,b);
+  const outside=(window.__hits||[]).length-slots.filter(s=>s.status==='pokemon').length;
+  viewer.innerHTML=`
+    <div class="box-nav">
+      <button type="button" class="box-prev small-button" aria-label="前のボックス">◀</button>
+      <select class="box-select" aria-label="ボックスを選ぶ">${opts.join('')}</select>
+      <button type="button" class="box-next small-button" aria-label="次のボックス">▶</button>
+    </div>
+    <div class="box-grid${POKEMON_ICON_DIR?' with-icons':''}">${cells.join('')}</div>
+    <div class="box-legend"><span><i class="lg is-pokemon"></i>救出できる個体 ${c.pokemon}</span><span><i class="lg is-empty"></i>空き ${c.empty}</span><span><i class="lg is-damaged"></i>破損 ${c.damaged}</span>${c.missing?`<span><i class="lg is-missing"></i>データなし ${c.missing}</span>`:''}</div>
+    <p class="box-help">マスをクリックすると、救出に含める/外すを切り替えられます(チェックの付いたマスが救出対象)。${outside>0?` PC ボックス外で見つかった ${outside} 匹は一覧表示にだけ表示されます。`:''}${window.__gen===7?' 第7世代のボックス番号は推定です。':''}</p>`;
+  const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
+  viewer.querySelector('.box-prev').addEventListener('click',()=>go(-1));
+  viewer.querySelector('.box-next').addEventListener('click',()=>go(1));
+  viewer.querySelector('.box-select').addEventListener('change',e=>{boxState.current=Number(e.target.value);renderBoxViewer()});
+  viewer.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>cell.addEventListener('click',()=>{
+    const cb=listEl.querySelector(`.candidate-check[data-offset="${cell.dataset.offset}"]`);
+    if(!cb)return;
+    cb.checked=!cb.checked;
+    updateSelectionSummary();refreshBoxSelection();
+  }));
+}
+function refreshBoxSelection(){
+  listEl.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>{
+    const cb=listEl.querySelector(`.candidate-check[data-offset="${cell.dataset.offset}"]`);
+    const on=!!(cb&&cb.checked);
+    cell.classList.toggle('selected',on);cell.setAttribute('aria-pressed',on?'true':'false');
+  });
+  // ボックス選択欄の匹数表示は変わらない(救出可能数)ので再描画不要
 }
 // ---------------------------------------------------------------------------
 // 一覧の 1 行: ボール / 名前 / 性別 / Lv. / 特性(v10)
@@ -367,7 +503,12 @@ async function analyze(file){
   const l6=findGen6Layout(input);window.__layout6=l6;
   if(l6){game=l6.game==='XY'?'XY / X・Y':'ORAS / オメガルビー・アルファサファイア';gen=6;maxSpecies=721}
   let scanGen=gen||6;
-  let hits=scan(input,scanGen,maxSpecies);
+  // セーブ全体が回転して保存されている場合、ファイル末尾と先頭にまたがる 1 スロットがある。
+  // 先頭 232 バイトを末尾に足した配列でスキャンし、その位置も調べる(v16)。
+  // 足した部分から始まる候補(offset >= 元の長さ)は先頭の重複なので捨てる。
+  const wrapScan=!!(l6&&l6.rotated&&((l6.shift%l6.saveSize)+l6.saveSize)%l6.saveSize!==0);
+  const scanInput=wrapScan?(()=>{const a=new Uint8Array(input.length+232);a.set(input);a.set(input.subarray(0,232),input.length);return a})():input;
+  let hits=scan(scanInput,scanGen,maxSpecies).filter(h=>h.offset<input.length);
   if(!hits.length&&gen===null){const h6=scan(input,6,721),h7=scan(input,7,807);hits=h7.length>h6.length?h7:h6;scanGen=hits.length?hits[0].gen:6}
   if(scanGen===7){const inf=inferGen7Base(visibleHits(hits));window.__gen7Base=inf?inf.base:null}
   gameEl.textContent=game+(l6?'(ブロック表から判定)':gen===null&&hits.length?'(内部構造から推定)':'');
