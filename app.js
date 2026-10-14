@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "9";
+const APP_VERSION = "15";
 const APP_VERSION_DATE = "2026-10-14";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -189,6 +189,30 @@ const VISIBLE_CONFIDENCE=['complete'];
 function visibleHits(hits){return (hits||[]).filter(h=>VISIBLE_CONFIDENCE.includes(h.confidence))}
 function confidenceLabel(c){return c==='complete'?'完全復元':c==='partial'?'一部破損':'低信頼候補'}
 function confidenceClass(c){return c==='complete'?'complete':c==='partial'?'partial':'low'}
+// ---------------------------------------------------------------------------
+// 一覧の縦幅(v14〜)。初期値は 700px(v15 で v14 の 2080px の約 1/3 に変更)、ただし中身より高くはしない。
+// 一覧の下のつまみをドラッグ(マウス・タッチ共通の Pointer Events)するか、
+// つまみにフォーカスして上下キーで変更できる。CSS の resize はタッチ端末で使えないため自前で実装。
+// ---------------------------------------------------------------------------
+const LIST_DEFAULT_HEIGHT=700,LIST_MIN_HEIGHT=160,LIST_KEY_STEP=80;
+function setupListResizer(list,handle){
+  if(!list||!handle)return;
+  // 中身より高くならないよう CSS で max-height: max-content を指定している。
+  // 描画直後は結果欄が非表示で scrollHeight が 0 のことがあるため、上限は表示中にだけ JS でも当てる。
+  const maxH=()=>list.scrollHeight>0?Math.max(LIST_MIN_HEIGHT,list.scrollHeight):Infinity;
+  const setH=h=>{list.style.height=Math.round(Math.min(maxH(),Math.max(LIST_MIN_HEIGHT,h)))+'px'};
+  setH(LIST_DEFAULT_HEIGHT);
+  let startY=0,startH=0,dragging=false;
+  handle.addEventListener('pointerdown',e=>{dragging=true;startY=e.clientY;startH=list.getBoundingClientRect().height;try{handle.setPointerCapture(e.pointerId)}catch(_){}handle.classList.add('dragging');e.preventDefault()});
+  handle.addEventListener('pointermove',e=>{if(dragging)setH(startH+e.clientY-startY)});
+  const end=e=>{if(!dragging)return;dragging=false;handle.classList.remove('dragging');try{handle.releasePointerCapture(e.pointerId)}catch(_){}}
+  handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);
+  handle.addEventListener('keydown',e=>{
+    const h=list.getBoundingClientRect().height;
+    if(e.key==='ArrowDown'){setH(h+LIST_KEY_STEP);e.preventDefault()}
+    else if(e.key==='ArrowUp'){setH(h-LIST_KEY_STEP);e.preventDefault()}
+  });
+}
 function renderList(hits){
   listEl.innerHTML=`
     <div class="recovery-controls">
@@ -198,7 +222,9 @@ function renderList(hits){
         <button type="button" class="small-button" data-action="none">すべて解除</button>
       </div>
     </div>
-    <div class="candidate-list">${hits.map(p=>renderCandidate(p)).join('')}</div>`;
+    <div class="candidate-list${BALL_IMAGE_DIR?' ball-images':''}">${renderHeader()}${hits.map(p=>renderCandidate(p)).join('')}</div>
+    <div class="list-resizer" role="separator" aria-orientation="horizontal" aria-label="一覧の縦幅を変更(ドラッグ、または上下キー)" tabindex="0"><span></span></div>`;
+  setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',updateSelectionSummary));
   listEl.querySelectorAll('.small-button').forEach(btn=>btn.addEventListener('click',()=>{
     const action=btn.dataset.action;
@@ -207,12 +233,82 @@ function renderList(hits){
   }));
   updateSelectionSummary();
 }
+// ---------------------------------------------------------------------------
+// 一覧の 1 行: ボール / 名前 / 性別 / Lv. / 特性(v10)
+// オフセット(PK6/PK7 共通、復号・並べ替え後):
+//   0x10 経験値 u32 / 0x14 特性 / 0x1D bit1-2 性別(0=♂ 1=♀ 2=なし)
+//   0x40 ニックネーム(UTF-16LE 12 文字) / 0x74 bit31 ニックネーム有無・bit30 タマゴ / 0xDC ボール
+// レベルは保存されていないので、種族の経験値タイプ(PK_GROWTH)と PK_EXP から求める。
+// ---------------------------------------------------------------------------
+function pkLevel(species,exp){
+  const g=Number(PK_GROWTH[species]);
+  if(!Number.isInteger(g)||!PK_EXP[g])return null;
+  const t=PK_EXP[g];
+  if(exp>=t[99])return 100;
+  let lv=1;while(lv<100&&exp>=t[lv])lv++;
+  return lv;
+}
+function pkString(b,off,len){
+  let s='';
+  for(let i=0;i<len;i++){const c=u16(b,off+i*2);if(c===0)break;s+=String.fromCharCode(c)}
+  return s;
+}
+function pkNickname(b){return pkString(b,0x40,12)}
+// 親名(OT 名)。0xB0 から UTF-16LE 12 文字
+function pkOTName(b){return pkString(b,0xB0,12)}
+// ボール画像(v12〜)。img/ball/<ボール番号>.png(1〜26)を表示し、読めない番号はボール名に戻る。
+// 画像はサイト運営者が用意したもの(アイテム番号→ボール番号に付け替え済み。対応表は CHANGELOG v12)。
+// null にすると画像を使わずボール名を表示する。
+const BALL_IMAGE_DIR='img/ball/';
+const SHINY_ICON='img/shiny.png';
+function pkSummary(p){
+  const b=p.data;
+  const iv32=u32(b,0x74);
+  const isEgg=((iv32>>>30)&1)===1;
+  const gender=(b[0x1D]>>>1)&3;
+  const ballId=b[0xDC],abilityId=b[0x14];
+  return {
+    ballId,
+    ball:PK_BALL[ballId]||`ボール(${ballId})`,
+    // v11: ニックネームは表示しない。種族名のみ
+    name:SPECIES[p.species]||('No.'+p.species),
+    nickname:pkNickname(b),            // 表示はしないが、今後のために取得は残す
+    ot:pkOTName(b),
+    shiny:p.shiny,
+    gender:gender===0?'♂':gender===1?'♀':'',
+    level:pkLevel(p.species,u32(b,0x10)),
+    ability:PK_ABILITY[abilityId]||`特性(${abilityId})`,
+    isEgg
+  };
+}
+function renderBall(s){
+  const label=escapeHtml(s.ball);
+  if(BALL_IMAGE_DIR&&s.ballId>0)
+    return `<span class="pk-ball has-img" title="${label}"><img src="${BALL_IMAGE_DIR}${s.ballId}.png" alt="${label}" width="28" height="28" loading="lazy" onerror="this.parentNode.classList.remove('has-img');this.replaceWith(document.createTextNode(this.alt))"></span>`;
+  // スマホ幅では末尾の「ボール」を省く(CSS で .ball-suffix を非表示)
+  const text=s.ball.endsWith('ボール')?`${escapeHtml(s.ball.slice(0,-3))}<span class="ball-suffix">ボール</span>`:label;
+  return `<span class="pk-ball" title="${label}">${text}</span>`;
+}
+// 見出し行(v13)。一覧の先頭に固定表示(CSS の position:sticky)。列の定義は個体の行と共通。
+function renderHeader(){
+  return `<div class="pk-row pk-head" aria-hidden="true"><span class="pk-h-chk"></span><span class="pk-ball">ボール</span>`+
+    `<span class="pk-name"><span class="pk-shiny"></span><span class="pk-name-text">ポケモン名</span></span>`+
+    `<span class="pk-gender">性別</span><span class="pk-level">Lv.</span><span class="pk-ot">親名</span><span class="pk-ability">特性</span></div>`;
+}
+// 1 行 = [チェック][ボール][名前][♂♀][Lv.][親名][特性]。各列の幅を固定して、
+// 情報の種類ごとに開始位置がそろうようにしている(CSS の .pk-row の grid)。
 function renderCandidate(p){
-  const loc=getLocation(p,window.__game,window.__gen);
-  const speciesName=SPECIES[p.species]||('No.'+p.species);
-  const offset=`0x${p.offset.toString(16).toUpperCase().padStart(6,'0')}`;
-  const note=p.sameEcCount>1?`<span class="candidate-reason">同じ暗号化定数の個体が計${p.sameEcCount}匹(配布・交換などによるコピー)</span>`:'';
-  return `<label class="candidate complete"><input class="candidate-check" type="checkbox" data-offset="${p.offset}" data-ec="${p.ec}" checked><span class="candidate-main"><span class="candidate-top"><strong>${escapeHtml(speciesName)}</strong>${p.shiny?'<span class="badge complete">★ 色違い</span>':''}</span><span class="candidate-meta">No.${p.species} · ${loc.label} · offset ${offset}</span>${note}</span></label>`;
+  const s=pkSummary(p);
+  // 色違いアイコンの枠は全行に置く(色違いでなければ空)。名前の開始位置がずれないようにするため
+  const shinyMark=`<span class="pk-shiny">${s.shiny?`<img src="${SHINY_ICON}" alt="色違い" title="色違い" width="16" height="16">`:''}</span>`;
+  const genderCls=s.gender==='♂'?'male':s.gender==='♀'?'female':'';
+  return `<label class="candidate pk-row"><input class="candidate-check" type="checkbox" data-offset="${p.offset}" data-ec="${p.ec}" checked>`+
+    renderBall(s)+
+    `<span class="pk-name">${shinyMark}<span class="pk-name-text">${escapeHtml(s.name)}</span></span>`+
+    `<span class="pk-gender ${genderCls}">${s.gender}</span>`+
+    `<span class="pk-level">${s.isEgg?'タマゴ':s.level!==null?'Lv.'+s.level:''}</span>`+
+    `<span class="pk-ot" title="${escapeHtml(s.ot)}">${escapeHtml(s.ot)}</span>`+
+    `<span class="pk-ability">${escapeHtml(s.ability)}</span></label>`;
 }
 function updateSelectionSummary(){
   const checks=[...listEl.querySelectorAll('.candidate-check')];

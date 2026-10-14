@@ -13,3 +13,60 @@
 .pkhex-howto ol{margin:6px 0 0;padding-left:20px}
 .visitor-counter{margin-top:8px;color:#667085;font-variant-numeric:tabular-nums}
 .candidate-list{margin-top:14px;border:1px solid #eaecf0;border-radius:14px;max-height:min(60vh,520px);overflow-y:auto;overscroll-behavior:contain}.candidate-list .candidate:last-child{border-bottom:0}
+/* ===== 一覧(v13) =====
+   列: チェック / ボール / ポケモン名(色違い枠つき) / 性別 / Lv. / 親名 / 特性
+   各列の幅を固定し、見出し行(.pk-head)と個体の行で同じ定義を使うので、
+   情報の種類ごとに開始位置が全行でそろう。 */
+.pk-row{display:grid;grid-template-columns:20px 9em 8.6em 2.4em 4.2em 7.6em minmax(0,1fr);grid-template-areas:"chk ball name gender level ot ability";column-gap:10px;align-items:center}
+.ball-images .pk-row{grid-template-columns:20px 3em 8.6em 2.4em 4.2em 7.6em minmax(0,1fr)}
+.pk-row .candidate-check,.pk-h-chk{margin:0;grid-area:chk}
+.pk-ball{grid-area:ball;font-size:12px;color:#475467;background:#f2f4f7;border-radius:999px;padding:3px 8px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk-ball.has-img{background:none;padding:0;text-align:left;line-height:0}
+.pk-ball img{width:28px;height:28px}
+.pk-name{grid-area:name;display:flex;align-items:center;min-width:0;font-weight:800}
+.pk-shiny{flex:0 0 20px;width:20px;height:18px;display:inline-flex;align-items:center}
+.pk-shiny img{width:18px;height:18px;display:block}
+.pk-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-gender{grid-area:gender;text-align:center}.pk-gender.male{color:#1570ef}.pk-gender.female{color:#e31b54}
+.pk-ot{grid-area:ot;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#344054}
+.pk-level{grid-area:level;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pk-ability{grid-area:ability;color:#344054;word-break:keep-all;overflow-wrap:anywhere}
+/* 1 行おきに薄いグレー(見出し行は数えない) */
+.candidate-list .candidate.pk-row:nth-child(odd){background:#f4f5f7}
+/* 見出し行: 一覧の先頭に常に表示 */
+.pk-head{position:sticky;top:0;z-index:1;background:#e9ecf1;padding:8px 13px;font-weight:700;color:#475467;border-bottom:1px solid #d0d5dd}
+/* 列幅は em なので、文字サイズは行ではなく中身にだけ指定する(行に指定すると列幅が変わってずれる) */
+.pk-head>*{font-size:12px}
+.pk-head .pk-ball{background:none;padding:0;border-radius:0;font-size:12px;color:#475467;overflow:visible;text-align:left}
+.pk-head .pk-name{font-weight:700}
+.pk-head .pk-ot,.pk-head .pk-ability{color:#475467}
+/* スマホ幅: 2 段組み
+   上段 = ボール・ポケモン名・性別・Lv.(性別と Lv. は右端の固定幅)
+   下段 = 親名(ポケモン名の文字の真下から、固定幅)・特性 */
+@media(max-width:650px){
+  .pk-row,.ball-images .pk-row{grid-template-columns:18px 34px 20px 6.2em minmax(0,1fr) 2em 3.6em;grid-template-areas:"chk ball name name name gender level" "chk ball . ot ability ability ability";column-gap:6px;row-gap:1px;font-size:14px}
+  .pk-ball{font-size:10px;padding:3px 3px;align-self:center;text-overflow:clip}
+  .ball-suffix{display:none}
+  .pk-ot,.pk-ability{font-size:13px}
+  .pk-shiny{flex-basis:26px;width:26px}
+  .pk-head{padding:7px 9px;row-gap:2px}
+  .pk-head>*,.pk-head .pk-ball{font-size:11px}
+  .pk-ot{white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+  .wrap{padding-left:14px;padding-right:14px}.card{padding:14px}.candidate-list .candidate{padding:11px 9px}
+}
+@media(max-width:350px){.pk-row{font-size:13px}.pk-name-text{white-space:normal;overflow:visible;overflow-wrap:anywhere}}
+/* v14: 一覧の縦幅。高さは JS(setupListResizer)が設定する。上限なし、下のつまみで変更 */
+.candidate-list{max-height:max-content;border-radius:14px 14px 0 0}
+.list-resizer{height:22px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;touch-action:none;user-select:none;border:1px solid #eaecf0;border-top:0;border-radius:0 0 14px 14px;background:#f8fafc}
+.list-resizer span{width:44px;height:5px;border-radius:999px;background:#c4cad4}
+.list-resizer:hover span,.list-resizer.dragging span,.list-resizer:focus-visible span{background:#667085}
+.list-resizer:focus-visible{outline:2px solid #84adff;outline-offset:1px}
+/* v15: いいねボタン */
+.like-box{margin-top:22px;text-align:center}
+.like-button{display:inline-flex;align-items:center;gap:8px;border:1px solid #fecdd6;background:#fff;color:#c01048;border-radius:999px;padding:10px 20px;font-size:15px;font-weight:800;cursor:pointer}
+.like-button:hover:not(:disabled){background:#fff1f3}
+.like-button.liked{background:#fff1f3;border-color:#fea3b4;cursor:default}
+.like-button:disabled{opacity:1}
+.like-heart{font-size:18px;line-height:1}
+.like-count{font-variant-numeric:tabular-nums;color:#344054;border-left:1px solid #fecdd6;padding-left:10px}
+.like-note{margin:6px 0 0;font-size:12px;color:#667085}
