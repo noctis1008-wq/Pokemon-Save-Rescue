@@ -103,3 +103,35 @@
 .box-legend .lg.is-missing{background:#eceff3;border-style:dashed}
 .box-help,.box-empty-note{margin:8px 0 0;font-size:12px;color:#667085;text-align:center;line-height:1.6}
 @media(max-width:650px){.box-grid{gap:3px;padding:6px}.box-name{font-size:9.5px}.box-shiny,.box-ball{width:11px;height:11px}.view-tab{padding:8px 12px;font-size:13px}}
+/* ===== v17 ===== */
+/* タイトルロゴ */
+.hero-logo{margin:0 auto;max-width:680px;line-height:0}
+.hero-logo img{width:100%;height:auto;display:block}
+/* PC 幅では「親名：」「特性：」のラベルを出さない(見出し行があるため) */
+.pk-lbl{display:none;color:#667085;font-weight:600}
+/* 写真タブ */
+.photo-viewer{margin-top:12px;text-align:center}
+.photo-figure{margin:0}
+.photo-img{width:100%;max-width:400px;height:auto;border-radius:10px;border:1px solid #d0d5dd;image-rendering:auto}
+.photo-note{font-size:12px;color:#667085;margin:8px 0 0}
+.photo-actions{margin-top:10px}
+.photo-actions .small-button{display:inline-block;text-decoration:none}
+.photo-heading{margin:18px 0 0;font-size:15px}
+/* 親名・特性のまとまり。PC 幅では display:contents で各列に並ぶ */
+.pk-sub{display:contents}
+@media(max-width:650px){
+  /* スマホ幅: 上段 = ボール・ポケモン名・性別・Lv.(名前の列は最長の名前が入る固定幅にして性別との間を詰める)
+     下段 = 「親名：◯◯　特性：◯◯」を名前の文字の位置から 1 行に続けて表示(長いときだけ折り返す) */
+  .pk-row,.ball-images .pk-row{grid-template-columns:18px 34px calc(26px + 6.4em) 1.7em 3.6em minmax(0,1fr);grid-template-areas:"chk ball name gender level ." "chk ball sub sub sub sub";column-gap:6px}
+  .pk-shiny{flex-basis:26px;width:26px}
+  .pk-gender{text-align:left}
+  .pk-lbl{display:inline}
+  .pk-sub{display:block;grid-area:sub;padding-left:26px;font-size:13px;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+  .pk-sub .pk-ot,.pk-sub .pk-ability{display:inline;white-space:normal;overflow:visible;padding:0}
+  .pk-sub .pk-ot{margin-right:1em}
+  /* 見出し行: 親名・特性は出さない。「性別」は折り返さない */
+  .pk-head{grid-template-areas:"chk ball name gender level ."}
+  .pk-head .pk-sub,.pk-head .pk-ot,.pk-head .pk-ability{display:none}
+  .pk-head .pk-gender{white-space:nowrap;overflow:visible}
+}
+@media(max-width:350px){.pk-row,.ball-images .pk-row{grid-template-columns:18px 34px calc(26px + 5.6em) 1.7em 3.6em minmax(0,1fr)}}

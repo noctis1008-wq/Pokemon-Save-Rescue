@@ -7,8 +7,8 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "16";
-const APP_VERSION_DATE = "2026-10-14";
+const APP_VERSION = "17";
+const APP_VERSION_DATE = "2026-10-15";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
 const SAVE={XY:0x65600,ORAS:0x76000,SM:0x6BE00,USUM:0x6CC00};
@@ -225,12 +225,14 @@ function renderList(hits){
     <div class="view-tabs" role="tablist">
       <button type="button" class="view-tab active" role="tab" aria-selected="true" data-view="list">一覧表示</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="box">ボックス表示</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="photo">写真</button>
     </div>
     <div class="view-panel active" data-view="list">
       <div class="candidate-list${BALL_IMAGE_DIR?' ball-images':''}">${renderHeader()}${hits.map(p=>renderCandidate(p)).join('')}</div>
       <div class="list-resizer" role="separator" aria-orientation="horizontal" aria-label="一覧の縦幅を変更(ドラッグ、または上下キー)" tabindex="0"><span></span></div>
     </div>
-    <div class="view-panel" data-view="box"><div class="box-viewer"></div></div>`;
+    <div class="view-panel" data-view="box"><div class="box-viewer"></div></div>
+    <div class="view-panel" data-view="photo"><div class="photo-viewer"></div></div>`;
   setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',()=>{updateSelectionSummary();refreshBoxSelection()}));
   listEl.querySelectorAll('.small-button').forEach(btn=>btn.addEventListener('click',()=>{
@@ -242,6 +244,7 @@ function renderList(hits){
   boxState.slots=buildSlotMap(hits);
   boxState.current=firstBoxWithPokemon(boxState.slots);
   renderBoxViewer();
+  renderPhotoViewer(listEl.querySelector('.photo-viewer'));
   updateSelectionSummary();
 }
 function showView(view){
@@ -261,6 +264,70 @@ function showView(view){
 // null(既定)または読めない場合はポケモン名を表示する。
 // ---------------------------------------------------------------------------
 const POKEMON_ICON_DIR=null;
+
+// ---------------------------------------------------------------------------
+// ボックス名(v17)。第6世代の「ボックス名・壁紙」ブロック(長さ 0x440)の先頭に
+// 31 個 × 0x22 バイト(UTF-16LE 17 文字、0 終端)で並ぶ。
+// ブロックのチェックサムが一致するか、31 個すべてが名前として妥当な場合だけ使う。
+// 壊れた文字列を名前として出さないため。使えなければ「ボックスN」。
+// ---------------------------------------------------------------------------
+function readBlockBytes(input,l6,block){
+  const start=l6.toFile(block.orig),n=input.length,out=new Uint8Array(block.len);
+  if(!l6.rotated&&(start<0||start+block.len>n))return null;
+  for(let i=0;i<block.len;i++)out[i]=input[(start+i)%n];
+  return out;
+}
+function isPlausibleName(s){
+  if(s.length<1||s.length>16)return false;
+  for(const ch of s){const c=ch.charCodeAt(0);if(c<0x20||c===0xFFFD||(c>=0xD800&&c<=0xDFFF))return false}
+  return true;
+}
+function readBoxNames(input,l6){
+  if(!l6)return null;
+  const blk=l6.blocks.find(b=>b.len===0x440);
+  if(!blk)return null;
+  const b=readBlockBytes(input,l6,blk);
+  if(!b)return null;
+  const names=[];
+  for(let i=0;i<31;i++){
+    let s='',terminated=false;
+    for(let k=0;k<17;k++){const c=u16(b,i*0x22+k*2);if(c===0){terminated=true;break}s+=String.fromCharCode(c)}
+    names.push({s,terminated});
+  }
+  const ok=blk.status==='ok'||names.every(n=>n.terminated&&isPlausibleName(n.s));
+  return ok?names.map(n=>n.s):null;
+}
+function boxName(i){
+  const names=window.__boxNames;
+  return names&&names[i]?names[i]:`ボックス${i+1}`;
+}
+
+// ---------------------------------------------------------------------------
+// 写真(v17)。第6世代の写真ブロック(長さ 0xE058)の +0x54 から JPEG(3DS カメラ形式、400×240)。
+// 終わりはブロック内の最後の EOI(FF D9)。ブラウザで画像として読めた場合だけ表示する。
+// ---------------------------------------------------------------------------
+function readPhoto(input,l6){
+  if(!l6)return null;
+  const blk=l6.blocks.find(b=>b.len===0xE058);
+  if(!blk)return null;
+  const b=readBlockBytes(input,l6,blk);
+  if(!b||b[0x54]!==0xFF||b[0x55]!==0xD8||b[0x56]!==0xFF)return null;
+  let end=-1;
+  for(let i=b.length-2;i>0x56;i--)if(b[i]===0xFF&&b[i+1]===0xD9){end=i+2;break}
+  return end>0?b.slice(0x54,end):null;
+}
+let photoUrl=null;
+function renderPhotoViewer(viewer){
+  if(!viewer)return;
+  if(photoUrl){URL.revokeObjectURL(photoUrl);photoUrl=null}
+  const jpg=window.__photo;
+  if(!jpg){viewer.innerHTML='<p class="photo-note">このセーブからは写真を復元できませんでした。</p>';return}
+  photoUrl=URL.createObjectURL(new Blob([jpg],{type:'image/jpeg'}));
+  viewer.innerHTML=`<figure class="photo-figure"><img class="photo-img" alt="セーブに保存されていた写真" src="${photoUrl}"><figcaption class="photo-note">セーブに保存されていた写真(PSS の写真)</figcaption></figure>
+    <div class="photo-actions"><a class="small-button" href="${photoUrl}" download="photo.jpg">写真を保存</a></div>`;
+  const img=viewer.querySelector('img');
+  img.addEventListener('error',()=>{viewer.innerHTML='<p class="photo-note">写真のデータは見つかりましたが、画像として読み込めませんでした(破損している可能性があります)。</p>'});
+}
 const boxState={slots:null,current:0};
 let BLANK_SLOT=null;
 function blankSlotBytes(){
@@ -323,7 +390,7 @@ function renderBoxViewer(){
   if(!slots){viewer.innerHTML='<p class="box-empty-note">このセーブではボックスの位置を特定できないため、ボックス表示はできません。</p>';return}
   const boxes=slots.length/30,b=boxState.current;
   const opts=[];
-  for(let i=0;i<boxes;i++){const c=boxCounts(slots,i);opts.push(`<option value="${i}"${i===b?' selected':''}>ボックス${i+1}${c.pokemon?`(${c.pokemon}匹)`:''}</option>`)}
+  for(let i=0;i<boxes;i++){const c=boxCounts(slots,i);opts.push(`<option value="${i}"${i===b?' selected':''}>${escapeHtml(boxName(i))}${c.pokemon?`(${c.pokemon}匹)`:''}</option>`)}
   const cells=[];
   for(let i=b*30;i<b*30+30;i++){
     const s=slots[i],slotNo=i-b*30+1;
@@ -443,8 +510,8 @@ function renderCandidate(p){
     `<span class="pk-name">${shinyMark}<span class="pk-name-text">${escapeHtml(s.name)}</span></span>`+
     `<span class="pk-gender ${genderCls}">${s.gender}</span>`+
     `<span class="pk-level">${s.isEgg?'タマゴ':s.level!==null?'Lv.'+s.level:''}</span>`+
-    `<span class="pk-ot" title="${escapeHtml(s.ot)}">${escapeHtml(s.ot)}</span>`+
-    `<span class="pk-ability">${escapeHtml(s.ability)}</span></label>`;
+    `<span class="pk-sub"><span class="pk-ot" title="${escapeHtml(s.ot)}"><span class="pk-lbl">親名：</span>${escapeHtml(s.ot)}</span>`+
+    `<span class="pk-ability"><span class="pk-lbl">特性：</span>${escapeHtml(s.ability)}</span></span></label>`;
 }
 function updateSelectionSummary(){
   const checks=[...listEl.querySelectorAll('.candidate-check')];
@@ -513,11 +580,18 @@ async function analyze(file){
   if(scanGen===7){const inf=inferGen7Base(visibleHits(hits));window.__gen7Base=inf?inf.base:null}
   gameEl.textContent=game+(l6?'(ブロック表から判定)':gen===null&&hits.length?'(内部構造から推定)':'');
   sizeEl.textContent=input.length.toLocaleString()+' bytes';
+  window.__boxNames=readBoxNames(input,l6);
+  window.__photo=readPhoto(input,l6);
   // 表示・出力の対象は完全復元のみ(振り分け結果は window.__allHits に残す)
   window.__allHits=hits;
   hits=visibleHits(hits);
   showStructureReport(l6,input.length,hits);
-  if(!hits.length){countEl.textContent='0 匹';listEl.innerHTML='';result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);document.getElementById('download').disabled=true;return}
+  if(!hits.length){
+    countEl.textContent='0 匹';
+    // ポケモンがいなくても写真が残っていれば表示する
+    listEl.innerHTML=window.__photo?'<h3 class="photo-heading">写真</h3><div class="photo-viewer"></div>':'';
+    renderPhotoViewer(listEl.querySelector('.photo-viewer'));
+    result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);document.getElementById('download').disabled=true;return}
   window.__hits=hits;window.__inputName=file.name;window.__inputSize=input.length;window.__game=game;window.__gen=scanGen;window.__input=input;
   document.getElementById('selectionSummary').textContent=`選択中 ${hits.length} 匹`;
   renderList(hits);
