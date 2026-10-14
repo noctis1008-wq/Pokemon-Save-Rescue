@@ -1,3 +1,15 @@
+// ===========================================================================
+// NER Pokémon Recovery
+//
+// バージョンは連番。更新のたびに 1 つ増やす。
+// 旧 ZIP の v1 … v5 の続きとして v6 から開始している。
+// この値・配布 ZIP のファイル名・CHANGELOG.md、そして index.html / privacy.html の
+// 各タグ末尾にある ?v= の 5 つを必ず一致させること。
+// ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
+// ===========================================================================
+const APP_VERSION = "9";
+const APP_VERSION_DATE = "2026-10-14";
+
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
 const SAVE={XY:0x65600,ORAS:0x76000,SM:0x6BE00,USUM:0x6CC00};
 const SPECIES={"1":"フシギダネ","2":"フシギソウ","3":"フシギバナ","4":"ヒトカゲ","5":"リザード","6":"リザードン","7":"ゼニガメ","8":"カメール","9":"カメックス","10":"キャタピー","11":"トランセル","12":"バタフリー","13":"ビードル","14":"コクーン","15":"スピアー","16":"ポッポ","17":"ピジョン","18":"ピジョット","19":"コラッタ","20":"ラッタ","21":"オニスズメ","22":"オニドリル","23":"アーボ","24":"アーボック","25":"ピカチュウ","26":"ライチュウ","27":"サンド","28":"サンドパン","29":"ニドラン♀","30":"ニドリーナ","31":"ニドクイン","32":"ニドラン♂","33":"ニドリーノ","34":"ニドキング","35":"ピッピ","36":"ピクシー","37":"ロコン","38":"キュウコン","39":"プリン","40":"プクリン","41":"ズバット","42":"ゴルバット","43":"ナゾノクサ","44":"クサイハナ","45":"ラフレシア","46":"パラス","47":"パラセクト","48":"コンパン","49":"モルフォン","50":"ディグダ","51":"ダグトリオ","52":"ニャース","53":"ペルシアン","54":"コダック","55":"ゴルダック","56":"マンキー","57":"オコリザル","58":"ガーディ","59":"ウインディ","60":"ニョロモ","61":"ニョロゾ","62":"ニョロボン","63":"ケーシィ","64":"ユンゲラー","65":"フーディン","66":"ワンリキー","67":"ゴーリキー","68":"カイリキー","69":"マダツボミ","70":"ウツドン","71":"ウツボット","72":"メノクラゲ","73":"ドククラゲ","74":"イシツブテ","75":"ゴローン","76":"ゴローニャ","77":"ポニータ","78":"ギャロップ","79":"ヤドン","80":"ヤドラン","81":"コイル","82":"レアコイル","83":"カモネギ","84":"ドードー","85":"ドードリオ","86":"パウワウ","87":"ジュゴン","88":"ベトベター","89":"ベトベトン","90":"シェルダー","91":"パルシェン","92":"ゴース","93":"ゴースト","94":"ゲンガー","95":"イワーク","96":"スリープ","97":"スリーパー","98":"クラブ","99":"キングラー","100":"ビリリダマ","101":"マルマイン","102":"タマタマ","103":"ナッシー","104":"カラカラ","105":"ガラガラ","106":"サワムラー","107":"エビワラー","108":"ベロリンガ","109":"ドガース","110":"マタドガス","111":"サイホーン","112":"サイドン","113":"ラッキー","114":"モンジャラ","115":"ガルーラ","116":"タッツー","117":"シードラ","118":"トサキント","119":"アズマオウ","120":"ヒトデマン","121":"スターミー","122":"バリヤード","123":"ストライク","124":"ルージュラ","125":"エレブー","126":"ブーバー","127":"カイロス","128":"ケンタロス","129":"コイキング","130":"ギャラドス","131":"ラプラス","132":"メタモン","133":"イーブイ","134":"シャワーズ","135":"サンダース","136":"ブースター","137":"ポリゴン","138":"オムナイト","139":"オムスター","140":"カブト","141":"カブトプス","142":"プテラ","143":"カビゴン","144":"フリーザー","145":"サンダー","146":"ファイヤー","147":"ミニリュウ","148":"ハクリュー","149":"カイリュー","150":"ミュウツー","151":"ミュウ","152":"チコリータ","153":"ベイリーフ","154":"メガニウム","155":"ヒノアラシ","156":"マグマラシ","157":"バクフーン","158":"ワニノコ","159":"アリゲイツ","160":"オーダイル","161":"オタチ","162":"オオタチ","163":"ホーホー","164":"ヨルノズク","165":"レディバ","166":"レディアン","167":"イトマル","168":"アリアドス","169":"クロバット","170":"チョンチー","171":"ランターン","172":"ピチュー","173":"ピィ","174":"ププリン","175":"トゲピー","176":"トゲチック","177":"ネイティ","178":"ネイティオ","179":"メリープ","180":"モココ","181":"デンリュウ","182":"キレイハナ","183":"マリル","184":"マリルリ","185":"ウソッキー","186":"ニョロトノ","187":"ハネッコ","188":"ポポッコ","189":"ワタッコ","190":"エイパム","191":"ヒマナッツ","192":"キマワリ","193":"ヤンヤンマ","194":"ウパー","195":"ヌオー","196":"エーフィ","197":"ブラッキー","198":"ヤミカラス","199":"ヤドキング","200":"ムウマ","201":"アンノーン","202":"ソーナンス","203":"キリンリキ","204":"クヌギダマ","205":"フォレトス","206":"ノコッチ","207":"グライガー","208":"ハガネール","209":"ブルー","210":"グランブル","211":"ハリーセン","212":"ハッサム","213":"ツボツボ","214":"ヘラクロス","215":"ニューラ","216":"ヒメグマ","217":"リングマ","218":"マグマッグ","219":"マグカルゴ","220":"ウリムー","221":"イノムー","222":"サニーゴ","223":"テッポウオ","224":"オクタン","225":"デリバード","226":"マンタイン","227":"エアームド","228":"デルビル","229":"ヘルガー","230":"キングドラ","231":"ゴマゾウ","232":"ドンファン","233":"ポリゴン２","234":"オドシシ","235":"ドーブル","236":"バルキー","237":"カポエラー","238":"ムチュール","239":"エレキッド","240":"ブビィ","241":"ミルタンク","242":"ハピナス","243":"ライコウ","244":"エンテイ","245":"スイクン","246":"ヨーギラス","247":"サナギラス","248":"バンギラス","249":"ルギア","250":"ホウオウ","251":"セレビィ","252":"キモリ","253":"ジュプトル","254":"ジュカイン","255":"アチャモ","256":"ワカシャモ","257":"バシャーモ","258":"ミズゴロウ","259":"ヌマクロー","260":"ラグラージ","261":"ポチエナ","262":"グラエナ","263":"ジグザグマ","264":"マッスグマ","265":"ケムッソ","266":"カラサリス","267":"アゲハント","268":"マユルド","269":"ドクケイル","270":"ハスボー","271":"ハスブレロ","272":"ルンパッパ","273":"タネボー","274":"コノハナ","275":"ダーテング","276":"スバメ","277":"オオスバメ","278":"キャモメ","279":"ペリッパー","280":"ラルトス","281":"キルリア","282":"サーナイト","283":"アメタマ","284":"アメモース","285":"キノココ","286":"キノガッサ","287":"ナマケロ","288":"ヤルキモノ","289":"ケッキング","290":"ツチニン","291":"テッカニン","292":"ヌケニン","293":"ゴニョニョ","294":"ドゴーム","295":"バクオング","296":"マクノシタ","297":"ハリテヤマ","298":"ルリリ","299":"ノズパス","300":"エネコ","301":"エネコロロ","302":"ヤミラミ","303":"クチート","304":"ココドラ","305":"コドラ","306":"ボスゴドラ","307":"アサナン","308":"チャーレム","309":"ラクライ","310":"ライボルト","311":"プラスル","312":"マイナン","313":"バルビート","314":"イルミーゼ","315":"ロゼリア","316":"ゴクリン","317":"マルノーム","318":"キバニア","319":"サメハダー","320":"ホエルコ","321":"ホエルオー","322":"ドンメル","323":"バクーダ","324":"コータス","325":"バネブー","326":"ブーピッグ","327":"パッチール","328":"ナックラー","329":"ビブラーバ","330":"フライゴン","331":"サボネア","332":"ノクタス","333":"チルット","334":"チルタリス","335":"ザングース","336":"ハブネーク","337":"ルナトーン","338":"ソルロック","339":"ドジョッチ","340":"ナマズン","341":"ヘイガニ","342":"シザリガー","343":"ヤジロン","344":"ネンドール","345":"リリーラ","346":"ユレイドル","347":"アノプス","348":"アーマルド","349":"ヒンバス","350":"ミロカロス","351":"ポワルン","352":"カクレオン","353":"カゲボウズ","354":"ジュペッタ","355":"ヨマワル","356":"サマヨール","357":"トロピウス","358":"チリーン","359":"アブソル","360":"ソーナノ","361":"ユキワラシ","362":"オニゴーリ","363":"タマザラシ","364":"トドグラー","365":"トドゼルガ","366":"パールル","367":"ハンテール","368":"サクラビス","369":"ジーランス","370":"ラブカス","371":"タツベイ","372":"コモルー","373":"ボーマンダ","374":"ダンバル","375":"メタング","376":"メタグロス","377":"レジロック","378":"レジアイス","379":"レジスチル","380":"ラティアス","381":"ラティオス","382":"カイオーガ","383":"グラードン","384":"レックウザ","385":"ジラーチ","386":"デオキシス","387":"ナエトル","388":"ハヤシガメ","389":"ドダイトス","390":"ヒコザル","391":"モウカザル","392":"ゴウカザル","393":"ポッチャマ","394":"ポッタイシ","395":"エンペルト","396":"ムックル","397":"ムクバード","398":"ムクホーク","399":"ビッパ","400":"ビーダル","401":"コロボーシ","402":"コロトック","403":"コリンク","404":"ルクシオ","405":"レントラー","406":"スボミー","407":"ロズレイド","408":"ズガイドス","409":"ラムパルド","410":"タテトプス","411":"トリデプス","412":"ミノムッチ","413":"ミノマダム","414":"ガーメイル","415":"ミツハニー","416":"ビークイン","417":"パチリス","418":"ブイゼル","419":"フローゼル","420":"チェリンボ","421":"チェリム","422":"カラナクシ","423":"トリトドン","424":"エテボース","425":"フワンテ","426":"フワライド","427":"ミミロル","428":"ミミロップ","429":"ムウマージ","430":"ドンカラス","431":"ニャルマー","432":"ブニャット","433":"リーシャン","434":"スカンプー","435":"スカタンク","436":"ドーミラー","437":"ドータクン","438":"ウソハチ","439":"マネネ","440":"ピンプク","441":"ペラップ","442":"ミカルゲ","443":"フカマル","444":"ガバイト","445":"ガブリアス","446":"ゴンベ","447":"リオル","448":"ルカリオ","449":"ヒポポタス","450":"カバルドン","451":"スコルピ","452":"ドラピオン","453":"グレッグル","454":"ドクロッグ","455":"マスキッパ","456":"ケイコウオ","457":"ネオラント","458":"タマンタ","459":"ユキカブリ","460":"ユキノオー","461":"マニューラ","462":"ジバコイル","463":"ベロベルト","464":"ドサイドン","465":"モジャンボ","466":"エレキブル","467":"ブーバーン","468":"トゲキッス","469":"メガヤンマ","470":"リーフィア","471":"グレイシア","472":"グライオン","473":"マンムー","474":"ポリゴンＺ","475":"エルレイド","476":"ダイノーズ","477":"ヨノワール","478":"ユキメノコ","479":"ロトム","480":"ユクシー","481":"エムリット","482":"アグノム","483":"ディアルガ","484":"パルキア","485":"ヒードラン","486":"レジギガス","487":"ギラティナ","488":"クレセリア","489":"フィオネ","490":"マナフィ","491":"ダークライ","492":"シェイミ","493":"アルセウス","494":"ビクティニ","495":"ツタージャ","496":"ジャノビー","497":"ジャローダ","498":"ポカブ","499":"チャオブー","500":"エンブオー","501":"ミジュマル","502":"フタチマル","503":"ダイケンキ","504":"ミネズミ","505":"ミルホッグ","506":"ヨーテリー","507":"ハーデリア","508":"ムーランド","509":"チョロネコ","510":"レパルダス","511":"ヤナップ","512":"ヤナッキー","513":"バオップ","514":"バオッキー","515":"ヒヤップ","516":"ヒヤッキー","517":"ムンナ","518":"ムシャーナ","519":"マメパト","520":"ハトーボー","521":"ケンホロウ","522":"シママ","523":"ゼブライカ","524":"ダンゴロ","525":"ガントル","526":"ギガイアス","527":"コロモリ","528":"ココロモリ","529":"モグリュー","530":"ドリュウズ","531":"タブンネ","532":"ドッコラー","533":"ドテッコツ","534":"ローブシン","535":"オタマロ","536":"ガマガル","537":"ガマゲロゲ","538":"ナゲキ","539":"ダゲキ","540":"クルミル","541":"クルマユ","542":"ハハコモリ","543":"フシデ","544":"ホイーガ","545":"ペンドラー","546":"モンメン","547":"エルフーン","548":"チュリネ","549":"ドレディア","550":"バスラオ","551":"メグロコ","552":"ワルビル","553":"ワルビアル","554":"ダルマッカ","555":"ヒヒダルマ","556":"マラカッチ","557":"イシズマイ","558":"イワパレス","559":"ズルッグ","560":"ズルズキン","561":"シンボラー","562":"デスマス","563":"デスカーン","564":"プロトーガ","565":"アバゴーラ","566":"アーケン","567":"アーケオス","568":"ヤブクロン","569":"ダストダス","570":"ゾロア","571":"ゾロアーク","572":"チラーミィ","573":"チラチーノ","574":"ゴチム","575":"ゴチミル","576":"ゴチルゼル","577":"ユニラン","578":"ダブラン","579":"ランクルス","580":"コアルヒー","581":"スワンナ","582":"バニプッチ","583":"バニリッチ","584":"バイバニラ","585":"シキジカ","586":"メブキジカ","587":"エモンガ","588":"カブルモ","589":"シュバルゴ","590":"タマゲタケ","591":"モロバレル","592":"プルリル","593":"ブルンゲル","594":"ママンボウ","595":"バチュル","596":"デンチュラ","597":"テッシード","598":"ナットレイ","599":"ギアル","600":"ギギアル","601":"ギギギアル","602":"シビシラス","603":"シビビール","604":"シビルドン","605":"リグレー","606":"オーベム","607":"ヒトモシ","608":"ランプラー","609":"シャンデラ","610":"キバゴ","611":"オノンド","612":"オノノクス","613":"クマシュン","614":"ツンベアー","615":"フリージオ","616":"チョボマキ","617":"アギルダー","618":"マッギョ","619":"コジョフー","620":"コジョンド","621":"クリムガン","622":"ゴビット","623":"ゴルーグ","624":"コマタナ","625":"キリキザン","626":"バッフロン","627":"ワシボン","628":"ウォーグル","629":"バルチャイ","630":"バルジーナ","631":"クイタラン","632":"アイアント","633":"モノズ","634":"ジヘッド","635":"サザンドラ","636":"メラルバ","637":"ウルガモス","638":"コバルオン","639":"テラキオン","640":"ビリジオン","641":"トルネロス","642":"ボルトロス","643":"レシラム","644":"ゼクロム","645":"ランドロス","646":"キュレム","647":"ケルディオ","648":"メロエッタ","649":"ゲノセクト","650":"ハリマロン","651":"ハリボーグ","652":"ブリガロン","653":"フォッコ","654":"テールナー","655":"マフォクシー","656":"ケロマツ","657":"ゲコガシラ","658":"ゲッコウガ","659":"ホルビー","660":"ホルード","661":"ヤヤコマ","662":"ヒノヤコマ","663":"ファイアロー","664":"コフキムシ","665":"コフーライ","666":"ビビヨン","667":"シシコ","668":"カエンジシ","669":"フラベベ","670":"フラエッテ","671":"フラージェス","672":"メェークル","673":"ゴーゴート","674":"ヤンチャム","675":"ゴロンダ","676":"トリミアン","677":"ニャスパー","678":"ニャオニクス","679":"ヒトツキ","680":"ニダンギル","681":"ギルガルド","682":"シュシュプ","683":"フレフワン","684":"ペロッパフ","685":"ペロリーム","686":"マーイーカ","687":"カラマネロ","688":"カメテテ","689":"ガメノデス","690":"クズモー","691":"ドラミドロ","692":"ウデッポウ","693":"ブロスター","694":"エリキテル","695":"エレザード","696":"チゴラス","697":"ガチゴラス","698":"アマルス","699":"アマルルガ","700":"ニンフィア","701":"ルチャブル","702":"デデンネ","703":"メレシー","704":"ヌメラ","705":"ヌメイル","706":"ヌメルゴン","707":"クレッフィ","708":"ボクレー","709":"オーロット","710":"バケッチャ","711":"パンプジン","712":"カチコール","713":"クレベース","714":"オンバット","715":"オンバーン","716":"ゼルネアス","717":"イベルタル","718":"ジガルデ","719":"ディアンシー","720":"フーパ","721":"ボルケニオン","722":"モクロー","723":"フクスロー","724":"ジュナイパー","725":"ニャビー","726":"ニャヒート","727":"ガオガエン","728":"アシマリ","729":"オシャマリ","730":"アシレーヌ","731":"ツツケラ","732":"ケララッパ","733":"ドデカバシ","734":"ヤングース","735":"デカグース","736":"アゴジムシ","737":"デンヂムシ","738":"クワガノン","739":"マケンカニ","740":"ケケンカニ","741":"オドリドリ","742":"アブリー","743":"アブリボン","744":"イワンコ","745":"ルガルガン","746":"ヨワシ","747":"ヒドイデ","748":"ドヒドイデ","749":"ドロバンコ","750":"バンバドロ","751":"シズクモ","752":"オニシズクモ","753":"カリキリ","754":"ラランテス","755":"ネマシュ","756":"マシェード","757":"ヤトウモリ","758":"エンニュート","759":"ヌイコグマ","760":"キテルグマ","761":"アマカジ","762":"アママイコ","763":"アマージョ","764":"キュワワー","765":"ヤレユータン","766":"ナゲツケサル","767":"コソクムシ","768":"グソクムシャ","769":"スナバァ","770":"シロデスナ","771":"ナマコブシ","772":"タイプ：ヌル","773":"シルヴァディ","774":"メテノ","775":"ネッコアラ","776":"バクガメス","777":"トゲデマル","778":"ミミッキュ","779":"ハギギシリ","780":"ジジーロン","781":"ダダリン","782":"ジャラコ","783":"ジャランゴ","784":"ジャラランガ","785":"カプ・コケコ","786":"カプ・テテフ","787":"カプ・ブルル","788":"カプ・レヒレ","789":"コスモッグ","790":"コスモウム","791":"ソルガレオ","792":"ルナアーラ","793":"ウツロイド","794":"マッシブーン","795":"フェローチェ","796":"デンジュモク","797":"テッカグヤ","798":"カミツルギ","799":"アクジキング","800":"ネクロズマ","801":"マギアナ","802":"マーシャドー","803":"ベベノム","804":"アーゴヨン","805":"ツンデツンデ","806":"ズガドーン","807":"ゼラオラ","808":"メルタン","809":"メルメタル","810":"サルノリ","811":"バチンキー","812":"ゴリランダー","813":"ヒバニー","814":"ラビフット","815":"エースバーン","816":"メッソン","817":"ジメレオン","818":"インテレオン","819":"ホシガリス","820":"ヨクバリス","821":"ココガラ","822":"アオガラス","823":"アーマーガア","824":"サッチムシ","825":"レドームシ","826":"イオルブ","827":"クスネ","828":"フォクスライ","829":"ヒメンカ","830":"ワタシラガ","831":"ウールー","832":"バイウールー","833":"カムカメ","834":"カジリガメ","835":"ワンパチ","836":"パルスワン","837":"タンドン","838":"トロッゴン","839":"セキタンザン","840":"カジッチュ","841":"アップリュー","842":"タルップル","843":"スナヘビ","844":"サダイジャ","845":"ウッウ","846":"サシカマス","847":"カマスジョー","848":"エレズン","849":"ストリンダー","850":"ヤクデ","851":"マルヤクデ","852":"タタッコ","853":"オトスパス","854":"ヤバチャ","855":"ポットデス","856":"ミブリム","857":"テブリム","858":"ブリムオン","859":"ベロバー","860":"ギモー","861":"オーロンゲ","862":"タチフサグマ","863":"ニャイキング","864":"サニゴーン","865":"ネギガナイト","866":"バリコオル","867":"デスバーン","868":"マホミル","869":"マホイップ","870":"タイレーツ","871":"バチンウニ","872":"ユキハミ","873":"モスノウ","874":"イシヘンジン","875":"コオリッポ","876":"イエッサン","877":"モルペコ","878":"ゾウドウ","879":"ダイオウドウ","880":"パッチラゴン","881":"パッチルドン","882":"ウオノラゴン","883":"ウオチルドン","884":"ジュラルドン","885":"ドラメシヤ","886":"ドロンチ","887":"ドラパルト","888":"ザシアン","889":"ザマゼンタ","890":"ムゲンダイナ","891":"ダクマ","892":"ウーラオス","893":"ザルード","894":"レジエレキ","895":"レジドラゴ","896":"ブリザポス","897":"レイスポス","898":"バドレックス","899":"アヤシシ","900":"バサギリ","901":"ガチグマ","902":"イダイトウ","903":"オオニューラ","904":"ハリーマン","905":"ラブトロス","906":"ニャオハ","907":"ニャローテ","908":"マスカーニャ","909":"ホゲータ","910":"アチゲータ","911":"ラウドボーン","912":"クワッス","913":"ウェルカモ","914":"ウェーニバル","915":"グルトン","916":"パフュートン","917":"タマンチュラ","918":"ワナイダー","919":"マメバッタ","920":"エクスレッグ","921":"パモ","922":"パモット","923":"パーモット","924":"ワッカネズミ","925":"イッカネズミ","926":"パピモッチ","927":"バウッツェル","928":"ミニーブ","929":"オリーニョ","930":"オリーヴァ","931":"イキリンコ","932":"コジオ","933":"ジオヅム","934":"キョジオーン","935":"カルボウ","936":"グレンアルマ","937":"ソウブレイズ","938":"ズピカ","939":"ハラバリー","940":"カイデン","941":"タイカイデン","942":"オラチフ","943":"マフィティフ","944":"シルシュルー","945":"タギングル","946":"アノクサ","947":"アノホラグサ","948":"ノノクラゲ","949":"リククラゲ","950":"ガケガニ","951":"カプサイジ","952":"スコヴィラン","953":"シガロコ","954":"ベラカス","955":"ヒラヒナ","956":"クエスパトラ","957":"カヌチャン","958":"ナカヌチャン","959":"デカヌチャン","960":"ウミディグダ","961":"ウミトリオ","962":"オトシドリ","963":"ナミイルカ","964":"イルカマン","965":"ブロロン","966":"ブロロローム","967":"モトトカゲ","968":"ミミズズ","969":"キラーメ","970":"キラフロル","971":"ボチ","972":"ハカドッグ","973":"カラミンゴ","974":"アルクジラ","975":"ハルクジラ","976":"ミガルーサ","977":"ヘイラッシャ","978":"シャリタツ","979":"コノヨザル","980":"ドオー","981":"リキキリン","982":"ノココッチ","983":"ドドゲザン","984":"イダイナキバ","985":"サケブシッポ","986":"アラブルタケ","987":"ハバタクカミ","988":"チヲハウハネ","989":"スナノケガワ","990":"テツノワダチ","991":"テツノツツミ","992":"テツノカイナ","993":"テツノコウベ","994":"テツノドクガ","995":"テツノイバラ","996":"セビエ","997":"セゴール","998":"セグレイブ","999":"コレクレー","1000":"サーフゴー","1001":"チオンジェン","1002":"パオジアン","1003":"ディンルー","1004":"イーユイ","1005":"トドロクツキ","1006":"テツノブジン","1007":"コライドン","1008":"ミライドン","1009":"ウネルミナモ","1010":"テツノイサハ","1011":"カミッチュ","1012":"チャデス","1013":"ヤバソチャ","1014":"イイネイヌ","1015":"マシマシラ","1016":"キチキギス","1017":"オーガポン","1018":"ブリジュラス","1019":"カミツオロチ","1020":"ウガツホムラ","1021":"タケルライコ","1022":"テツノイワオ","1023":"テツノカシラ","1024":"テラパゴス","1025":"モモワロウ"};
@@ -5,7 +17,7 @@ const SPECIES={"1":"フシギダネ","2":"フシギソウ","3":"フシギバナ"
 function u16(a,p){return a[p]|(a[p+1]<<8)}
 function u32(a,p){return (a[p]|(a[p+1]<<8)|(a[p+2]<<16)|(a[p+3]<<24))>>>0}
 function crypt(a,start,end,seed){let x=seed>>>0;for(let p=start;p<end;p+=2){x=Math.imul(x,0x41C64E6D)+0x6073;x>>>=0;const k=x>>>16;const v=a[p]|(a[p+1]<<8);const y=v^k;a[p]=y&255;a[p+1]=y>>>8}return a}
-const POS=[0,1,2,3,0,1,3,2,0,2,1,3,0,3,1,2,0,2,3,1,0,3,2,1,1,0,2,3,1,0,3,2,2,0,1,3,3,0,1,2,2,0,3,1,3,0,2,1,1,2,0,3,1,3,0,2,2,1,0,3,3,1,0,2,2,3,0,1,3,2,0,1,1,2,3,0,1,3,2,0,2,1,3,0,3,1,2,0,2,3,1,0,3,2,1,0,0,1,2,3,0,1,3,2];
+const POS=[0,1,2,3,0,1,3,2,0,2,1,3,0,3,1,2,0,2,3,1,0,3,2,1,1,0,2,3,1,0,3,2,2,0,1,3,3,0,1,2,2,0,3,1,3,0,2,1,1,2,0,3,1,3,0,2,2,1,0,3,3,1,0,2,2,3,0,1,3,2,0,1,1,2,3,0,1,3,2,0,2,1,3,0,3,1,2,0,2,3,1,0,3,2,1,0,0,1,2,3,0,1,3,2,0,2,1,3,0,3,1,2,0,2,3,1,0,3,2,1,1,0,2,3,1,0,3,2];
 function inverseShuffle(buf,sv){if(sv===0)return;const order=POS.slice(sv*4,sv*4+4);const src=buf.slice(0,224);for(let i=0;i<4;i++)buf.set(src.slice(order[i]*56,order[i]*56+56),i*56)}
 function decryptPK(raw){
   const b=new Uint8Array(raw);const ec=u32(b,0);if(ec===0)return null;
@@ -26,17 +38,87 @@ function decryptPK(raw){
   if(languageValid)score+=10;
   if(pid!==0)score+=5;
   if(checksumValid)score+=15;
-  if(!speciesValid || score<45)return null;
+  // 構造的な裏付けを最低1つ要求する。種族IDだけだとランダムデータでも
+  // 1.2%程度が通ってしまい、1セーブあたり2000件以上の誤検出が出るため。
+  const structurallyPlausible = checksumValid || nicknameTerm || otTerm;
+  if(!speciesValid || !structurallyPlausible || score<45)return null;
   let confidence=score>=90&&checksumValid?'complete':score>=65?'partial':'low';
   return {data:b,species,ec,sv,shiny:shiny(b),checksumValid,nicknameTerm,otTerm,languageValid,score,confidence};
 }
 function shiny(b){const pid=u32(b,0x18),tid=u16(b,0x0C),sid=u16(b,0x0E);return ((tid^sid^(pid>>>16)^(pid&0xffff))<16)}
 function detectGame(len){if(len===SAVE.XY)return ['XY / X・Y',6,721];if(len===SAVE.ORAS)return ['ORAS / オメガルビー・アルファサファイア',6,721];if(len===SAVE.SM)return ['SM / サン・ムーン',7,802];if(len===SAVE.USUM)return ['USUM / ウルトラサン・ウルトラムーン',7,807];if(len===0x100000)return ['3DSセーブ（1 MiB）: ゲーム特定不能',null,809];return ['サイズから特定できないセーブ',null,809]}
+// ---------------------------------------------------------------------------
+// 第6世代のブロック表(セーブ末尾のフッター)からゲームとずれを判定する。v8 で追加。
+//
+// フッターは 0x200 境界 + 0x10 にマジック 0x42454546("FEEB")があり、その後に
+// (長さ u32, ID u16, CRC16 u16) が 8 バイトずつ並ぶ。各ブロックの位置は
+// 長さを 0x200 単位に切り上げて累積したもの。
+// PC ボックスは長さ 0x34AD0 のブロックで、その位置で X・Y(0x22600)と
+// ORAS(0x33000)を区別できる。ファイルサイズに頼らずに判定できる。
+//
+// 破損セーブの中には、セーブ全体がぐるりと回転して(先頭が別の位置から始まって)
+// 保存されているものがある(実例: X・Y で 0x50000 ずれ)。フッターの実際の位置と
+// 本来の位置の差から、このずれを求めて補正する。
+// ---------------------------------------------------------------------------
+const GEN6_FOOTER_MAGIC=0x42454546;
+const GEN6_BLOCK_LABEL={0x34AD0:'PCボックス',0xE058:'写真(PSS)',0x61C:'手持ち',0x574:'バトルボックス',0x440:'ボックス名・壁紙'};
+function crc16ccitt(read,len){let c=0xFFFF;for(let i=0;i<len;i++){c^=read(i)<<8;for(let k=0;k<8;k++)c=(c&0x8000)?((c<<1)^0x1021)&0xFFFF:(c<<1)&0xFFFF}return c}
+function parseGen6Footer(input,magicPos){
+  const blocks=[];let off=0,p=magicPos+4;
+  while(p+8<=input.length&&blocks.length<80){
+    const len=u32(input,p),id=u16(input,p+4),chk=u16(input,p+6);p+=8;
+    if(len===0&&id===0&&blocks.length)break;
+    if(len>0x80000||id!==blocks.length)return null;   // 表として不自然なら候補から外す
+    blocks.push({id,orig:off,len,chk});off+=(len+0x1FF)&~0x1FF;
+  }
+  const pc=blocks.find(b=>b.len===0x34AD0);
+  if(!pc)return null;
+  let game=null;
+  if(pc.orig===0x22600)game='XY';else if(pc.orig===0x33000)game='ORAS';else return null;
+  const footerOrig=off,saveSize=footerOrig+0x200;            // XY: 0x65400 / 0x65600, ORAS: 0x75E00 / 0x76000
+  const footerFile=magicPos-0x10;
+  return {game,blocks,pcBase:pc.orig,footerOrig,footerFile,saveSize};
+}
+function findGen6Layout(input){
+  let best=null;
+  for(let p=0x10;p+4<=input.length;p+=0x200){
+    if(u32(input,p)!==GEN6_FOOTER_MAGIC)continue;
+    const t=parseGen6Footer(input,p);if(!t)continue;
+    const rotated=input.length===t.saveSize;
+    const shift=t.footerOrig-t.footerFile;                   // 本来の位置 = ファイル上の位置 + shift
+    const toOrig=f=>{const o=f+shift;return rotated?((o%t.saveSize)+t.saveSize)%t.saveSize:o};
+    const toFile=o=>{const f=o-shift;return rotated?((f%t.saveSize)+t.saveSize)%t.saveSize:f};
+    let okCount=0;
+    for(const b of t.blocks){
+      const start=toFile(b.orig);
+      if(!rotated&&(start<0||start+b.len>input.length)){b.status='missing';continue}
+      const n=input.length;
+      b.status=crc16ccitt(i=>input[(start+i)%n],b.len)===b.chk?'ok':'ng';
+      b.label=GEN6_BLOCK_LABEL[b.len]||null;
+      if(b.status==='ok')okCount++;
+    }
+    const cand={...t,shift,rotated,toOrig,toFile,okCount};
+    if(!best||cand.okCount>best.okCount)best=cand;
+  }
+  return best;
+}
+function hex(n,w=5){return '0x'+(n>>>0).toString(16).toUpperCase().padStart(w,'0')}
+function blockAt(layout,orig){return layout?layout.blocks.find(b=>orig>=b.orig&&orig<b.orig+b.len):null}
+
 function classifyHits(hits){
-  // Prefer the strongest interpretation when the same EC is encountered multiple times.
-  const best=new Map();
-  for(const h of hits){const old=best.get(h.ec>>>0);if(!old||h.score>old.score)best.set(h.ec>>>0,h)}
-  return [...best.values()].sort((a,b)=>a.offset-b.offset);
+  // v6 までは EC(暗号化定数)をキーに重複を除去していたが、これは誤りだった。
+  // 配布・交換・複製で生まれた「同じ EC/PID を持つ別個体」(いわゆるクローン)が
+  // 別のボックスにいると、最初の 1 匹以外が黙って消えてしまう。
+  // スキャンは 1 オフセットにつき 1 件しか結果を出さないので、
+  // オフセットが違えば別のスロット = 別の個体として扱う。
+  const byOffset=new Map();
+  for(const h of hits){const old=byOffset.get(h.offset);if(!old||h.score>old.score)byOffset.set(h.offset,h)}
+  const list=[...byOffset.values()].sort((a,b)=>a.offset-b.offset);
+  // 同じ EC を持つ個体の数を数えておき、UI で「同一個体のコピー」と明示する。
+  const ecCount=new Map();
+  for(const h of list)ecCount.set(h.ec>>>0,(ecCount.get(h.ec>>>0)||0)+1);
+  for(const h of list)h.sameEcCount=ecCount.get(h.ec>>>0);
+  return list;
 }
 function scan(input,gen,maxSpecies){
   const out=[];
@@ -50,7 +132,7 @@ function scan(input,gen,maxSpecies){
 function msg(t,err=false){statusEl.textContent=t;statusEl.className='status'+(err?' error':'')}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function getStorageLayout(game,gen){
-  if(gen===6){const base=game.startsWith('XY')?0x22600:0x33000;return {base,boxes:31,slots:31*30,size:232,exact:true};}
+  if(gen===6){const l6=window.__layout6;const base=l6?l6.pcBase:(game.startsWith('XY')?0x22600:0x33000);return {base,boxes:31,slots:31*30,size:232,exact:true};}
   if(gen===7)return {base:null,boxes:32,slots:32*30,size:232,exact:false};
   return null;
 }
@@ -66,63 +148,71 @@ function inferGen7Base(hits){
   if(!best)return null;
   const aligned=hits.filter(h=>h.offset%232===best.rem).sort((a,b)=>a.offset-b.offset);
   if(!aligned.length)return null;
-  // Anchor the first candidate to a slot boundary; the exact box number is
-  // reliable only when the surrounding PC cluster is large enough.
-  const first=aligned[0].offset;
-  const base=first-(Math.floor(first/232)*232);
-  return {base:base+Math.floor(first/232)*232,confidence:aligned.length>=2?'estimated':'weak'};
+  // 最大クラスタの最小オフセットを「ボックス1の1番」とみなす。
+  // Gen7 の PC ブロックの絶対位置はセーブのブロックテーブルで決まるため、
+  // ここで求まるのはあくまで相対的な並びであり、ボックス番号そのものは
+  // 保証されない(ボックス1が空なら全体がずれる)。UI 側で「推定」と明示すること。
+  return {base:aligned[0].offset,confidence:aligned.length>=2?'estimated':'weak'};
 }
 function getLocation(q,game,gen){
   const layout=getStorageLayout(game,gen);
   if(!layout)return {box:null,slot:null,label:'位置不明'};
   const base=layout.exact?layout.base:(window.__gen7Base??null);
   if(base===null)return {box:null,slot:null,label:'位置不明'};
-  const rel=q.offset-base;
+  // ブロック表でずれを検出していれば、本来のセーブ上の位置に直してから判定する
+  const l6=gen===6?window.__layout6:null;
+  const orig=l6?l6.toOrig(q.offset):q.offset;
+  const rel=orig-base;
   const total=layout.slots*layout.size;
-  if(rel<0||rel>=total)return {box:null,slot:null,label:'位置不明'};
+  if(rel<0||rel>=total){
+    const b=blockAt(l6,orig);
+    return {box:null,slot:null,label:b&&b.label?`${b.label}(PC外・bin には含まれません)`:'位置不明'};
+  }
   const index=Math.floor(rel/layout.size);
   const box=Math.floor(index/30)+1,slot=(index%30)+1;
   const aligned=rel%layout.size===0;
-  return {box,slot,aligned,label:`ボックス${box}・${slot}番${aligned?'':'（位置ずれ候補）'}`};
+  const estimated = !layout.exact;
+  const suffix = aligned ? '' : '（位置ずれ候補）';
+  const prefix = estimated ? '推定 ' : '';
+  return {box,slot,aligned,estimated,label:`${prefix}ボックス${box}・${slot}番${suffix}`};
 }
+// ---------------------------------------------------------------------------
+// v9: 利用者には「完全復元」(confidence === 'complete')の個体だけを表示する。
+//
+// 「一部破損」「低信頼候補」への振り分け(decryptPK の confidence)は今後のために残しているが、
+// 画面には出さず、bin にも含めない。実データ 467 匹はすべて complete で、
+// ランダムデータの誤検出はすべて low に入ることを確認済み(2026-10-14)。
+// partial はチェックサム不一致のまま書き込まれ、ゲーム内で「ダメタマゴ」になりうる。
+// 再び表示する場合は VISIBLE_CONFIDENCE に追加し、初期チェックと注意書きを検討すること。
+// ---------------------------------------------------------------------------
+const VISIBLE_CONFIDENCE=['complete'];
+function visibleHits(hits){return (hits||[]).filter(h=>VISIBLE_CONFIDENCE.includes(h.confidence))}
 function confidenceLabel(c){return c==='complete'?'完全復元':c==='partial'?'一部破損':'低信頼候補'}
 function confidenceClass(c){return c==='complete'?'complete':c==='partial'?'partial':'low'}
-function renderTabs(hits){
-  const groups={complete:[],partial:[],low:[]};
-  hits.forEach(h=>groups[h.confidence].push(h));
+function renderList(hits){
   listEl.innerHTML=`
     <div class="recovery-controls">
       <div class="selection-title"><strong>復元する個体を選択</strong><span>チェックした個体だけが boxdata.bin に含まれます。</span></div>
       <div class="selection-actions">
         <button type="button" class="small-button" data-action="all">すべて選択</button>
         <button type="button" class="small-button" data-action="none">すべて解除</button>
-        <button type="button" class="small-button" data-action="safe">完全復元のみ</button>
       </div>
     </div>
-    <div class="tabs" role="tablist">
-      ${['complete','partial','low'].map((g,i)=>`<button type="button" class="tab ${i===0?'active':''}" data-tab="${g}" role="tab"><span>${confidenceLabel(g)}</span><b>${groups[g].length}</b></button>`).join('')}
-    </div>
-    <div class="tab-panels">
-      ${['complete','partial','low'].map((g,i)=>`<div class="tab-panel ${i===0?'active':''}" data-panel="${g}">${groups[g].length?groups[g].map((p,n)=>renderCandidate(p,g,n)).join(''):`<div class="empty">この分類の候補はありません。</div>`}</div>`).join('')}
-    </div>`;
-  listEl.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{
-    listEl.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===btn));
-    listEl.querySelectorAll('[data-panel]').forEach(x=>x.classList.toggle('active',x.dataset.panel===btn.dataset.tab));
-  }));
+    <div class="candidate-list">${hits.map(p=>renderCandidate(p)).join('')}</div>`;
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',updateSelectionSummary));
   listEl.querySelectorAll('.small-button').forEach(btn=>btn.addEventListener('click',()=>{
     const action=btn.dataset.action;
-    listEl.querySelectorAll('.candidate-check').forEach(cb=>{cb.checked=action==='all'||(action==='safe'&&cb.dataset.confidence==='complete')});
+    listEl.querySelectorAll('.candidate-check').forEach(cb=>{cb.checked=action==='all'});
     updateSelectionSummary();
   }));
   updateSelectionSummary();
 }
-function renderCandidate(p,g,n){
+function renderCandidate(p){
   const loc=getLocation(p,window.__game,window.__gen);
   const speciesName=SPECIES[p.species]||('No.'+p.species);
   const offset=`0x${p.offset.toString(16).toUpperCase().padStart(6,'0')}`;
-  const reason=g==='complete'?'チェックサム一致・主要構造一致':g==='partial'?'チェックサム不一致または一部構造破損':'構造の一部のみ一致。誤検出の可能性があります';
-  return `<label class="candidate ${confidenceClass(g)}"><input class="candidate-check" type="checkbox" data-offset="${p.offset}" data-ec="${p.ec}" data-confidence="${g}" checked><span class="candidate-main"><span class="candidate-top"><strong>${escapeHtml(speciesName)}</strong><span class="badge ${confidenceClass(g)}">${confidenceLabel(g)}${p.shiny?' ★':''}</span></span><span class="candidate-meta">全国図鑑No.${p.species} · ${loc.label} · offset ${offset}</span><span class="candidate-reason">${reason} · 信頼度スコア ${p.score}/100</span></span></label>`;
+  const note=p.sameEcCount>1?`<span class="candidate-reason">同じ暗号化定数の個体が計${p.sameEcCount}匹(配布・交換などによるコピー)</span>`:'';
+  return `<label class="candidate complete"><input class="candidate-check" type="checkbox" data-offset="${p.offset}" data-ec="${p.ec}" checked><span class="candidate-main"><span class="candidate-top"><strong>${escapeHtml(speciesName)}</strong>${p.shiny?'<span class="badge complete">★ 色違い</span>':''}</span><span class="candidate-meta">No.${p.species} · ${loc.label} · offset ${offset}</span>${note}</span></label>`;
 }
 function updateSelectionSummary(){
   const checks=[...listEl.querySelectorAll('.candidate-check')];
@@ -133,29 +223,75 @@ function updateSelectionSummary(){
   const summary=document.getElementById('selectionSummary');
   if(summary)summary.textContent=`選択中 ${selected} 匹`;
 }
+// 第7世代は PC ボックスの絶対位置がセーブのブロックテーブルで決まるため、
+// 検出結果からの推定になる。ボックス1が空だと全体がずれるので必ず明示する。
+function showPositionNotice(gen){
+  const old=document.getElementById('positionNotice');
+  if(old)old.remove();
+  if(gen!==7)return;
+  const box=document.createElement('div');
+  box.id='positionNotice';
+  box.className='position-notice';
+  box.innerHTML='<strong>第7世代のボックス位置は推定値です。</strong>'+
+    'サン・ムーン系はPCボックスの位置がセーブ内のブロック表で決まるため、'+
+    '検出された個体の並びから逆算しています。ボックス1の先頭が空だったり壊れていたりすると、'+
+    'ボックス番号が全体的にずれます。PKHeXで取り込んだあと、配置を必ず確認してください。';
+  const list=document.getElementById('list');
+  list.parentNode.insertBefore(box,list);
+}
+// セーブ構造の診断。ブロック表が見つかれば、ゲーム・ずれ・ブロックごとの生存状況を出す。
+function showStructureReport(l6,size,hits){
+  const old=document.getElementById('structureReport');if(old)old.remove();
+  const box=document.createElement('div');box.id='structureReport';box.className='structure-report';
+  if(!l6){
+    box.innerHTML='<strong>セーブ構造の診断</strong>第6世代のブロック表(セーブ末尾の管理情報)は見つかりませんでした。'+
+      'ゲームの判定はファイルサイズによる推定です。';
+  }else{
+    const gameName=l6.game==='XY'?'X・Y':'オメガルビー・アルファサファイア';
+    const lines=[];
+    lines.push(`ブロック表から <b>${gameName}</b> のセーブと判定しました。`);
+    if(size!==l6.saveSize)lines.push(`ファイルサイズ(${hex(size)})が ${gameName} の本来のサイズ(${hex(l6.saveSize)})と一致しません。`);
+    if(l6.shift!==0)lines.push(`セーブ全体が本来の位置から <b>${hex(((l6.shift%l6.saveSize)+l6.saveSize)%l6.saveSize)}</b> バイトずれて保存されています。ボックス位置はこのずれを補正して判定しています。`);
+    lines.push(`チェックサムが一致したブロック: <b>${l6.okCount} / ${l6.blocks.length}</b>`);
+    const key=l6.blocks.filter(b=>b.label).map(b=>`<li>${b.label}: ${b.status==='ok'?'正常':b.status==='missing'?'ファイル外(欠落)':'破損'}</li>`).join('');
+    const pcHits=hits.filter(h=>{const r=l6.toOrig(h.offset)-l6.pcBase;return r>=0&&r<31*30*232&&r%232===0}).length;
+    let tail='';
+    if(!hits.length)tail='<p>どのブロックにもポケモンの個体データは残っていません。このファイルからの救出はできません。'+
+      'セーブを保存していた SD カードなどに書き込まずに全体を吸い出し、そのイメージを読み込ませると、元のデータが見つかる可能性があります。</p>';
+    else tail=`<p>検出 ${hits.length} 匹のうち、PCボックス内の位置に一致したのは ${pcHits} 匹です。</p>`;
+    box.innerHTML=`<strong>セーブ構造の診断</strong><p>${lines.join('<br>')}</p><ul>${key}</ul>${tail}`;
+  }
+  const list=document.getElementById('list');list.parentNode.insertBefore(box,list);
+}
 async function analyze(file){
   result.classList.add('hidden');listEl.innerHTML='';msg('セーブデータを解析しています…');
   const input=new Uint8Array(await file.arrayBuffer());
-  const [game,gen,maxSpecies]=detectGame(input.length);let scanGen=gen||6;
+  let [game,gen,maxSpecies]=detectGame(input.length);
+  // サイズより先にブロック表で判定する(サイズが合っていても中身が別ゲーム・回転していることがある)
+  const l6=findGen6Layout(input);window.__layout6=l6;
+  if(l6){game=l6.game==='XY'?'XY / X・Y':'ORAS / オメガルビー・アルファサファイア';gen=6;maxSpecies=721}
+  let scanGen=gen||6;
   let hits=scan(input,scanGen,maxSpecies);
   if(!hits.length&&gen===null){const h6=scan(input,6,721),h7=scan(input,7,807);hits=h7.length>h6.length?h7:h6;scanGen=hits.length?hits[0].gen:6}
-  if(scanGen===7){const inf=inferGen7Base(hits);window.__gen7Base=inf?inf.base:null}
-  gameEl.textContent=hits.length?game+(gen===null?'（内部構造から推定）':''):game;
+  if(scanGen===7){const inf=inferGen7Base(visibleHits(hits));window.__gen7Base=inf?inf.base:null}
+  gameEl.textContent=game+(l6?'(ブロック表から判定)':gen===null&&hits.length?'(内部構造から推定)':'');
   sizeEl.textContent=input.length.toLocaleString()+' bytes';
-  if(!hits.length){countEl.textContent='0 匹';msg('ポケモン個体データを検出できませんでした。破損が大きいか、暗号化形式・別世代の可能性があります。',true);return}
+  // 表示・出力の対象は完全復元のみ(振り分け結果は window.__allHits に残す)
+  window.__allHits=hits;
+  hits=visibleHits(hits);
+  showStructureReport(l6,input.length,hits);
+  if(!hits.length){countEl.textContent='0 匹';listEl.innerHTML='';result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);document.getElementById('download').disabled=true;return}
   window.__hits=hits;window.__inputName=file.name;window.__inputSize=input.length;window.__game=game;window.__gen=scanGen;window.__input=input;
-  const complete=hits.filter(h=>h.confidence==='complete').length,partial=hits.filter(h=>h.confidence==='partial').length,low=hits.filter(h=>h.confidence==='low').length;
   document.getElementById('selectionSummary').textContent=`選択中 ${hits.length} 匹`;
-  renderTabs(hits);
-  msg(`${hits.length} 匹の候補を検出しました。復元範囲をチェックボックスで選択してください。`);
+  renderList(hits);
+  showPositionNotice(scanGen);
+  msg(`${hits.length} 匹のポケモンが完全な状態で見つかりました。救出する個体をチェックボックスで選択してください。`);
   result.classList.remove('hidden');
 }
 fileInput.addEventListener('change',()=>{if(fileInput.files[0])analyze(fileInput.files[0]).catch(e=>msg('解析中にエラーが発生しました: '+e.message,true))});
 ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('drag')}));
 ['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('drag')}));
 drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)analyze(f).catch(err=>msg('解析中にエラーが発生しました: '+err.message,true))});
-function crc32(data){let c=0xffffffff;for(const x of data){c^=x;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0)}return (c^0xffffffff)>>>0}
-function zipStore(files){const enc=new TextEncoder(),chunks=[],central=[];let offset=0;for(const f of files){const name=enc.encode(f.name),data=f.data,crc=crc32(data);const h=new Uint8Array(30+name.length);const dv=new DataView(h.buffer);dv.setUint32(0,0x04034b50,true);dv.setUint16(4,20,true);dv.setUint16(8,0,true);dv.setUint32(14,crc,true);dv.setUint32(18,data.length,true);dv.setUint32(22,data.length,true);dv.setUint16(26,name.length,true);h.set(name,30);chunks.push(h,data);const c=new Uint8Array(46+name.length),cv=new DataView(c.buffer);cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint32(16,crc,true);cv.setUint32(20,data.length,true);cv.setUint32(24,data.length,true);cv.setUint16(28,name.length,true);cv.setUint32(42,offset,true);c.set(name,46);central.push(c);offset+=h.length+data.length}const centralSize=central.reduce((s,x)=>s+x.length,0),end=new Uint8Array(22),ev=new DataView(end.buffer);ev.setUint32(0,0x06054b50,true);ev.setUint16(8,files.length,true);ev.setUint16(10,files.length,true);ev.setUint32(12,centralSize,true);ev.setUint32(16,offset,true);return new Blob([...chunks,...central,end],{type:'application/zip'})}
 function shuffleForEncrypt(buf,sv){if(sv===0)return;const order=POS.slice(sv*4,sv*4+4),src=buf.slice(0,224);for(let i=0;i<4;i++)buf.set(src.slice(i*56,i*56+56),order[i]*56)}
 function encryptPK(decrypted){const b=new Uint8Array(decrypted),ec=u32(b,0),sv=(ec>>>13)&31;shuffleForEncrypt(b.subarray(8,232),sv);crypt(b,8,232,ec);return b}
 function makePCBinary(selected,game,gen){
@@ -179,8 +315,22 @@ download.addEventListener('click',()=>{
   if(!selected.length)return;
   try{
     const {data,placed,unknown,conflicts}=makePCBinary(selected,window.__game,window.__gen);
-    const blob=zipStore([{name:'boxdata.bin',data}]);
-    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='boxdata_selected.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    msg(`boxdata.bin を作成しました。選択 ${selected.length} 匹中 ${placed} 匹を元のボックス位置に配置しました${unknown?`。位置を特定できない ${unknown} 匹は安全のため未配置`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。`);
+    // 1 匹も配置できなかった bin は中身がすべて 0 になる。PKHeX は全 0 / 全 FF のファイルを
+    // 「データなし」とみなして「サポートされていないファイルの種類/サイズ」エラーを出すため、出力しない。
+    if(placed===0){msg(`ボックス位置に配置できる個体が 0 匹のため、boxdata.bin を作成しませんでした(選択 ${selected.length} 匹はすべて PC ボックス外、または位置不明です)。空の bin は PKHeX で読み込めません。`,true);return}
+    const blob=new Blob([data],{type:'application/octet-stream'});
+    if(window.NERCounter)window.NERCounter.countRescue();
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='boxdata.bin';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    msg(`boxdata.bin をダウンロードしました。選択 ${selected.length} 匹中 ${placed} 匹を元のボックス位置に配置しました${unknown?`。位置を特定できない ${unknown} 匹は安全のため未配置`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。`);
   }catch(e){msg('boxdata.bin の作成に失敗しました: '+e.message,true)}
 });
+
+// フッターにバージョンを表示する。公開中のサイトがどの版か確認できるようにするため。
+(function showVersion(){
+  const footer=document.querySelector("footer");
+  if(!footer)return;
+  const span=document.createElement("span");
+  span.className="app-version";
+  span.textContent=" · v"+APP_VERSION+" ("+APP_VERSION_DATE+")";
+  footer.appendChild(span);
+})();
