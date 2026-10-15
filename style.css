@@ -135,3 +135,10 @@
   .pk-head .pk-gender{white-space:nowrap;overflow:visible}
 }
 @media(max-width:350px){.pk-row,.ball-images .pk-row{grid-template-columns:18px 34px calc(26px + 5.6em) 1.7em 3.6em minmax(0,1fr)}}
+/* v19: 救出ボタンと「道具も取り出す」ボタンを横に並べる */
+.action-buttons{display:flex;gap:10px;margin-top:18px}
+.action-buttons .button{margin-top:0;flex:1}
+.button-secondary{background:#fff;color:#111827;border:2px solid #111827}
+.button-secondary:hover:not(:disabled){background:#f2f4f7}
+.bag-summary{margin:8px 0 0;font-size:12px;color:#667085;text-align:center}
+@media(max-width:650px){.action-buttons{gap:8px}.action-buttons .button{font-size:14px;padding:14px 8px}}
