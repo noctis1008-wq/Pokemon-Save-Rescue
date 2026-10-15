@@ -7,13 +7,13 @@
 <title>ポケモン破損セーブ救出 | NER Pokémon Recovery</title>
 <!-- 末尾の ?v= はブラウザのキャッシュ対策。app.js の APP_VERSION を上げたら、
      index.html と privacy.html のこの数字も同じ値に揃えること。 -->
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
 <main class="wrap">
 <section class="hero">
 <p class="eyebrow">POKÉMON SAVE RECOVERY</p>
-<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=19" type="image/webp"><img src="img/logo.png?v=19" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
+<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=20" type="image/webp"><img src="img/logo.png?v=20" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
 <p class="lead">破損したポケモンのセーブデータをブラウザ内で解析し、内部に残っている個体データを抽出し、PKHeXでボックス情報として読み込める <code>boxdata.bin</code> にまとめます。抽出したデータは、PKHeXで元のボックス位置を維持した1つの <code>boxdata.bin</code> として保存できます。</p>
 </section>
 <section class="card">
@@ -34,13 +34,13 @@
 <div id="list" class="pokemon-list"></div>
 <div class="action-buttons">
 <button id="download" class="button">ポケモンを救出する</button>
-<button id="downloadItems" class="button button-secondary" disabled>道具も取り出す</button>
+<button id="downloadItems" class="button button-secondary" disabled>道具を取り出す</button>
 </div>
 <p id="bagSummary" class="bag-summary"></p>
 <div class="pkhex-howto"><strong>PKHeX での読み込み方</strong>
 <ol><li>PKHeX で <b>同じゲーム(X・Y なら X・Y、ORAS なら ORAS)のセーブ</b>を先に開きます。セーブを開いていない状態や、別の世代のセーブを開いた状態では「サポートされていないファイルの種類/サイズ」と表示されて読み込めません。</li>
 <li>その状態で <code>boxdata.bin</code> を PKHeX のウィンドウにドラッグ＆ドロップします(「ファイル」→「開く」でも可)。</li>
-<li>「道具も取り出す」で <code>main</code> をダウンロードした場合は、手順1でその <code>main</code> を開いてから <code>boxdata.bin</code> を読み込むと、ポケモンと道具がそろいます。</li>
+<li>「道具を取り出す」で <code>main</code> をダウンロードした場合は、手順1でその <code>main</code> を開いてから <code>boxdata.bin</code> を読み込むと、ポケモンと道具がそろいます。</li>
 <li><b>PC ボックス 31 個がまるごと置き換わります。</b>空きスロットも空で上書きされるため、必ずバックアップを取ったセーブか、救出用の予備セーブで行ってください。</li></ol></div>
 </div>
 </section>
@@ -53,7 +53,7 @@
 </section>
 <footer><a href="../">NER Converter</a> · <a href="privacy.html">プライバシーポリシー</a> · <a href="https://github.com/kwsch/PKHeX" target="_blank" rel="noopener">PKHeX reference</a></footer>
 </main>
-<script src="pkdata.js?v=19"></script>
-<script src="app.js?v=19"></script>
-<script src="counter.js?v=19"></script>
+<script src="pkdata.js?v=20"></script>
+<script src="app.js?v=20"></script>
+<script src="counter.js?v=20"></script>
 </body></html>

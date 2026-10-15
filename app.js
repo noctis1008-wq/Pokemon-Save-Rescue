@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "19";
+const APP_VERSION = "20";
 const APP_VERSION_DATE = "2026-10-15";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -306,6 +306,7 @@ function renderList(hits){
     <div class="view-tabs" role="tablist">
       <button type="button" class="view-tab active" role="tab" aria-selected="true" data-view="list">一覧表示</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="box">ボックス表示</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="items">道具</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="photo">写真</button>
     </div>
     <div class="view-panel active" data-view="list">
@@ -313,6 +314,7 @@ function renderList(hits){
       <div class="list-resizer" role="separator" aria-orientation="horizontal" aria-label="一覧の縦幅を変更(ドラッグ、または上下キー)" tabindex="0"><span></span></div>
     </div>
     <div class="view-panel" data-view="box"><div class="box-viewer"></div></div>
+    <div class="view-panel" data-view="items"><div class="items-viewer"></div></div>
     <div class="view-panel" data-view="photo"><div class="photo-viewer"></div></div>`;
   setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',()=>{updateSelectionSummary();refreshBoxSelection()}));
@@ -325,6 +327,7 @@ function renderList(hits){
   boxState.slots=buildSlotMap(hits);
   boxState.current=firstBoxWithPokemon(boxState.slots);
   renderBoxViewer();
+  renderItemsViewer(listEl.querySelector('.items-viewer'));
   renderPhotoViewer(listEl.querySelector('.photo-viewer'));
   updateSelectionSummary();
 }
@@ -396,6 +399,29 @@ function readPhoto(input,l6){
   let end=-1;
   for(let i=b.length-2;i>0x56;i--)if(b[i]===0xFF&&b[i+1]===0xD9){end=i+2;break}
   return end>0?b.slice(0x54,end):null;
+}
+// ---------------------------------------------------------------------------
+// 道具タブ(v20)。復元したバッグを、ポケット(道具/技マシン/薬/木の実)ごとのタブで表示する。
+// 表示するのは「道具を取り出す」で main に書き込む内容と同じ(大切なものは含めない)。
+// ---------------------------------------------------------------------------
+function renderItemsViewer(viewer){
+  if(!viewer)return;
+  const bag=window.__bag;
+  if(!bag){viewer.innerHTML='<p class="photo-note">このセーブからは道具を復元できませんでした。</p>';return}
+  const pouches=BAG_LAYOUT[bag.game].pouches.filter(p=>p.restore);
+  const first=pouches.find(p=>(bag.pouches[p.key]||[]).length)||pouches[0];
+  const tabs=pouches.map(p=>{const n=(bag.pouches[p.key]||[]).length;return `<button type="button" class="item-tab${p===first?' active':''}" role="tab" aria-selected="${p===first}" data-pouch="${p.key}">${p.name}<b>${n}</b></button>`}).join('');
+  const panels=pouches.map(p=>{
+    const list=bag.pouches[p.key]||[];
+    const rows=list.length?list.map(([id,cnt])=>`<li class="item-row"><span class="item-name">${escapeHtml(PK_ITEM_NAME[id]||('アイテム'+id))}</span><span class="item-count">×${cnt}</span></li>`).join(''):'<li class="item-empty">このポケットに復元できた道具はありません。</li>';
+    return `<ul class="item-panel${p===first?' active':''}" role="tabpanel" data-pouch="${p.key}">${rows}</ul>`;
+  }).join('');
+  viewer.innerHTML=`<div class="item-tabs" role="tablist">${tabs}</div><div class="item-panels">${panels}</div>
+    <p class="photo-note">大切なものは復元の対象外です。「道具を取り出す」で、これらを入れた main をダウンロードできます。</p>`;
+  viewer.querySelectorAll('.item-tab').forEach(t=>t.addEventListener('click',()=>{
+    viewer.querySelectorAll('.item-tab').forEach(x=>{const on=x===t;x.classList.toggle('active',on);x.setAttribute('aria-selected',on?'true':'false')});
+    viewer.querySelectorAll('.item-panel').forEach(x=>x.classList.toggle('active',x.dataset.pouch===t.dataset.pouch));
+  }));
 }
 let photoUrl=null;
 function renderPhotoViewer(viewer){
@@ -651,7 +677,9 @@ async function analyze(file){
   if(!hits.length){
     countEl.textContent='0 匹';
     // ポケモンがいなくても写真が残っていれば表示する
-    listEl.innerHTML=window.__photo?'<h3 class="photo-heading">写真</h3><div class="photo-viewer"></div>':'';
+    // ポケモンがいなくても、道具や写真が残っていれば表示する
+    listEl.innerHTML=(window.__bag?'<h3 class="photo-heading">道具</h3><div class="items-viewer"></div>':'')+(window.__photo?'<h3 class="photo-heading">写真</h3><div class="photo-viewer"></div>':'');
+    renderItemsViewer(listEl.querySelector('.items-viewer'));
     renderPhotoViewer(listEl.querySelector('.photo-viewer'));
     result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);document.getElementById('download').disabled=true;return}
   window.__hits=hits;window.__inputName=file.name;window.__inputSize=input.length;window.__game=game;window.__gen=scanGen;window.__input=input;
@@ -697,7 +725,7 @@ download.addEventListener('click',()=>{
   }catch(e){msg('boxdata.bin の作成に失敗しました: '+e.message,true)}
 });
 
-// 「道具も取り出す」ボタン(v19)
+// 「道具を取り出す」ボタン(v19。文言は v20 で「道具も取り出す」→「道具を取り出す」)
 const downloadItems=document.getElementById('downloadItems');
 function updateItemsButton(){
   const bag=window.__bag;
