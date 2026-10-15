@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "20";
+const APP_VERSION = "22";
 const APP_VERSION_DATE = "2026-10-15";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -229,6 +229,7 @@ function scan(input,gen,maxSpecies){
   }
   return classifyHits(out);
 }
+function clearMsg(){statusEl.textContent='';statusEl.className='status hidden'}
 function msg(t,err=false){statusEl.textContent=t;statusEl.className='status'+(err?' error':'')}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function getStorageLayout(game,gen){
@@ -410,7 +411,7 @@ function renderItemsViewer(viewer){
   if(!bag){viewer.innerHTML='<p class="photo-note">このセーブからは道具を復元できませんでした。</p>';return}
   const pouches=BAG_LAYOUT[bag.game].pouches.filter(p=>p.restore);
   const first=pouches.find(p=>(bag.pouches[p.key]||[]).length)||pouches[0];
-  const tabs=pouches.map(p=>{const n=(bag.pouches[p.key]||[]).length;return `<button type="button" class="item-tab${p===first?' active':''}" role="tab" aria-selected="${p===first}" data-pouch="${p.key}">${p.name}<b>${n}</b></button>`}).join('');
+  const tabs=pouches.map(p=>{const n=(bag.pouches[p.key]||[]).length;return `<button type="button" class="item-tab${p===first?' active':''}" role="tab" aria-selected="${p===first}" data-pouch="${p.key}">${p.name}<b>(${n})</b></button>`}).join('');
   const panels=pouches.map(p=>{
     const list=bag.pouches[p.key]||[];
     const rows=list.length?list.map(([id,cnt])=>`<li class="item-row"><span class="item-name">${escapeHtml(PK_ITEM_NAME[id]||('アイテム'+id))}</span><span class="item-count">×${cnt}</span></li>`).join(''):'<li class="item-empty">このポケットに復元できた道具はありません。</li>';
@@ -582,7 +583,7 @@ function pkSummary(p){
     nickname:pkNickname(b),            // 表示はしないが、今後のために取得は残す
     ot:pkOTName(b),
     shiny:p.shiny,
-    gender:gender===0?'♂':gender===1?'♀':'',
+    gender:gender===0?'♂':gender===1?'♀':'',   // 表示時に U+FE0E を付けて絵文字ではなく文字として描く(v21)
     level:pkLevel(p.species,u32(b,0x10)),
     ability:PK_ABILITY[abilityId]||`特性(${abilityId})`,
     isEgg
@@ -612,7 +613,7 @@ function renderCandidate(p){
   return `<label class="candidate pk-row"><input class="candidate-check" type="checkbox" data-offset="${p.offset}" data-ec="${p.ec}" checked>`+
     renderBall(s)+
     `<span class="pk-name">${shinyMark}<span class="pk-name-text">${escapeHtml(s.name)}</span></span>`+
-    `<span class="pk-gender ${genderCls}">${s.gender}</span>`+
+    `<span class="pk-gender ${genderCls}">${s.gender?s.gender+'\uFE0E':''}</span>`+
     `<span class="pk-level">${s.isEgg?'タマゴ':s.level!==null?'Lv.'+s.level:''}</span>`+
     `<span class="pk-sub"><span class="pk-ot" title="${escapeHtml(s.ot)}"><span class="pk-lbl">親名：</span>${escapeHtml(s.ot)}</span>`+
     `<span class="pk-ability"><span class="pk-lbl">特性：</span>${escapeHtml(s.ability)}</span></span></label>`;
@@ -620,7 +621,7 @@ function renderCandidate(p){
 function updateSelectionSummary(){
   const checks=[...listEl.querySelectorAll('.candidate-check')];
   const selected=checks.filter(x=>x.checked).length;
-  countEl.textContent=`${selected} / ${checks.length} 匹`;
+  if(countEl)countEl.textContent=`${selected} / ${checks.length} 匹`;   // v22: 画面からは削除(要素がなければ何もしない)
   const button=document.getElementById('download');
   if(button)button.disabled=selected===0;
   const summary=document.getElementById('selectionSummary');
@@ -628,26 +629,27 @@ function updateSelectionSummary(){
 }
 // セーブ構造の診断。ブロック表が見つかれば、ゲーム・ずれ・ブロックごとの生存状況を出す。
 function showStructureReport(l6,size,hits){
+  // v22: 診断は「項目 | 状態」の表で表示する
   const old=document.getElementById('structureReport');if(old)old.remove();
   const box=document.createElement('div');box.id='structureReport';box.className='structure-report';
+  const badge=(t,kind)=>`<span class="diag-badge ${kind}">${t}</span>`;
+  const rows=[];
   if(!l6){
-    box.innerHTML='<strong>セーブ構造の診断</strong>第6世代のブロック表(セーブ末尾の管理情報)は見つかりませんでした。'+
-      'ゲームの判定はファイルサイズによる推定です。';
+    rows.push(['ブロック表',badge('見つかりません','ng')+'<span class="diag-sub">ゲームはファイルサイズから推定しています</span>']);
   }else{
     const gameName=l6.game==='XY'?'X・Y':'オメガルビー・アルファサファイア';
-    const lines=[];
-    lines.push(`ブロック表から <b>${gameName}</b> のセーブと判定しました。`);
-    if(size!==l6.saveSize)lines.push(`ファイルサイズ(${hex(size)})が ${gameName} の本来のサイズ(${hex(l6.saveSize)})と一致しません。`);
-    if(l6.shift!==0)lines.push(`セーブ全体が本来の位置から <b>${hex(((l6.shift%l6.saveSize)+l6.saveSize)%l6.saveSize)}</b> バイトずれて保存されています。ボックス位置はこのずれを補正して判定しています。`);
-    lines.push(`チェックサムが一致したブロック: <b>${l6.okCount} / ${l6.blocks.length}</b>`);
-    const key=l6.blocks.filter(b=>b.label).map(b=>`<li>${b.label}: ${b.status==='ok'?'正常':b.status==='missing'?'ファイル外(欠落)':'破損'}</li>`).join('');
-    const pcHits=hits.filter(h=>{const r=l6.toOrig(h.offset)-l6.pcBase;return r>=0&&r<31*30*232&&r%232===0}).length;
-    let tail='';
-    if(!hits.length)tail='<p>どのブロックにもポケモンの個体データは残っていません。このファイルからの救出はできません。'+
-      'セーブを保存していた SD カードなどに書き込まずに全体を吸い出し、そのイメージを読み込ませると、元のデータが見つかる可能性があります。</p>';
-    else tail=`<p>検出 ${hits.length} 匹のうち、PCボックス内の位置に一致したのは ${pcHits} 匹です。</p>`;
-    box.innerHTML=`<strong>セーブ構造の診断</strong><p>${lines.join('<br>')}</p><ul>${key}</ul>${tail}`;
+    if(size!==l6.saveSize)rows.push(['ファイルサイズ',badge('不一致','ng')+`<span class="diag-sub">${size.toLocaleString()} バイト(${gameName} は ${l6.saveSize.toLocaleString()} バイト)</span>`]);
+    const sh=((l6.shift%l6.saveSize)+l6.saveSize)%l6.saveSize;
+    rows.push(['データの位置',sh?badge('ずれあり','warn')+`<span class="diag-sub">${hex(sh)} バイト(補正して読み取り)</span>`:badge('正常','ok')]);
+    rows.push(['チェックサム一致',`<b>${l6.okCount}</b> / ${l6.blocks.length} ブロック`]);
+    for(const b of l6.blocks.filter(b=>b.label)){
+      rows.push([b.label,b.status==='ok'?badge('正常','ok'):b.status==='missing'?badge('欠落','ng'):badge('破損','ng')]);
+    }
   }
+  let tail='';
+  if(!hits.length)tail='<p class="diag-note">どのブロックにもポケモンの個体データは残っていません。このファイルからの救出はできません。'+
+    'セーブを保存していた SD カードなどに書き込まずに全体を吸い出し、そのイメージを読み込ませると、元のデータが見つかる可能性があります。</p>';
+  box.innerHTML=`<strong>セーブ構造の診断</strong><table class="diag-table"><tbody>${rows.map(([k,v])=>`<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>${tail}`;
   const list=document.getElementById('list');list.parentNode.insertBefore(box,list);
 }
 async function analyze(file){
@@ -664,8 +666,7 @@ async function analyze(file){
   const wrapScan=!!(l6&&l6.rotated&&((l6.shift%l6.saveSize)+l6.saveSize)%l6.saveSize!==0);
   const scanInput=wrapScan?(()=>{const a=new Uint8Array(input.length+232);a.set(input);a.set(input.subarray(0,232),input.length);return a})():input;
   let hits=scan(scanInput,scanGen,maxSpecies).filter(h=>h.offset<input.length);
-  gameEl.textContent=game+(l6?'(ブロック表から判定)':gen===null&&hits.length?'(内部構造から推定)':'');
-  sizeEl.textContent=input.length.toLocaleString()+' bytes';
+  gameEl.textContent=game;   // v22: 「(ブロック表から判定)」と入力サイズの表示は削除
   window.__boxNames=readBoxNames(input,l6);
   window.__bag=readBag(input,l6);
   updateItemsButton();
@@ -675,7 +676,7 @@ async function analyze(file){
   hits=visibleHits(hits);
   showStructureReport(l6,input.length,hits);
   if(!hits.length){
-    countEl.textContent='0 匹';
+    if(countEl)countEl.textContent='0 匹';
     // ポケモンがいなくても写真が残っていれば表示する
     // ポケモンがいなくても、道具や写真が残っていれば表示する
     listEl.innerHTML=(window.__bag?'<h3 class="photo-heading">道具</h3><div class="items-viewer"></div>':'')+(window.__photo?'<h3 class="photo-heading">写真</h3><div class="photo-viewer"></div>':'');
@@ -685,7 +686,7 @@ async function analyze(file){
   window.__hits=hits;window.__inputName=file.name;window.__inputSize=input.length;window.__game=game;window.__gen=scanGen;window.__input=input;
   document.getElementById('selectionSummary').textContent=`選択中 ${hits.length} 匹`;
   renderList(hits);
-  msg(`${hits.length} 匹のポケモンが完全な状態で見つかりました。救出する個体をチェックボックスで選択してください。`);
+  clearMsg();   // v22: 正常終了時のメッセージは出さない
   result.classList.remove('hidden');
 }
 fileInput.addEventListener('change',()=>{if(fileInput.files[0])analyze(fileInput.files[0]).catch(e=>msg('解析中にエラーが発生しました: '+e.message,true))});
@@ -730,8 +731,6 @@ const downloadItems=document.getElementById('downloadItems');
 function updateItemsButton(){
   const bag=window.__bag;
   if(downloadItems)downloadItems.disabled=!bag;
-  const el=document.getElementById('bagSummary');
-  if(el)el.textContent=bagSummaryText(bag);
 }
 if(downloadItems)downloadItems.addEventListener('click',async()=>{
   const bag=window.__bag;

@@ -157,3 +157,23 @@
 .item-count{font-variant-numeric:tabular-nums;color:#344054}
 .item-empty{padding:16px;text-align:center;color:#667085;font-size:13px}
 @media(max-width:650px){.item-tab{font-size:12px;padding:7px 4px}.item-tab b{margin-left:3px}}
+/* v21: 性別マークをポケモン名と同じ高さにそろえる。
+   iPhone では ♂♀ が絵文字用フォントで描かれて行の高さが変わり、名前より下にずれていた。
+   文字表示の指定(U+FE0E)に加え、名前・性別・Lv. の行の高さを固定し、セルの中で上下中央に置く。 */
+.pk-name,.pk-gender,.pk-level{line-height:1.4;min-height:1.4em}
+.pk-gender{display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-variant-emoji:text}
+.pk-level{display:flex;align-items:center}
+@media(max-width:650px){.pk-gender{justify-content:flex-start}.pk-name,.pk-gender,.pk-level{align-self:center}}
+/* v22: 上部の概要は「推定ソフト」だけ。診断は表 */
+.summary{grid-template-columns:1fr}
+.diag-table{width:100%;border-collapse:collapse;margin-top:8px;background:#fff;border-radius:10px;overflow:hidden;font-size:13px}
+.diag-table th,.diag-table td{padding:7px 10px;border-bottom:1px solid #eaecf0;text-align:left;vertical-align:middle}
+.diag-table tr:last-child th,.diag-table tr:last-child td{border-bottom:0}
+.diag-table th{width:40%;font-weight:700;color:#344054;background:#f8fafc;white-space:nowrap}
+.diag-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:800}
+.diag-badge.ok{background:#ecfdf3;color:#027a48}
+.diag-badge.ng{background:#fef3f2;color:#b42318}
+.diag-badge.warn{background:#fffaeb;color:#b54708}
+.diag-sub{display:block;margin-top:2px;font-size:12px;color:#667085}
+.diag-note{margin:8px 0 0;font-size:12px;line-height:1.6}
+@media(max-width:650px){.diag-table th{width:auto}}
