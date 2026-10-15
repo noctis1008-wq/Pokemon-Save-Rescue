@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "33";
+const APP_VERSION = "34";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -610,8 +610,8 @@ function renderList(hits){
     <div class="view-tabs" role="tablist">
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="pokemon">ポケモン</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="items">バッグ</button>
-      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="dex">図鑑</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="trainer">トレーナー</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="dex">図鑑</button>
     </div>
     <div class="view-panel" data-view="pokemon">
       <div class="recovery-controls">
@@ -634,8 +634,8 @@ function renderList(hits){
       <div class="sub-panel" data-sub="box"><div class="box-viewer"></div></div>
     </div>
     <div class="view-panel" data-view="items"><div class="items-viewer"></div></div>
-    <div class="view-panel" data-view="dex"><div class="dex-viewer"></div></div>
-    <div class="view-panel" data-view="trainer"><div class="trainer-viewer"></div><h3 class="photo-heading trainer-photo-heading">写真</h3><div class="photo-viewer"></div></div>`;
+    <div class="view-panel" data-view="trainer"><div class="trainer-viewer"></div><h3 class="photo-heading trainer-photo-heading">写真</h3><div class="photo-viewer"></div></div>
+    <div class="view-panel" data-view="dex"><div class="dex-viewer"></div></div>`;
   setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',()=>{updateSelectionSummary();refreshBoxSelection()}));
   listEl.querySelectorAll('.small-button').forEach(btn=>btn.addEventListener('click',()=>{
@@ -799,45 +799,72 @@ async function templateTrainer(game){
     return readTrainerAt(i=>t[b.orig+i]);
   }catch(e){return null}
 }
-// v33: チェックを外すと空のセーブ(試験データ)の値、入れると復元した値を表示する。復元した値だけ書き換えられる。
-// セーブから読み取れなかったときは、チェックは押せない(空のセーブの値のまま)。
+// X・Y の着ている服(v34)。+0x30 の 16 バイトを 4 つの u32 にし、PK_FASHION(pk_fashion.js)のビット位置で読む。「なし」は出さない。
+function fashionItems(bytes,gender){
+  if(!bytes||!(gender===0||gender===1)||typeof PK_FASHION==='undefined')return null;
+  const w=[0,1,2,3].map(i=>(bytes[i*4]|(bytes[i*4+1]<<8)|(bytes[i*4+2]<<16)|(bytes[i*4+3]<<24))>>>0);
+  const out=[];
+  for(const p of PK_FASHION[gender===0?'male':'female']){
+    const v=(w[p.w]>>>p.pos)&((1<<p.bits)-1),name=p.names[v];
+    if(name==='なし')continue;
+    out.push([p.label,name===undefined||name===null?`不明な番号(${v})`:name]);
+  }
+  return out;
+}
+// v34: トレーナー情報は「トレーナーの情報を復元する」「自分で入力する」のどちらか(両方オフなら空のセーブ=試験データのまま)。
+//   復元する: 読み取った値を表示(入力不可) / 自分で入力する: 入力欄を書き換えられる(初めは表示中の値から) / どちらもオフ: 空のセーブの値(入力不可)
+// window.__trainerMode = 'restore' | 'manual' | 'none'
 function renderTrainerViewer(viewer){
   if(!viewer)return;
   const tr=window.__trainer,av=window.__avatar,game=window.__itemsGame;
   const genderText=g=>g===0?'男の子':g===1?'女の子':'—';
+  const id5=n=>String(n).padStart(5,'0');
   const draw=tpl=>{
-    if(tr&&!window.__trainerInput)window.__trainerInput={name:tr.name,tid:tr.tid,sid:tr.sid};
-    const on=!!tr&&window.__includeTrainer!==false,aon=!!av&&window.__includeAvatar!==false;
-    const v=on?window.__trainerInput:(tpl||{name:'',tid:0,sid:0});
-    const id5=n=>String(n).padStart(5,'0');
-    const ro=on?'':' readonly';
-    const avRow=(label,val)=>`<div class="avatar-row"><span>${label}</span><strong>${val}</strong></div>`;
-    const avSrc=aon?av:tpl;
-    const ownedText=game!=='XY'?'—':aon?(av.owned?'元のセーブのもの':'読み取れませんでした(空のセーブのまま)'):'空のセーブのもの';
-    viewer.innerHTML=`<label class="items-toggle${tr?'':' is-disabled'}"><input type="checkbox" class="include-trainer"${on?' checked':''}${tr?'':' disabled'}><span>トレーナー情報を復元する</span></label>
-      <div class="trainer-form${on?'':' is-template'}">
+    if(!window.__trainerMode)window.__trainerMode=tr?'restore':'none';
+    const mode=window.__trainerMode;
+    const base=tr||tpl||{name:'',tid:0,sid:0};
+    if(!window.__trainerInput)window.__trainerInput={name:base.name,tid:base.tid,sid:base.sid};
+    const v=mode==='restore'?tr:mode==='manual'?window.__trainerInput:(tpl||{name:'',tid:0,sid:0});
+    const ro=mode==='manual'?'':' readonly';
+    const aon=!!av&&window.__includeAvatar!==false;
+    const src=aon?av:tpl;   // 表示する元(復元するなら読み取った値、しないなら空のセーブ)
+    const row=(label,val)=>`<div class="avatar-row"><span>${label}</span><strong>${escapeHtml(val)}</strong></div>`;
+    let avRows=row('性別',src?genderText(src.gender):'—');
+    if(game==='XY'){
+      const items=src?fashionItems(src.fashion,src.gender):null;
+      avRows+=`<div class="avatar-sub">着ている服</div>`+(items?(items.length?items.map(([k,n])=>row(k,n)).join(''):row('服','なし')):row('服','—'));
+      avRows+=row('持っている服・アクセサリー',aon?(av.owned?'元のセーブのもの':'読み取れませんでした(空のセーブのまま)'):'空のセーブのもの');
+    }
+    const note=mode==='restore'?'セーブから読み取った値です。':mode==='manual'?'入力した値が main に入ります。':(tr?'救出用の空のセーブ(試験データ)の値です。':tpl?'セーブから読み取れなかったため、救出用の空のセーブ(試験データ)の値を表示しています。':'セーブから読み取れませんでした。');
+    viewer.innerHTML=`<div class="trainer-modes">
+        <label class="items-toggle${tr?'':' is-disabled'}"><input type="checkbox" class="trainer-mode" data-mode="restore"${mode==='restore'?' checked':''}${tr?'':' disabled'}><span>トレーナーの情報を復元する</span></label>
+        <label class="items-toggle"><input type="checkbox" class="trainer-mode" data-mode="manual"${mode==='manual'?' checked':''}><span>自分で入力する</span></label>
+      </div>
+      <div class="trainer-form${mode==='manual'?'':' is-template'}">
         <label><span>トレーナー名</span><input type="text" class="trainer-name" maxlength="${TRAINER_NAME_MAX}" value="${escapeHtml(v.name)}"${ro}></label>
         <div class="trainer-ids">
           <label><span>ID</span><input type="text" class="trainer-tid" inputmode="numeric" maxlength="5" value="${id5(v.tid)}"${ro}></label>
           <label><span>裏ID</span><input type="text" class="trainer-sid" inputmode="numeric" maxlength="5" value="${id5(v.sid)}"${ro}></label>
         </div>
       </div>
-      <p class="photo-note">${!tr?(tpl?'セーブから読み取れなかったため、救出用の空のセーブ(試験データ)の値を表示しています。':'セーブから読み取れませんでした。'):on?'セーブから読み取った値です。変更すると、その値が main に入ります。':'救出用の空のセーブ(試験データ)の値です。チェックを入れると、セーブから読み取った値になります。'}</p>
+      <p class="photo-note">${note}</p>
       <h3 class="photo-heading trainer-photo-heading">アバター</h3>
       <label class="items-toggle${av?'':' is-disabled'}"><input type="checkbox" class="include-avatar"${aon?' checked':''}${av?'':' disabled'}><span>アバター情報を復元する</span></label>
-      <div class="avatar-info${aon?'':' is-template'}">
-        ${avRow('見た目',avSrc?genderText(avSrc.gender):'—')}
-        ${game==='XY'?avRow('着ている服・髪型など',aon?'元のセーブのもの':avSrc?'空のセーブのもの':'—'):''}
-        ${game==='XY'?avRow('持っている服・アクセサリー',ownedText):''}
-        ${avRow('通信で使うアバター',aon?(av.sprite?`${av.sprite[0]}番`:'読み取れませんでした(空のセーブのまま)'):tpl?`${tpl.sprite[0]}番`:'—')}
-      </div>
-      <p class="photo-note">${av?(aon?'セーブから読み取ったアバターです。':'救出用の空のセーブ(試験データ)のアバターです。'):'セーブからアバターを読み取れませんでした(トレーナー情報が読み取れたときだけ復元できます)。'}</p>`;
-    const cb=viewer.querySelector('.include-trainer'),ca=viewer.querySelector('.include-avatar');
-    cb.addEventListener('change',()=>{window.__includeTrainer=cb.checked;updateItemsButton();draw(tpl)});
+      <div class="avatar-info${aon?'':' is-template'}">${avRows}</div>
+      <p class="photo-note">${av?(aon?'セーブから読み取ったアバターです。':'救出用の空のセーブ(試験データ)のアバターです。'):'セーブからアバターを読み取れませんでした(トレーナー情報が読み取れたときだけ復元できます)。'}${game==='XY'?' 服の名前は目安です(ゲーム内の正式名と違うことがあります)。':''}</p>`;
+    viewer.querySelectorAll('.trainer-mode').forEach(cb=>cb.addEventListener('change',()=>{
+      if(cb.checked){
+        // 自分で入力に切り替えたら、そのとき表示していた値から書き換えを始める
+        if(cb.dataset.mode==='manual'&&window.__trainerMode!=='manual'){const cur=window.__trainerMode==='restore'?tr:(tpl||base);window.__trainerInput={name:cur.name,tid:cur.tid,sid:cur.sid}}
+        window.__trainerMode=cb.dataset.mode;
+      }else window.__trainerMode='none';
+      updateItemsButton();draw(tpl);
+    }));
+    const ca=viewer.querySelector('.include-avatar');
     ca.addEventListener('change',()=>{window.__includeAvatar=ca.checked;updateItemsButton();draw(tpl)});
-    if(!on)return;
+    if(mode!=='manual')return;
     const st=window.__trainerInput,nm=viewer.querySelector('.trainer-name');
-    nm.addEventListener('input',()=>{st.name=nm.value});
+    nm.addEventListener('input',()=>{st.name=nm.value;updateItemsButton()});
     for(const [cls,key] of [['.trainer-tid','tid'],['.trainer-sid','sid']]){
       const el=viewer.querySelector(cls);
       el.addEventListener('input',()=>{el.value=el.value.replace(/\D/g,'').slice(0,5);st[key]=Math.min(65535,Number(el.value||0))});
@@ -1149,7 +1176,8 @@ function showStructureReport(l6,size,hits){
   let tail='';
   if(!hits.length)tail='<p class="diag-note">どのブロックにもポケモンの個体データは残っていません。このファイルからの救出はできません。'+
     'セーブを保存していた SD カードなどに書き込まずに全体を吸い出し、そのイメージを読み込ませると、元のデータが見つかる可能性があります。</p>';
-  box.innerHTML=`<strong>セーブ構造の診断</strong><table class="diag-table"><tbody>${rows.map(([k,v])=>`<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>${tail}`;
+  // v34: 最初は折りたたみ。「セーブデータの診断結果を表示」をクリックで開く
+  box.innerHTML=`<details class="diag-details"><summary>セーブデータの診断結果を表示</summary><table class="diag-table"><tbody>${rows.map(([k,v])=>`<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>${tail}</details>`;
   const list=document.getElementById('list');list.parentNode.insertBefore(box,list);
 }
 async function analyze(file){
@@ -1181,7 +1209,7 @@ async function analyze(file){
   window.__dex=readDex(input,l6,hits);   // v30
   window.__trainer=readTrainer(input,l6,hits);   // v31
   window.__avatar=readAvatar(input,l6,window.__trainer);   // v33
-  window.__includeDex=true;window.__trainerInput=null;window.__includeTrainer=!!window.__trainer;window.__includeAvatar=!!window.__avatar;
+  window.__includeDex=true;window.__trainerInput=null;window.__trainerMode=null;window.__includeAvatar=!!window.__avatar;
   showStructureReport(l6,input.length,hits);
   if(!hits.length){
     if(countEl)countEl.textContent='0 匹';
@@ -1191,7 +1219,7 @@ async function analyze(file){
     renderItemsViewer(listEl.querySelector('.items-viewer'));
     renderPhotoViewer(listEl.querySelector('.photo-viewer'));
     updateItemsButton();
-    result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);return}   // v28: 道具・お金が残っていれば救出ボタンは使える
+    result.classList.remove('hidden');{const dd=document.querySelector('#structureReport details');if(dd)dd.open=true}msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブデータの診断結果」を参照してください。',true);return}   // v28: 道具・お金が残っていれば救出ボタンは使える
   window.__hits=hits;window.__inputName=file.name;window.__inputSize=input.length;window.__game=game;window.__gen=scanGen;window.__input=input;
   renderList(hits);
   clearMsg();   // v22: 正常終了時のメッセージは出さない
@@ -1232,7 +1260,13 @@ function selectedHits(){
 function itemsIncluded(){return window.__includeItems!==false&&!!window.__bag}
 function moneyIncluded(){return window.__includeMoney!==false&&!!window.__money}
 function dexIncluded(){return window.__includeDex!==false&&!!window.__dex}
-function trainerIncluded(){return window.__includeTrainer!==false&&!!window.__trainer&&!!window.__trainerInput&&window.__trainerInput.name.length>0}
+function trainerValue(){   // v34: main に書くトレーナー情報(なければ null = 空のセーブのまま)
+  const m=window.__trainerMode||(window.__trainer?'restore':'none');
+  if(m==='restore'&&window.__trainer){const t=window.__trainer;return {name:t.name,tid:t.tid,sid:t.sid}}
+  if(m==='manual'&&window.__trainerInput&&window.__trainerInput.name.length){const t=window.__trainerInput;return {name:t.name.slice(0,TRAINER_NAME_MAX),tid:t.tid,sid:t.sid}}
+  return null;
+}
+function trainerIncluded(){return !!trainerValue()}
 function avatarIncluded(){return window.__includeAvatar!==false&&!!window.__avatar}
 function updateItemsButton(){   // 名前は v19 以来のまま。救出ボタンの有効・無効を更新する
   const any=!!listEl.querySelector('.candidate-check:checked')||(!!window.__itemsGame&&(itemsIncluded()||moneyIncluded()||dexIncluded()||trainerIncluded()||avatarIncluded()));
@@ -1258,7 +1292,7 @@ download.addEventListener('click',async()=>{
   try{
     if(!game)throw Object.assign(new Error('このセーブはゲームを判定できないため、main を作れません。'),{noTemplate:true});
     const bag=withItems?window.__bag:null,money=withMoney?window.__money:null,dex=withDex?window.__dex:null;
-    const ti=window.__trainerInput,trainer=withTrainer?{name:ti.name.slice(0,TRAINER_NAME_MAX),tid:ti.tid,sid:ti.sid}:null,avatar=withAvatar?window.__avatar:null;
+    const trainer=withTrainer?trainerValue():null,avatar=withAvatar?window.__avatar:null;
     const {data,report:r}=await buildRescueMain({game,bag,money,selected,input:window.__input,l6:window.__layout6,includeEgg:window.__includeEgg,dex,trainer,avatar});
     saveBlob(data,'main');
     const placed=r.pc+r.party+r.battle+r.daycare+r.partyToBox;
