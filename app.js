@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "23";
+const APP_VERSION = "24";
 const APP_VERSION_DATE = "2026-10-15";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -171,25 +171,71 @@ function readBag(input,l6){
   if(!total)return null;
   return {game:l6.game,shift:best.shift,pouches:restore,total};
 }
+// ---------------------------------------------------------------------------
+// お金(v24)。ブロック ID 11(Misc)の +0x08 に u32 で入っている(PKHeX Misc6XY / Misc6AO と同じ)。
+// バッグと同じく、破損セーブでは中身がずれていることがある(実例: ORAS で -0x1F。バッグとは別のずれ幅)。
+// 本来の位置 ±0x200 を 1 バイト刻みで調べ、次の形に合う位置を採る(同点なら本来の位置に近いほう):
+//   +0x00 u32 が 0 以外 / +0x04〜+0x07 が 0 / +0x08 お金 ≦ 9,999,999 / +0x0D〜+0x0F が 0 /
+//   +0x10 から UTF-16 のライバル名(1〜12 文字、0x20 以上の文字のあとは 0 で埋まる)
+// ---------------------------------------------------------------------------
+const MONEY_MAX=9999999,MISC_LEN={XY:0x140,ORAS:0x130};
+function looksLikeMisc(get){
+  if((get(0)|get(1)|get(2)|get(3))===0)return false;
+  for(const i of [4,5,6,7,0xD,0xE,0xF])if(get(i)!==0)return false;
+  const money=(get(8)|(get(9)<<8)|(get(10)<<16)|(get(11)<<24))>>>0;
+  if(money>MONEY_MAX)return false;
+  let n=0,ended=false;
+  for(let i=0;i<13;i++){
+    const c=get(0x10+i*2)|(get(0x11+i*2)<<8);
+    if(c===0){ended=true;continue}
+    if(ended||c<0x20)return false;
+    n++;
+  }
+  return n>=1?money:false;
+}
+function readMoney(input,l6){
+  if(!l6)return null;
+  const blk=l6.blocks[11];
+  if(!blk||blk.len!==MISC_LEN[l6.game])return null;
+  const n=input.length;let best=null;
+  for(let shift=-BAG_SEARCH_RANGE;shift<=BAG_SEARCH_RANGE;shift++){
+    const start=l6.toFile(blk.orig+shift);
+    if(!l6.rotated&&(start<0||start+0x30>n))continue;
+    const m=looksLikeMisc(i=>input[((start+i)%n+n)%n]);
+    if(m===false)continue;
+    if(!best||Math.abs(shift)<Math.abs(best.shift))best={money:m,shift};
+  }
+  return best?{game:l6.game,money:best.money,shift:best.shift}:null;
+}
 function bagSummaryText(bag){
   if(!bag)return '取り出せる道具はありませんでした。';
   const parts=BAG_LAYOUT[bag.game].pouches.filter(p=>p.restore).map(p=>`${p.name} ${bag.pouches[p.key].length}種`);
   return `取り出せる道具: ${parts.join('・')}(大切なものは対象外)`;
 }
 // 空のセーブにバッグを書き込み、バッグのブロックのチェックサムを直して返す
-async function buildItemsSave(bag){
-  const path=ITEM_TEMPLATE[bag.game];
+async function buildItemsSave(bag,money,game){
+  const path=ITEM_TEMPLATE[game];
   if(!path)throw new Error('このゲーム用の空のセーブが設定されていません。');
   let res;
   try{res=await fetch(path,{cache:'no-store'})}catch(e){throw new Error('空のセーブを読み込めませんでした(通信エラー)。')}
   if(!res.ok)throw new Error('このゲーム用の空のセーブがまだ設置されていません。');
   const t=new Uint8Array(await res.arrayBuffer());
-  if(t.length!==SAVE[bag.game])throw new Error('空のセーブのサイズが想定と違います。');
+  if(t.length!==SAVE[game])throw new Error('空のセーブのサイズが想定と違います。');
   const tl=findGen6Layout(t);
-  if(!tl||tl.game!==bag.game||((tl.shift%tl.saveSize)+tl.saveSize)%tl.saveSize!==0)throw new Error('空のセーブの構造が想定と違います。');
-  const layout=BAG_LAYOUT[bag.game],blk=tl.blocks[1];
-  if(!blk||blk.len!==layout.len)throw new Error('空のセーブのバッグの位置が想定と違います。');
+  if(!tl||tl.game!==game||((tl.shift%tl.saveSize)+tl.saveSize)%tl.saveSize!==0)throw new Error('空のセーブの構造が想定と違います。');
   const out=t.slice();
+  // ブロックを書き換えたら、フッターのブロック表にある CRC16 を更新する(マジックの 4 バイト後から 8 バイトずつ: 長さ u32, ID u16, CRC u16)
+  const fixCrc=(id,b)=>{const crc=crc16ccitt(i=>out[b.orig+i],b.len),e=tl.footerFile+0x10+4+id*8;out[e+6]=crc&255;out[e+7]=crc>>8};
+  if(money){
+    const mb=tl.blocks[11];
+    if(!mb||mb.len!==MISC_LEN[game])throw new Error('空のセーブのお金の位置が想定と違います。');
+    const v=Math.min(money.money,MONEY_MAX)>>>0;
+    out[mb.orig+8]=v&255;out[mb.orig+9]=(v>>8)&255;out[mb.orig+10]=(v>>16)&255;out[mb.orig+11]=(v>>>24)&255;
+    fixCrc(11,mb);
+  }
+  if(!bag)return out;
+  const layout=BAG_LAYOUT[game],blk=tl.blocks[1];
+  if(!blk||blk.len!==layout.len)throw new Error('空のセーブのバッグの位置が想定と違います。');
   for(const pc of layout.pouches){
     if(!pc.restore)continue;                       // 大切なものは空のセーブのまま
     const base=blk.orig+pc.off,list=bag.pouches[pc.key]||[];
@@ -197,10 +243,7 @@ async function buildItemsSave(bag){
     const slots=Math.floor(pc.size/4);
     list.slice(0,slots).forEach(([id,cnt],i)=>{const o=base+i*4;out[o]=id&255;out[o+1]=id>>8;out[o+2]=cnt&255;out[o+3]=cnt>>8});
   }
-  // フッターのブロック表にある CRC16 を更新(マジックの 4 バイト後から 8 バイトずつ: 長さ u32, ID u16, CRC u16)
-  const crc=crc16ccitt(i=>out[blk.orig+i],blk.len);
-  const entry=tl.footerFile+0x10+4+1*8;
-  out[entry+6]=crc&255;out[entry+7]=crc>>8;
+  fixCrc(1,blk);
   return out;
 }
 function hex(n,w=5){return '0x'+(n>>>0).toString(16).toUpperCase().padStart(w,'0')}
@@ -299,7 +342,7 @@ function setupListResizer(list,handle){
 function renderList(hits){
   listEl.innerHTML=`
     <div class="recovery-controls">
-      <div class="selection-title"><strong>復元する個体を選択</strong><span id="selectionSummary" class="selection-count">選択中 0 匹</span></div>
+      <div class="selection-title"><strong>復元する個体を選択してください</strong><span id="selectionSummary" class="selection-count">選択中 0 匹</span></div>
       <div class="selection-actions">
         <button type="button" class="small-button" data-action="all">すべて選択</button>
         <button type="button" class="small-button" data-action="none">すべて解除</button>
@@ -408,8 +451,9 @@ function readPhoto(input,l6){
 // ---------------------------------------------------------------------------
 function renderItemsViewer(viewer){
   if(!viewer)return;
-  const bag=window.__bag;
-  if(!bag){viewer.innerHTML='<p class="photo-note">このセーブからは道具を復元できませんでした。</p>';return}
+  const bag=window.__bag,money=window.__money;
+  const moneyHtml=`<p class="money-row"><span>お金</span><strong>${money?'¥'+money.money.toLocaleString('ja-JP'):'読み取れませんでした'}</strong></p>`;
+  if(!bag){viewer.innerHTML=moneyHtml+'<p class="photo-note">このセーブからは道具を復元できませんでした。</p>';return}
   const pouches=BAG_LAYOUT[bag.game].pouches.filter(p=>p.restore);
   const first=pouches.find(p=>(bag.pouches[p.key]||[]).length)||pouches[0];
   const tabs=pouches.map(p=>{const n=(bag.pouches[p.key]||[]).length;return `<button type="button" class="item-tab${p===first?' active':''}" role="tab" aria-selected="${p===first}" data-pouch="${p.key}">${p.name}<b>(${n})</b></button>`}).join('');
@@ -418,8 +462,8 @@ function renderItemsViewer(viewer){
     const rows=list.length?list.map(([id,cnt])=>`<li class="item-row"><span class="item-name">${escapeHtml(PK_ITEM_NAME[id]||('アイテム'+id))}</span><span class="item-count">×${cnt}</span></li>`).join(''):'<li class="item-empty">このポケットに復元できた道具はありません。</li>';
     return `<ul class="item-panel${p===first?' active':''}" role="tabpanel" data-pouch="${p.key}">${rows}</ul>`;
   }).join('');
-  viewer.innerHTML=`<div class="item-tabs" role="tablist">${tabs}</div><div class="item-panels">${panels}</div>
-    <p class="photo-note">大切なものは復元の対象外です。「道具を取り出す」で、これらを入れた main をダウンロードできます。</p>`;
+  viewer.innerHTML=moneyHtml+`<div class="item-tabs" role="tablist">${tabs}</div><div class="item-panels">${panels}</div>
+    <p class="photo-note">大切なものは復元の対象外です。「道具を取り出す」で、お金とこれらの道具を入れた main をダウンロードできます。</p>`;
   viewer.querySelectorAll('.item-tab').forEach(t=>t.addEventListener('click',()=>{
     viewer.querySelectorAll('.item-tab').forEach(x=>{const on=x===t;x.classList.toggle('active',on);x.setAttribute('aria-selected',on?'true':'false')});
     viewer.querySelectorAll('.item-panel').forEach(x=>x.classList.toggle('active',x.dataset.pouch===t.dataset.pouch));
@@ -526,7 +570,7 @@ function renderBoxViewer(){
       <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>このボックスを選択解除</button>
     </div>
     <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span></div>
-    <p class="box-help">マスをクリックすると、救出に含める/外すを切り替えられます(チェックの付いたマスが救出対象)。${outside>0?` PC ボックス外で見つかった ${outside} 匹は一覧表示にだけ表示されます。`:''}</p>`;
+    <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。${outside>0?` PC ボックス外で見つかった ${outside} 匹は一覧表示にだけ表示されます。`:''}</p>`;
   const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
   viewer.querySelector('.box-prev').addEventListener('click',()=>go(-1));
   viewer.querySelector('.box-next').addEventListener('click',()=>go(1));
@@ -683,6 +727,8 @@ async function analyze(file){
   gameEl.textContent=game;   // v22: 「(ブロック表から判定)」と入力サイズの表示は削除
   window.__boxNames=readBoxNames(input,l6);
   window.__bag=readBag(input,l6);
+  window.__money=readMoney(input,l6);
+  window.__itemsGame=l6?l6.game:null;
   updateItemsButton();
   window.__photo=readPhoto(input,l6);
   // 表示・出力の対象は完全復元のみ(振り分け結果は window.__allHits に残す)
@@ -693,7 +739,7 @@ async function analyze(file){
     if(countEl)countEl.textContent='0 匹';
     // ポケモンがいなくても写真が残っていれば表示する
     // ポケモンがいなくても、道具や写真が残っていれば表示する
-    listEl.innerHTML=(window.__bag?'<h3 class="photo-heading">道具</h3><div class="items-viewer"></div>':'')+(window.__photo?'<h3 class="photo-heading">写真</h3><div class="photo-viewer"></div>':'');
+    listEl.innerHTML=((window.__bag||window.__money)?'<h3 class="photo-heading">道具</h3><div class="items-viewer"></div>':'')+(window.__photo?'<h3 class="photo-heading">写真</h3><div class="photo-viewer"></div>':'');
     renderItemsViewer(listEl.querySelector('.items-viewer'));
     renderPhotoViewer(listEl.querySelector('.photo-viewer'));
     result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);document.getElementById('download').disabled=true;return}
@@ -742,20 +788,19 @@ download.addEventListener('click',()=>{
 // 「道具を取り出す」ボタン(v19。文言は v20 で「道具も取り出す」→「道具を取り出す」)
 const downloadItems=document.getElementById('downloadItems');
 function updateItemsButton(){
-  const bag=window.__bag;
-  if(downloadItems)downloadItems.disabled=!bag;
+  if(downloadItems)downloadItems.disabled=!(window.__bag||window.__money);
 }
 if(downloadItems)downloadItems.addEventListener('click',async()=>{
-  const bag=window.__bag;
-  if(!bag)return;
+  const bag=window.__bag,money=window.__money,game=window.__itemsGame;
+  if(!(bag||money)||!game)return;
   downloadItems.disabled=true;
   try{
-    const data=await buildItemsSave(bag);
+    const data=await buildItemsSave(bag,money,game);
     const url=URL.createObjectURL(new Blob([data],{type:'application/octet-stream'})),a=document.createElement('a');
     a.href=url;a.download='main';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    msg(`道具を入れた main をダウンロードしました(${bag.total}種)。PKHeX でこの main を開いてから boxdata.bin を読み込むと、ポケモンと道具がそろいます。`);
+    msg(`${[money?'お金':'',bag?`道具 ${bag.total}種`:''].filter(Boolean).join('と')}を入れた main をダウンロードしました。PKHeX でこの main を開いてから boxdata.bin を読み込むと、ポケモンと道具がそろいます。`);
   }catch(e){msg('道具の取り出しに失敗しました: '+e.message,true)}
-  finally{downloadItems.disabled=!window.__bag}
+  finally{updateItemsButton()}
 });
 
 // フッターにバージョンを表示する。公開中のサイトがどの版か確認できるようにするため。
