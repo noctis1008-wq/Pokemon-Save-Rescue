@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "22";
+const APP_VERSION = "23";
 const APP_VERSION_DATE = "2026-10-15";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -162,7 +162,8 @@ function readBag(input,l6){
     if(!l6.rotated&&(start<0||start+layout.len>n))continue;
     for(let i=0;i<layout.len;i++)buf[i]=input[((start+i)%n+n)%n];
     const r=parseBag(buf,layout,sets);
-    if(!best||r.valid>best.valid)best={...r,shift};
+    // 同点なら本来の位置(ずれ 0)に近いほうを採る(v23。正常なセーブで端のずらし幅を選んでいたため)
+    if(!best||r.valid>best.valid||(r.valid===best.valid&&Math.abs(shift)<Math.abs(best.shift)))best={...r,shift};
   }
   if(!best||best.valid<BAG_MIN_ENTRIES||best.valid/best.used<BAG_MIN_VALID_RATIO)return null;
   const restore={};let total=0;
@@ -298,7 +299,7 @@ function setupListResizer(list,handle){
 function renderList(hits){
   listEl.innerHTML=`
     <div class="recovery-controls">
-      <div class="selection-title"><strong>復元する個体を選択</strong><span>チェックした個体だけが boxdata.bin に含まれます。</span></div>
+      <div class="selection-title"><strong>復元する個体を選択</strong><span id="selectionSummary" class="selection-count">選択中 0 匹</span></div>
       <div class="selection-actions">
         <button type="button" class="small-button" data-action="all">すべて選択</button>
         <button type="button" class="small-button" data-action="none">すべて解除</button>
@@ -520,12 +521,25 @@ function renderBoxViewer(){
       <button type="button" class="box-next small-button" aria-label="次のボックス">▶</button>
     </div>
     <div class="box-grid${POKEMON_ICON_DIR?' with-icons':''}">${cells.join('')}</div>
-    <div class="box-legend"><span><i class="lg is-pokemon"></i>救出できる個体 ${c.pokemon}</span></div>
+    <div class="box-actions">
+      <button type="button" class="small-button" data-box-action="on"${c.pokemon?'':' disabled'}>このボックスを選択</button>
+      <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>このボックスを選択解除</button>
+    </div>
+    <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span></div>
     <p class="box-help">マスをクリックすると、救出に含める/外すを切り替えられます(チェックの付いたマスが救出対象)。${outside>0?` PC ボックス外で見つかった ${outside} 匹は一覧表示にだけ表示されます。`:''}</p>`;
   const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
   viewer.querySelector('.box-prev').addEventListener('click',()=>go(-1));
   viewer.querySelector('.box-next').addEventListener('click',()=>go(1));
   viewer.querySelector('.box-select').addEventListener('change',e=>{boxState.current=Number(e.target.value);renderBoxViewer()});
+  // このボックスの個体をまとめて選択/選択解除(v23)
+  viewer.querySelectorAll('[data-box-action]').forEach(btn=>btn.addEventListener('click',()=>{
+    const on=btn.dataset.boxAction==='on';
+    viewer.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>{
+      const cb=listEl.querySelector(`.candidate-check[data-offset="${cell.dataset.offset}"]`);
+      if(cb)cb.checked=on;
+    });
+    updateSelectionSummary();refreshBoxSelection();
+  }));
   viewer.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>cell.addEventListener('click',()=>{
     const cb=listEl.querySelector(`.candidate-check[data-offset="${cell.dataset.offset}"]`);
     if(!cb)return;
@@ -684,7 +698,6 @@ async function analyze(file){
     renderPhotoViewer(listEl.querySelector('.photo-viewer'));
     result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);document.getElementById('download').disabled=true;return}
   window.__hits=hits;window.__inputName=file.name;window.__inputSize=input.length;window.__game=game;window.__gen=scanGen;window.__input=input;
-  document.getElementById('selectionSummary').textContent=`選択中 ${hits.length} 匹`;
   renderList(hits);
   clearMsg();   // v22: 正常終了時のメッセージは出さない
   result.classList.remove('hidden');

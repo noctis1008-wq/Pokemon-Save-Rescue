@@ -177,3 +177,12 @@
 .diag-sub{display:block;margin-top:2px;font-size:12px;color:#667085}
 .diag-note{margin:8px 0 0;font-size:12px;line-height:1.6}
 @media(max-width:650px){.diag-table th{width:auto}}
+/* v23 */
+.selection-count{font-size:13px;font-weight:800;color:#344054;white-space:nowrap}
+.box-actions{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.box-actions .small-button:disabled{opacity:.45;cursor:not-allowed}
+/* 凡例: 選択中のマス(青枠+✓)= 復元する / 選択解除のマス(薄い)= 復元しない */
+.box-legend .lg{position:relative;width:22px;height:18px;border-radius:5px;vertical-align:-4px;margin-right:5px}
+.box-legend .lg.lg-on{background:#fff;border:1px solid #2e90fa;box-shadow:0 0 0 1px #2e90fa inset}
+.box-legend .lg.lg-on b{position:absolute;top:-1px;right:2px;font-size:9px;color:#2e90fa;font-style:normal}
+.box-legend .lg.lg-off{background:#fff;border:1px solid #b9c4d3;opacity:.45}
