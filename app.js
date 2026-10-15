@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "34";
+const APP_VERSION = "35";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -198,6 +198,12 @@ function readMoney(input,l6){
   const blk=l6.blocks[11];
   if(!blk||blk.len!==MISC_LEN[l6.game])return null;
   const n=input.length;let best=null;
+  // v35: ブロックの CRC が一致していれば、そのまま +0x08 を読む(ライバル名が空のセーブでも読めるように)
+  if(blk.status==='ok'){
+    const start=l6.toFile(blk.orig),get=i=>input[((start+i)%n+n)%n];
+    const m=(get(8)|(get(9)<<8)|(get(10)<<16)|(get(11)<<24))>>>0;
+    if(m<=MONEY_MAX)return {game:l6.game,money:m,shift:0};
+  }
   for(let shift=-BAG_SEARCH_RANGE;shift<=BAG_SEARCH_RANGE;shift++){
     const start=l6.toFile(blk.orig+shift);
     if(!l6.rotated&&(start<0||start+0x30>n))continue;
@@ -964,7 +970,7 @@ function renderPartyViewer(){
   const eggs=readDaycareInfo();
   if(!window.__includeEgg||window.__includeEgg.length!==eggs.length)window.__includeEgg=eggs.map(()=>true);
   const dc=B[BLK.DAYCARE],couples=dc?Math.floor(dc.len/DAYCARE_COUPLE):0;
-  const dcNames=couples>1?['117番道路','バトルリゾート']:[''];
+  const dcNames=couples>1?['117番道路','バトル<wbr>リゾート']:[''];   // v35: 狭い画面では「バトル/リゾート」で折り返す
   let daycare='';
   for(let c=0;c<couples;c++){
     const cells=[0,1].map(s=>renderSlotCell(slot(dc.orig+c*DAYCARE_COUPLE+s*DAYCARE_SLOT+8),s+1)).join('');
@@ -1182,7 +1188,7 @@ function showStructureReport(l6,size,hits){
 }
 async function analyze(file){
   result.classList.add('hidden');listEl.innerHTML='';msg('セーブデータを解析しています…');
-  const devNote=document.querySelector('.dev-note');if(devNote)devNote.remove();   // v26: 別のファイルを選んだら開発用の表示を消す
+  devBarSet(null);   // v35: 読み込むたびに開発用のチェックを外す(試験用セーブなら読み込み後に付け直す)
   const input=new Uint8Array(await file.arrayBuffer());
   let [game,gen,maxSpecies]=detectGame(input.length);
   // サイズより先にブロック表で判定する(サイズが合っていても中身が別ゲーム・回転していることがある)
@@ -1323,18 +1329,30 @@ download.addEventListener('click',async()=>{
 // 完成品として公開するときは null にし、test/ フォルダも削除すること(試験用セーブが誰でもダウンロードできてしまうため)。
 // URL に ?noautoload を付けると、一時的に自動読み込みしない。
 // ---------------------------------------------------------------------------
-const DEV_AUTOLOAD='test/main';
-(async function devAutoload(){
-  if(!DEV_AUTOLOAD||/[?&]noautoload\b/.test(location.search))return;
+// v35: XY と ORAS の試験用セーブを切り替えられるように(開発用の帯のチェックボックス)。最初は XY を読み込む。
+const DEV_AUTOLOAD={XY:'test/main',ORAS:'test/main_oras'};
+async function devLoad(key){
+  const path=DEV_AUTOLOAD&&DEV_AUTOLOAD[key];
+  if(!path)return;
   try{
-    const res=await fetch(DEV_AUTOLOAD,{cache:'no-store'});
-    if(!res.ok)return;
-    const file=new File([await res.arrayBuffer()],DEV_AUTOLOAD.split('/').pop());
-    await analyze(file);
-    const note=document.createElement('div');note.className='dev-note';
-    note.textContent='開発用: 試験用セーブ('+DEV_AUTOLOAD+')を自動で読み込んでいます。';
-    result.prepend(note);
+    const res=await fetch(path,{cache:'no-store'});
+    if(!res.ok){msg(`試験用セーブ(${path})を読み込めませんでした。`,true);return}
+    await analyze(new File([await res.arrayBuffer()],path.split('/').pop()));
+    devBarSet(key);
   }catch(e){console.warn('自動読み込みに失敗しました',e)}
+}
+function devBarSet(key){document.querySelectorAll('.dev-bar input').forEach(cb=>{cb.checked=cb.dataset.dev===key})}
+(function devAutoload(){
+  if(!DEV_AUTOLOAD)return;
+  const bar=document.createElement('div');bar.className='dev-bar';
+  bar.innerHTML=`<span>開発用: 試験用セーブ</span>${Object.keys(DEV_AUTOLOAD).map(k=>`<label><input type="checkbox" data-dev="${k}">${k==='XY'?'X・Y':'ORAS'}</label>`).join('')}`;
+  statusEl.parentNode.insertBefore(bar,statusEl);
+  bar.querySelectorAll('input').forEach(cb=>cb.addEventListener('change',()=>{
+    if(!cb.checked){cb.checked=true;return}   // 片方は必ず選ばれている(自分のファイルを選んだときだけ両方外れる)
+    devLoad(cb.dataset.dev);
+  }));
+  if(/[?&]noautoload\b/.test(location.search))return;
+  devLoad('XY');
 })();
 
 // フッターにバージョンを表示する。公開中のサイトがどの版か確認できるようにするため。
