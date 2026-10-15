@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "24";
+const APP_VERSION = "26";
 const APP_VERSION_DATE = "2026-10-15";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -212,8 +212,49 @@ function bagSummaryText(bag){
   const parts=BAG_LAYOUT[bag.game].pouches.filter(p=>p.restore).map(p=>`${p.name} ${bag.pouches[p.key].length}種`);
   return `取り出せる道具: ${parts.join('・')}(大切なものは対象外)`;
 }
-// 空のセーブにバッグを書き込み、バッグのブロックのチェックサムを直して返す
-async function buildItemsSave(bag,money,game){
+// ---------------------------------------------------------------------------
+// 手持ち・バトルボックス・育て屋(v25)。ブロック ID と形式は PKHeX SaveBlockAccessor6XY / 6AO と同じ。
+//   手持ち(ID 18): 0x104 バイト × 6。先頭 232 バイトが PK6、続く 28 バイトが戦闘用の値(0xE8 から EC を種にもう一度暗号化)。匹数は +0x618
+//   バトルボックス(ID 13): PK6 232 バイト × 6
+//   育て屋(ID 38): 1 か所 0x1F0 = 枠 240 バイト × 2(預け中 u32 / 預けてから得た EXP u32 / PK6 232)+ 0x1E0 タマゴあり + 0x1E8 乱数 u64
+//                  XY は 1 か所、ORAS は 2 か所(0x3E0)
+// スキャンで見つかった個体の位置が、これらの枠の位置にぴったり合うものだけを対象にする(ずれの補正はしない)。
+// ---------------------------------------------------------------------------
+const BLK={BAG:1,MISC:11,BOXLAYOUT:12,BATTLE:13,PARTY:18,DAYCARE:38};
+const PARTY_SIZE=0x104,PARTY_COUNT_OFF=0x618,DAYCARE_SLOT=240,DAYCARE_COUPLE=0x1F0;
+function getSpecialLocation(q){
+  const l6=window.__layout6;
+  if(!l6)return null;
+  const orig=l6.toOrig(q.offset),B=l6.blocks;
+  const rel=id=>B[id]?orig-B[id].orig:-1;
+  let r=rel(BLK.PARTY);
+  if(r>=0&&r<PARTY_SIZE*6&&r%PARTY_SIZE===0)return {kind:'party',index:r/PARTY_SIZE,label:'手持ち'};
+  r=rel(BLK.BATTLE);
+  if(r>=0&&r<232*6&&r%232===0)return {kind:'battle',index:r/232,label:'バトルボックス'};
+  r=rel(BLK.DAYCARE);
+  if(r>=0&&B[BLK.DAYCARE]&&r<B[BLK.DAYCARE].len){
+    const couple=Math.floor(r/DAYCARE_COUPLE),rr=r%DAYCARE_COUPLE;
+    if(rr<DAYCARE_SLOT*2&&rr%DAYCARE_SLOT===8)return {kind:'daycare',couple,index:(rr-8)/DAYCARE_SLOT,label:'育て屋'};
+  }
+  return null;
+}
+function readRaw(input,off,len){
+  const n=input.length,out=new Uint8Array(len);
+  for(let i=0;i<len;i++)out[i]=input[((off+i)%n+n)%n];
+  return out;
+}
+// 手持ちの戦闘用の値が使えるか。レベルが経験値から求めたものと同じで、HP・能力値が妥当なら使う。
+function partyStatsValid(raw,q){
+  const b=new Uint8Array(raw);crypt(b,0xE8,PARTY_SIZE,q.ec);   // 戦闘用の値は 0xE8 から EC で暗号化し直されている(PKHeX PokeCrypto)
+  const lv=pkLevel(q.species,u32(q.data,0x10));
+  if(lv===null||b[0xEC]!==lv)return false;
+  const cur=u16(b,0xF0),max=u16(b,0xF2);
+  if(max<1||cur>max)return false;
+  for(let o=0xF4;o<=0xFC;o+=2){const v=u16(b,o);if(v<1||v>999)return false}
+  return true;
+}
+// 空のセーブを読み込んで検査する
+async function loadTemplate(game){
   const path=ITEM_TEMPLATE[game];
   if(!path)throw new Error('このゲーム用の空のセーブが設定されていません。');
   let res;
@@ -223,28 +264,119 @@ async function buildItemsSave(bag,money,game){
   if(t.length!==SAVE[game])throw new Error('空のセーブのサイズが想定と違います。');
   const tl=findGen6Layout(t);
   if(!tl||tl.game!==game||((tl.shift%tl.saveSize)+tl.saveSize)%tl.saveSize!==0)throw new Error('空のセーブの構造が想定と違います。');
-  const out=t.slice();
-  // ブロックを書き換えたら、フッターのブロック表にある CRC16 を更新する(マジックの 4 バイト後から 8 バイトずつ: 長さ u32, ID u16, CRC u16)
-  const fixCrc=(id,b)=>{const crc=crc16ccitt(i=>out[b.orig+i],b.len),e=tl.footerFile+0x10+4+id*8;out[e+6]=crc&255;out[e+7]=crc>>8};
+  return {t,tl};
+}
+// 空のセーブに、選んだポケモン・道具・お金を書き込んだ main を作る(v25。v19〜v24 の buildItemsSave を拡張)。
+// opts: {game, bag, money, selected(一覧で選んだ個体), input(読み込んだセーブ), l6(そのブロック表)}
+async function buildRescueMain(opts){
+  const {game,bag,money,selected=[],input,l6}=opts;
+  const {t,tl}=await loadTemplate(game);
+  const out=t.slice(),changed=new Set(),report={pc:0,party:0,battle:0,daycare:0,partyToBox:0,skipped:0};
+  const blk=id=>{const b=tl.blocks[id];if(!b)throw new Error('空のセーブのブロック表が想定と違います。');return b};
+  const put32=(o,v)=>{out[o]=v&255;out[o+1]=(v>>>8)&255;out[o+2]=(v>>>16)&255;out[o+3]=(v>>>24)&255};
+  // --- お金(v24)
   if(money){
-    const mb=tl.blocks[11];
-    if(!mb||mb.len!==MISC_LEN[game])throw new Error('空のセーブのお金の位置が想定と違います。');
-    const v=Math.min(money.money,MONEY_MAX)>>>0;
-    out[mb.orig+8]=v&255;out[mb.orig+9]=(v>>8)&255;out[mb.orig+10]=(v>>16)&255;out[mb.orig+11]=(v>>>24)&255;
-    fixCrc(11,mb);
+    const mb=blk(BLK.MISC);
+    if(mb.len!==MISC_LEN[game])throw new Error('空のセーブのお金の位置が想定と違います。');
+    put32(mb.orig+8,Math.min(money.money,MONEY_MAX)>>>0);changed.add(BLK.MISC);
   }
-  if(!bag)return out;
-  const layout=BAG_LAYOUT[game],blk=tl.blocks[1];
-  if(!blk||blk.len!==layout.len)throw new Error('空のセーブのバッグの位置が想定と違います。');
-  for(const pc of layout.pouches){
-    if(!pc.restore)continue;                       // 大切なものは空のセーブのまま
-    const base=blk.orig+pc.off,list=bag.pouches[pc.key]||[];
-    out.fill(0,base,base+pc.size);
-    const slots=Math.floor(pc.size/4);
-    list.slice(0,slots).forEach(([id,cnt],i)=>{const o=base+i*4;out[o]=id&255;out[o+1]=id>>8;out[o+2]=cnt&255;out[o+3]=cnt>>8});
+  // --- 道具(v19)。大切なものは空のセーブのまま
+  if(bag){
+    const layout=BAG_LAYOUT[game],bb=blk(BLK.BAG);
+    if(bb.len!==layout.len)throw new Error('空のセーブのバッグの位置が想定と違います。');
+    for(const pc of layout.pouches){
+      if(!pc.restore)continue;
+      const base=bb.orig+pc.off,list=bag.pouches[pc.key]||[];
+      out.fill(0,base,base+pc.size);
+      list.slice(0,Math.floor(pc.size/4)).forEach(([id,cnt],i)=>{const o=base+i*4;out[o]=id&255;out[o+1]=id>>8;out[o+2]=cnt&255;out[o+3]=cnt>>8});
+    }
+    changed.add(BLK.BAG);
   }
-  fixCrc(1,blk);
-  return out;
+  if(selected.length){
+    const pcb=tl.blocks.find(b=>b.len===0x34AD0);
+    if(!pcb)throw new Error('空のセーブのボックスの位置が想定と違います。');
+    const used=new Set();let maxBox=0;
+    const party=[],partyToBox=[];
+    // --- PC ボックス: 元のボックス・番号へ
+    for(const q of selected){
+      const sp=getSpecialLocation(q);
+      if(sp){q.__sp=sp;continue}
+      const loc=getLocation(q,window.__game,6);
+      if(loc.box===null||!loc.aligned){report.skipped++;continue}
+      const slot=(loc.box-1)*30+(loc.slot-1);
+      if(used.has(slot)){report.skipped++;continue}
+      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.pc++;maxBox=Math.max(maxBox,loc.box);
+    }
+    // --- 手持ち: 元の順番で詰める。戦闘用の値が壊れていれば手持ちには入れず、空いているボックスへ
+    for(const q of selected.filter(q=>q.__sp&&q.__sp.kind==='party').sort((a,b)=>a.__sp.index-b.__sp.index)){
+      const raw=readRaw(input,q.offset,PARTY_SIZE);
+      if(partyStatsValid(raw,q))party.push(raw);else partyToBox.push(q);
+    }
+    if(party.length){
+      const pb=blk(BLK.PARTY);
+      const empty=out.slice(pb.orig+5*PARTY_SIZE,pb.orig+6*PARTY_SIZE);   // 空のセーブの 6 番目(空き)の形
+      for(let i=0;i<6;i++)out.set(i<party.length?party[i]:empty,pb.orig+i*PARTY_SIZE);
+      out[pb.orig+PARTY_COUNT_OFF]=party.length;changed.add(BLK.PARTY);report.party=party.length;
+    }
+    // --- バトルボックス: 元の番号へ
+    const bt=selected.filter(q=>q.__sp&&q.__sp.kind==='battle');
+    if(bt.length){
+      const b=blk(BLK.BATTLE);
+      for(const q of bt){out.set(encryptPK(q.data),b.orig+q.__sp.index*232);report.battle++}
+      changed.add(BLK.BATTLE);
+    }
+    // --- 育て屋: 元の枠に「預け中」として。預けてから得た経験値・タマゴ・乱数は、元の育て屋のブロックが無事なときだけ引き継ぐ
+    const dc=selected.filter(q=>q.__sp&&q.__sp.kind==='daycare');
+    if(dc.length){
+      const b=blk(BLK.DAYCARE),src=l6&&l6.blocks[BLK.DAYCARE],srcOk=!!(src&&src.status==='ok'&&src.len===b.len);
+      const srcBytes=srcOk?readBlockBytes(input,l6,src):null;
+      for(const q of dc){
+        const c=q.__sp.couple,base=b.orig+c*DAYCARE_COUPLE+q.__sp.index*DAYCARE_SLOT;
+        if(c*DAYCARE_COUPLE+DAYCARE_SLOT*2>b.len){report.skipped++;continue}
+        put32(base,1);
+        put32(base+4,srcBytes?u32(srcBytes,c*DAYCARE_COUPLE+q.__sp.index*DAYCARE_SLOT+4):0);
+        out.set(encryptPK(q.data),base+8);report.daycare++;
+      }
+      if(srcBytes){
+        for(let c=0;c*DAYCARE_COUPLE<b.len;c++){
+          // その育て屋で預け中だった個体がすべて書き込めたときだけ、タマゴと乱数も引き継ぐ
+          const occ=[0,1].filter(s=>srcBytes[c*DAYCARE_COUPLE+s*DAYCARE_SLOT]===1);
+          const done=occ.every(s=>dc.some(q=>q.__sp.couple===c&&q.__sp.index===s));
+          if(!occ.length||!done)continue;
+          const cb=b.orig+c*DAYCARE_COUPLE;
+          out[cb+0x1E0]=srcBytes[c*DAYCARE_COUPLE+0x1E0];
+          out.set(srcBytes.subarray(c*DAYCARE_COUPLE+0x1E8,c*DAYCARE_COUPLE+0x1F0),cb+0x1E8);
+        }
+      }
+      changed.add(BLK.DAYCARE);
+    }
+    // --- 戦闘用の値が壊れていた手持ちは、空いているボックスの先頭から
+    for(const q of partyToBox){
+      let slot=-1;
+      for(let i=0;i<31*30;i++)if(!used.has(i)&&isEmptySlot(out.subarray(pcb.orig+i*232,pcb.orig+i*232+232))){slot=i;break}
+      if(slot<0){report.skipped++;continue}
+      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.partyToBox++;maxBox=Math.max(maxBox,Math.floor(slot/30)+1);
+    }
+    for(const q of selected)delete q.__sp;
+    if(used.size)changed.add(pcb.id);
+    // --- ボックス名・壁紙: 元のブロックが無事なら丸ごと、名前だけ読めたなら名前だけ。
+    // 空のセーブは使えるボックスが 7 個なので、書き込んだボックスまで使えるようにする(+0x43E)。
+    const lb=tl.blocks.find(b=>b.len===0x440),src=l6&&l6.blocks.find(b=>b.len===0x440);
+    if(lb){
+      if(src&&src.status==='ok'){const sb=readBlockBytes(input,l6,src);if(sb)out.set(sb,lb.orig)}
+      else if(window.__boxNames){
+        window.__boxNames.forEach((name,i)=>{const o=lb.orig+i*0x22;out.fill(0,o,o+0x22);for(let k=0;k<Math.min(name.length,16);k++){const c=name.charCodeAt(k);out[o+k*2]=c&255;out[o+k*2+1]=c>>8}});
+      }
+      if(out[lb.orig+0x43E]<maxBox)out[lb.orig+0x43E]=maxBox;
+      changed.add(lb.id);
+    }
+  }
+  // 書き換えたブロックの CRC16 をフッターのブロック表に書く(マジックの 4 バイト後から 8 バイトずつ: 長さ u32, ID u16, CRC u16)
+  for(const id of changed){
+    const b=tl.blocks[id],crc=crc16ccitt(i=>out[b.orig+i],b.len),e=tl.footerFile+0x10+4+id*8;
+    out[e+6]=crc&255;out[e+7]=crc>>8;
+  }
+  return {data:out,report};
 }
 function hex(n,w=5){return '0x'+(n>>>0).toString(16).toUpperCase().padStart(w,'0')}
 function blockAt(layout,orig){return layout?layout.blocks.find(b=>orig>=b.orig&&orig<b.orig+b.len):null}
@@ -447,7 +579,7 @@ function readPhoto(input,l6){
 }
 // ---------------------------------------------------------------------------
 // 道具タブ(v20)。復元したバッグを、ポケット(道具/技マシン/薬/木の実)ごとのタブで表示する。
-// 表示するのは「道具を取り出す」で main に書き込む内容と同じ(大切なものは含めない)。
+// 表示するのは「main を作る」で main に書き込む内容と同じ(大切なものは含めない)。
 // ---------------------------------------------------------------------------
 function renderItemsViewer(viewer){
   if(!viewer)return;
@@ -463,7 +595,7 @@ function renderItemsViewer(viewer){
     return `<ul class="item-panel${p===first?' active':''}" role="tabpanel" data-pouch="${p.key}">${rows}</ul>`;
   }).join('');
   viewer.innerHTML=moneyHtml+`<div class="item-tabs" role="tablist">${tabs}</div><div class="item-panels">${panels}</div>
-    <p class="photo-note">大切なものは復元の対象外です。「道具を取り出す」で、お金とこれらの道具を入れた main をダウンロードできます。</p>`;
+    <p class="photo-note">大切なものは復元の対象外です。「main を作る」で、選んだポケモンと一緒にお金とこれらの道具を入れた main をダウンロードできます。</p>`;
   viewer.querySelectorAll('.item-tab').forEach(t=>t.addEventListener('click',()=>{
     viewer.querySelectorAll('.item-tab').forEach(x=>{const on=x===t;x.classList.toggle('active',on);x.setAttribute('aria-selected',on?'true':'false')});
     viewer.querySelectorAll('.item-panel').forEach(x=>x.classList.toggle('active',x.dataset.pouch===t.dataset.pouch));
@@ -489,6 +621,8 @@ function blankSlotBytes(){
 }
 function isEmptySlot(raw){
   if(raw.every(v=>v===0))return true;
+  // v25: ゲームの空きスロットは EC=0・種族 0 のデータ(ニックネーム欄に「タマゴ」などが入っていることがある)
+  if(u32(raw,0)===0){const d=new Uint8Array(raw.subarray(0,232));crypt(d,8,232,0);if(u16(d,8)===0)return true}
   const blank=blankSlotBytes();
   for(let i=0;i<232;i++)if(raw[i]!==blank[i])return false;
   return true;
@@ -570,7 +704,7 @@ function renderBoxViewer(){
       <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>このボックスを選択解除</button>
     </div>
     <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span></div>
-    <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。${outside>0?` PC ボックス外で見つかった ${outside} 匹は一覧表示にだけ表示されます。`:''}</p>`;
+    <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。${outside>0?` 手持ち・バトルボックス・育て屋など、ボックスの外にいる ${outside} 匹は一覧表示にだけ表示されます。`:''}</p>`;
   const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
   viewer.querySelector('.box-prev').addEventListener('click',()=>go(-1));
   viewer.querySelector('.box-next').addEventListener('click',()=>go(1));
@@ -668,13 +802,14 @@ function renderCandidate(p){
   // 色違いアイコンの枠は全行に置く(色違いでなければ空)。名前の開始位置がずれないようにするため
   const shinyMark=`<span class="pk-shiny">${s.shiny?`<img src="${SHINY_ICON}" alt="色違い" title="色違い" width="16" height="16">`:''}</span>`;
   const genderCls=s.gender==='♂'?'male':s.gender==='♀'?'female':'';
+  const sp=getSpecialLocation(p),place=sp?sp.label:'';   // v25: ボックスの外にいる個体は場所を添える
   return `<label class="candidate pk-row"><input class="candidate-check" type="checkbox" data-offset="${p.offset}" data-ec="${p.ec}" checked>`+
     renderBall(s)+
     `<span class="pk-name">${shinyMark}<span class="pk-name-text">${escapeHtml(s.name)}</span></span>`+
     `<span class="pk-gender ${genderCls}">${s.gender?s.gender+'\uFE0E':''}</span>`+
     `<span class="pk-level">${s.isEgg?'タマゴ':s.level!==null?'Lv.'+s.level:''}</span>`+
     `<span class="pk-sub"><span class="pk-ot" title="${escapeHtml(s.ot)}"><span class="pk-lbl">親名：</span>${escapeHtml(s.ot)}</span>`+
-    `<span class="pk-ability"><span class="pk-lbl">特性：</span>${escapeHtml(s.ability)}</span></span></label>`;
+    `<span class="pk-ability"><span class="pk-lbl">特性：</span>${escapeHtml(s.ability)}${place?`<span class="pk-place">${place}</span>`:''}</span></span></label>`;
 }
 function updateSelectionSummary(){
   const checks=[...listEl.querySelectorAll('.candidate-check')];
@@ -684,6 +819,7 @@ function updateSelectionSummary(){
   if(button)button.disabled=selected===0;
   const summary=document.getElementById('selectionSummary');
   if(summary)summary.textContent=`選択中 ${selected} 匹`;
+  updateItemsButton();
 }
 // セーブ構造の診断。ブロック表が見つかれば、ゲーム・ずれ・ブロックごとの生存状況を出す。
 function showStructureReport(l6,size,hits){
@@ -712,6 +848,7 @@ function showStructureReport(l6,size,hits){
 }
 async function analyze(file){
   result.classList.add('hidden');listEl.innerHTML='';msg('セーブデータを解析しています…');
+  const devNote=document.querySelector('.dev-note');if(devNote)devNote.remove();   // v26: 別のファイルを選んだら開発用の表示を消す
   const input=new Uint8Array(await file.arrayBuffer());
   let [game,gen,maxSpecies]=detectGame(input.length);
   // サイズより先にブロック表で判定する(サイズが合っていても中身が別ゲーム・回転していることがある)
@@ -729,6 +866,7 @@ async function analyze(file){
   window.__bag=readBag(input,l6);
   window.__money=readMoney(input,l6);
   window.__itemsGame=l6?l6.game:null;
+  window.__input=input;window.__hits=[];
   updateItemsButton();
   window.__photo=readPhoto(input,l6);
   // 表示・出力の対象は完全復元のみ(振り分け結果は window.__allHits に残す)
@@ -742,6 +880,7 @@ async function analyze(file){
     listEl.innerHTML=((window.__bag||window.__money)?'<h3 class="photo-heading">道具</h3><div class="items-viewer"></div>':'')+(window.__photo?'<h3 class="photo-heading">写真</h3><div class="photo-viewer"></div>':'');
     renderItemsViewer(listEl.querySelector('.items-viewer'));
     renderPhotoViewer(listEl.querySelector('.photo-viewer'));
+    updateItemsButton();
     result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);document.getElementById('download').disabled=true;return}
   window.__hits=hits;window.__inputName=file.name;window.__inputSize=input.length;window.__game=game;window.__gen=scanGen;window.__input=input;
   renderList(hits);
@@ -781,27 +920,66 @@ download.addEventListener('click',()=>{
     const blob=new Blob([data],{type:'application/octet-stream'});
     if(window.NERCounter)window.NERCounter.countRescue();
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='boxdata.bin';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    msg(`boxdata.bin をダウンロードしました。選択 ${selected.length} 匹中 ${placed} 匹を元のボックス位置に配置しました${unknown?`。位置を特定できない ${unknown} 匹は安全のため未配置`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。`);
+    msg(`boxdata.bin をダウンロードしました。選択 ${selected.length} 匹中 ${placed} 匹を元のボックス位置に配置しました${unknown?`。ボックスの外(手持ち・バトルボックス・育て屋など)にいる ${unknown} 匹は boxdata.bin には入りません(「main を作る」で入ります)`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。`);
   }catch(e){msg('boxdata.bin の作成に失敗しました: '+e.message,true)}
 });
 
-// 「道具を取り出す」ボタン(v19。文言は v20 で「道具も取り出す」→「道具を取り出す」)
+// 「main を作る」ボタン(v25。v19〜v24 は「道具を取り出す」で道具とお金だけだった)
+// 空のセーブに、一覧で選んだポケモン(ボックス・手持ち・バトルボックス・育て屋)と道具・お金を書き込んだ main を出力する。
 const downloadItems=document.getElementById('downloadItems');
+function selectedHits(){
+  const out=[];
+  for(const cb of listEl.querySelectorAll('.candidate-check'))if(cb.checked){const q=(window.__hits||[]).find(h=>h.offset===Number(cb.dataset.offset)&&String(h.ec)===cb.dataset.ec);if(q)out.push(q)}
+  return out;
+}
 function updateItemsButton(){
-  if(downloadItems)downloadItems.disabled=!(window.__bag||window.__money);
+  if(!downloadItems)return;
+  const any=!!(window.__bag||window.__money)||listEl.querySelector('.candidate-check:checked');
+  downloadItems.disabled=!(window.__itemsGame&&any);
 }
 if(downloadItems)downloadItems.addEventListener('click',async()=>{
-  const bag=window.__bag,money=window.__money,game=window.__itemsGame;
-  if(!(bag||money)||!game)return;
+  const bag=window.__bag,money=window.__money,game=window.__itemsGame,selected=selectedHits();
+  if(!game||!(bag||money||selected.length))return;
   downloadItems.disabled=true;
   try{
-    const data=await buildItemsSave(bag,money,game);
+    const {data,report:r}=await buildRescueMain({game,bag,money,selected,input:window.__input,l6:window.__layout6});
     const url=URL.createObjectURL(new Blob([data],{type:'application/octet-stream'})),a=document.createElement('a');
     a.href=url;a.download='main';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    msg(`${[money?'お金':'',bag?`道具 ${bag.total}種`:''].filter(Boolean).join('と')}を入れた main をダウンロードしました。PKHeX でこの main を開いてから boxdata.bin を読み込むと、ポケモンと道具がそろいます。`);
-  }catch(e){msg('道具の取り出しに失敗しました: '+e.message,true)}
+    const placed=r.pc+r.party+r.battle+r.daycare+r.partyToBox;
+    if(placed&&window.NERCounter)window.NERCounter.countRescue();
+    const parts=[];
+    if(r.pc)parts.push(`ボックス ${r.pc}匹`);
+    if(r.party)parts.push(`手持ち ${r.party}匹`);
+    if(r.battle)parts.push(`バトルボックス ${r.battle}匹`);
+    if(r.daycare)parts.push(`育て屋 ${r.daycare}匹`);
+    if(bag)parts.push(`道具 ${bag.total}種`);
+    if(money)parts.push('お金');
+    let t=`main をダウンロードしました(${parts.join('・')})。PKHeX でこの main を開くと、そのまま確認できます。`;
+    if(r.partyToBox)t+=` 手持ちのうち ${r.partyToBox}匹は戦闘用のデータが壊れていたため、空いているボックスに入れました。`;
+    if(r.skipped)t+=` ボックス・手持ち・バトルボックス・育て屋以外の場所で見つかった(または位置が重なる) ${r.skipped}匹は入れていません。`;
+    msg(t);
+  }catch(e){msg('main の作成に失敗しました: '+e.message,true)}
   finally{updateItemsButton()}
 });
+
+// ---------------------------------------------------------------------------
+// 開発中の自動読み込み(v26)。DEV_AUTOLOAD にファイルの場所を書くと、ページを開いた時点でそのセーブを読み込む。
+// 完成品として公開するときは null にし、test/ フォルダも削除すること(試験用セーブが誰でもダウンロードできてしまうため)。
+// URL に ?noautoload を付けると、一時的に自動読み込みしない。
+// ---------------------------------------------------------------------------
+const DEV_AUTOLOAD='test/main';
+(async function devAutoload(){
+  if(!DEV_AUTOLOAD||/[?&]noautoload\b/.test(location.search))return;
+  try{
+    const res=await fetch(DEV_AUTOLOAD,{cache:'no-store'});
+    if(!res.ok)return;
+    const file=new File([await res.arrayBuffer()],DEV_AUTOLOAD.split('/').pop());
+    await analyze(file);
+    const note=document.createElement('div');note.className='dev-note';
+    note.textContent='開発用: 試験用セーブ('+DEV_AUTOLOAD+')を自動で読み込んでいます。';
+    result.prepend(note);
+  }catch(e){console.warn('自動読み込みに失敗しました',e)}
+})();
 
 // フッターにバージョンを表示する。公開中のサイトがどの版か確認できるようにするため。
 (function showVersion(){

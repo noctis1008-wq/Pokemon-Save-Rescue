@@ -7,13 +7,13 @@
 <title>ポケモン破損セーブ救出 | NER Pokémon Recovery</title>
 <!-- 末尾の ?v= はブラウザのキャッシュ対策。app.js の APP_VERSION を上げたら、
      index.html と privacy.html のこの数字も同じ値に揃えること。 -->
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
 <main class="wrap">
 <section class="hero">
 <p class="eyebrow">POKÉMON SAVE RECOVERY</p>
-<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=24" type="image/webp"><img src="img/logo.png?v=24" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
+<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=26" type="image/webp"><img src="img/logo.png?v=26" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
 <p class="lead">破損したポケモンのセーブデータをブラウザ内で解析し、内部に残っている個体データを抽出し、PKHeXでボックス情報として読み込める <code>boxdata.bin</code> にまとめます。抽出したデータは、PKHeXで元のボックス位置を維持した1つの <code>boxdata.bin</code> として保存できます。</p>
 </section>
 <section class="card">
@@ -31,25 +31,25 @@
 <div id="list" class="pokemon-list"></div>
 <div class="action-buttons">
 <button id="download" class="button">ポケモンを救出する</button>
-<button id="downloadItems" class="button button-secondary" disabled>道具を取り出す</button>
+<button id="downloadItems" class="button button-secondary" disabled>main を作る<span class="btn-sub">ポケモン・道具・お金</span></button>
 </div>
 <div class="pkhex-howto"><strong>PKHeX での読み込み方</strong>
 <ol><li>PKHeX で <b>同じゲーム(X・Y なら X・Y、ORAS なら ORAS)のセーブ</b>を先に開きます。セーブを開いていない状態や、別の世代のセーブを開いた状態では「サポートされていないファイルの種類/サイズ」と表示されて読み込めません。</li>
 <li>その状態で <code>boxdata.bin</code> を PKHeX のウィンドウにドラッグ＆ドロップします(「ファイル」→「開く」でも可)。</li>
-<li>「道具を取り出す」で <code>main</code> をダウンロードした場合は、手順1でその <code>main</code> を開いてから <code>boxdata.bin</code> を読み込むと、ポケモンと道具がそろいます。</li>
+<li>「main を作る」でダウンロードした <code>main</code> には、選んだポケモン(ボックス・手持ち・バトルボックス・育て屋)と道具・お金が入っています。PKHeX でこの <code>main</code> を開くだけで確認でき、<code>boxdata.bin</code> の読み込みは要りません。この <code>main</code> は救出用の空のセーブ(別のトレーナー)をもとにしているので、ポケモンは PKHeX などで自分のセーブへ移してください。</li>
 <li><b>PC ボックス 31 個がまるごと置き換わります。</b>空きスロットも空で上書きされるため、必ずバックアップを取ったセーブか、救出用の予備セーブで行ってください。</li></ol></div>
 </div>
 </section>
 <section class="info">
 <h2>対応予定・現在の対応</h2>
-<ul><li><strong>第6世代：X / Y / オメガルビー / アルファサファイア</strong>（PKHeX用 boxdata.bin（複数ボックスを1ファイルに保持））</li><li><strong>道具の取り出し</strong>：バッグの道具・技マシン・薬・木の実が残っていれば、それを入れた <code>main</code> を出力します（大切なものは対象外）。PKHeX でこの <code>main</code> を開いてから <code>boxdata.bin</code> を読み込むと、ポケモンと道具がそろいます。</li><li>正常なセーブだけでなく、セーブ全体のチェックサムが壊れている場合でも内部をスキャンします。</li><li>処理はすべてブラウザ内で行われ、セーブデータはサーバーへ送信されません。</li></ul>
+<ul><li><strong>第6世代：X / Y / オメガルビー / アルファサファイア</strong>（PKHeX用 boxdata.bin（複数ボックスを1ファイルに保持））</li><li><strong>main の作成</strong>：選んだポケモン（ボックス・手持ち・バトルボックス・育て屋）と、残っていたお金・バッグの道具・技マシン・薬・木の実をまとめて入れた <code>main</code> を出力します（大切なものは対象外）。</li><li>正常なセーブだけでなく、セーブ全体のチェックサムが壊れている場合でも内部をスキャンします。</li><li>処理はすべてブラウザ内で行われ、セーブデータはサーバーへ送信されません。</li></ul>
 <h2>重要</h2>
 <p class="note">これは「セーブを修復して元に戻す」ツールではなく、<strong>残存しているポケモン個体データを救出するためのツール</strong>です。検出結果には、チェックサムなどの内部構造がすべて一致した「完全な状態の個体」だけを表示します。復元に含める個体はユーザー自身がチェックボックスで選択できます。</p>
 <p class="note">検出されたデータは、内部構造・チェックサムなどを検証したうえで出力します。最終的な利用可否はPKHeX等でも確認してください。</p>
 </section>
 <footer><a href="../">NER Converter</a> · <a href="privacy.html">プライバシーポリシー</a> · <a href="https://github.com/kwsch/PKHeX" target="_blank" rel="noopener">PKHeX reference</a></footer>
 </main>
-<script src="pkdata.js?v=24"></script>
-<script src="app.js?v=24"></script>
-<script src="counter.js?v=24"></script>
+<script src="pkdata.js?v=26"></script>
+<script src="app.js?v=26"></script>
+<script src="counter.js?v=26"></script>
 </body></html>

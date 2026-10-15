@@ -204,3 +204,9 @@
 .money-row span{color:#667085;font-size:13px;font-weight:700}
 .money-row strong{font-variant-numeric:tabular-nums}
 @media(max-width:650px){.item-panel .item-row{padding:8px 9px;font-size:13px}}
+
+/* v25: ボックスの外にいる個体の場所(手持ち・バトルボックス・育て屋) */
+.pk-place{display:inline-block;vertical-align:1px;margin-left:8px;padding:1px 6px;border-radius:999px;background:#eef2ff;color:#3538cd;font-size:11px;font-weight:700;white-space:nowrap}
+.btn-sub{display:block;margin-top:2px;font-size:12px;font-weight:700;opacity:.75}
+@media(max-width:650px){.pk-ability .pk-place{margin-left:6px}}
+.dev-note{margin-top:14px;padding:10px 13px;border-radius:12px;background:#fffaeb;color:#b54708;font-size:13px;font-weight:700;border:1px solid #fedf89}
