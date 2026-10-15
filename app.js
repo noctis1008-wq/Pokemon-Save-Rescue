@@ -7,8 +7,8 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "26";
-const APP_VERSION_DATE = "2026-10-15";
+const APP_VERSION = "31";
+const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
 const SAVE={XY:0x65600,ORAS:0x76000};   // v19: 第7世代は対象外にした
@@ -207,6 +207,85 @@ function readMoney(input,l6){
   }
   return best?{game:l6.game,money:best.money,shift:best.shift}:null;
 }
+// ---------------------------------------------------------------------------
+// 図鑑(v30)。ブロック ID 20(XY 0x6A0 / ORAS 0x11CC、PKHeX Zukan6)。
+//   +0x08 捕まえた(0x60 バイト = 768 ビット、全国図鑑番号 - 1 のビット)/ +0x68 から 見た × 4(性別・色違い別、各 0x60)/ 以降はフォルム・言語・パッチール
+// ブロックの CRC が一致すればそのまま使う。壊れていれば本来の位置 ±0x200 を 1 バイト刻みで調べ、次をすべて満たす位置を採る
+// (ORAS の実例ではお金と同じ -0x1F):
+//   ・722 番以降のビットが「捕まえた」「見た」とも 0
+//   ・「捕まえた」の種はすべて、いずれかの「見た」にも入っている
+//   ・救出できたボックス等の個体(タマゴ以外)の種の 9 割以上が「捕まえた」(種が 5 種以上あるときだけ判定。足りなければ壊れた図鑑は使わない)
+// ---------------------------------------------------------------------------
+const DEX_LEN={XY:0x6A0,ORAS:0x11CC},DEX_MAX=721,DEX_BITS=0x60;
+function dexBit(b,off,i){return (b[off+(i>>3)]>>(i&7))&1}
+function dexCheck(b,species){
+  let caught=0;
+  for(let i=0;i<DEX_BITS*8;i++){
+    const c=dexBit(b,8,i);let seen=0;
+    for(let k=0;k<4;k++)seen|=dexBit(b,0x68+k*DEX_BITS,i);
+    if(i>=DEX_MAX){if(c||seen)return null;continue}
+    if(c&&!seen)return null;
+    caught+=c;
+  }
+  if(!caught)return null;
+  let hit=0;for(const sp of species)if(dexBit(b,8,sp-1))hit++;
+  return {caught,ratio:species.size?hit/species.size:0};
+}
+function readDex(input,l6,hits){
+  if(!l6)return null;
+  const blk=l6.blocks[20],len=DEX_LEN[l6.game];
+  if(!blk||blk.len!==len)return null;
+  const species=new Set();
+  for(const h of hits){if(h.species>=1&&h.species<=DEX_MAX&&!((u32(h.data,0x74)>>>30)&1))species.add(h.species)}
+  if(blk.status==='ok'){const b=readBlockBytes(input,l6,blk);const r=b&&dexCheck(b,new Set());return b?{bytes:b,shift:0,caught:r?r.caught:0}:null}
+  if(species.size<5)return null;
+  const n=input.length;let best=null;
+  for(let shift=-BAG_SEARCH_RANGE;shift<=BAG_SEARCH_RANGE;shift++){
+    const start=l6.toFile(blk.orig+shift);
+    if(!l6.rotated&&(start<0||start+len>n))continue;
+    const b=readRaw(input,start,len),r=dexCheck(b,species);
+    if(!r||r.ratio<0.9)continue;
+    if(!best||r.ratio>best.ratio||(r.ratio===best.ratio&&Math.abs(shift)<Math.abs(best.shift)))best={bytes:b,shift,caught:r.caught,ratio:r.ratio};
+  }
+  return best;
+}
+// ---------------------------------------------------------------------------
+// トレーナー情報(v31)。ブロック ID 17(MyStatus、長さ 0x170、PKHeX MyStatus6)。
+//   +0x00 TID u16 / +0x02 SID u16 / +0x04 ゲーム / +0x05 性別 / +0x48 トレーナー名(UTF-16LE、0x1A バイト = 12 文字 + 終端)
+// CRC が一致すればそのまま使う。壊れていれば ±0x200 を探し、(TID, SID, 名前)が救出できた個体の親(+0x0C TID / +0x0E SID / +0xB0 親名)と
+// 一致する位置を採る(一致する個体がいちばん多い位置、同数なら本来の位置に近いほう)。ORAS 破損例は -0x1F(お金・図鑑と同じ)。
+// 見つからなければ null(画面では空のセーブの値を表示する)。
+// ---------------------------------------------------------------------------
+const STATUS_LEN=0x170,TRAINER_NAME_OFF=0x48,TRAINER_NAME_MAX=12;
+function readTrainerAt(get){
+  const tid=get(0)|(get(1)<<8),sid=get(2)|(get(3)<<8);
+  let name='';
+  for(let i=0;i<=TRAINER_NAME_MAX;i++){const c=get(TRAINER_NAME_OFF+i*2)|(get(TRAINER_NAME_OFF+i*2+1)<<8);if(c===0)break;if(i===TRAINER_NAME_MAX)return null;name+=String.fromCharCode(c)}
+  return {tid,sid,name,gender:get(5)};
+}
+function readTrainer(input,l6,hits){
+  if(!l6)return null;
+  const blk=l6.blocks[17];
+  if(!blk||blk.len!==STATUS_LEN)return null;
+  const n=input.length;
+  if(blk.status==='ok'){
+    const start=l6.toFile(blk.orig),t=readTrainerAt(i=>input[((start+i)%n+n)%n]);
+    return t&&isPlausibleName(t.name)?{...t,shift:0}:null;
+  }
+  const owners=new Map();
+  for(const h of hits){const k=`${u16(h.data,0x0C)}/${u16(h.data,0x0E)}/${pkOTName(h.data)}`;owners.set(k,(owners.get(k)||0)+1)}
+  let best=null;
+  for(let shift=-BAG_SEARCH_RANGE;shift<=BAG_SEARCH_RANGE;shift++){
+    const start=l6.toFile(blk.orig+shift);
+    if(!l6.rotated&&(start<0||start+STATUS_LEN>n))continue;
+    const t=readTrainerAt(i=>input[((start+i)%n+n)%n]);
+    if(!t||!isPlausibleName(t.name))continue;
+    const cnt=owners.get(`${t.tid}/${t.sid}/${t.name}`)||0;
+    if(!cnt)continue;
+    if(!best||cnt>best.count||(cnt===best.count&&Math.abs(shift)<Math.abs(best.shift)))best={...t,shift,count:cnt};
+  }
+  return best;
+}
 function bagSummaryText(bag){
   if(!bag)return '取り出せる道具はありませんでした。';
   const parts=BAG_LAYOUT[bag.game].pouches.filter(p=>p.restore).map(p=>`${p.name} ${bag.pouches[p.key].length}種`);
@@ -220,6 +299,7 @@ function bagSummaryText(bag){
 //                  XY は 1 か所、ORAS は 2 か所(0x3E0)
 // スキャンで見つかった個体の位置が、これらの枠の位置にぴったり合うものだけを対象にする(ずれの補正はしない)。
 // ---------------------------------------------------------------------------
+const WALLPAPER_MAX=23;   // 第6世代の壁紙は 0〜23(通常 16 + 追加 8)
 const BLK={BAG:1,MISC:11,BOXLAYOUT:12,BATTLE:13,PARTY:18,DAYCARE:38};
 const PARTY_SIZE=0x104,PARTY_COUNT_OFF=0x618,DAYCARE_SLOT=240,DAYCARE_COUPLE=0x1F0;
 function getSpecialLocation(q){
@@ -256,10 +336,11 @@ function partyStatsValid(raw,q){
 // 空のセーブを読み込んで検査する
 async function loadTemplate(game){
   const path=ITEM_TEMPLATE[game];
-  if(!path)throw new Error('このゲーム用の空のセーブが設定されていません。');
+  const noTemplate=m=>Object.assign(new Error(m),{noTemplate:true});   // v28: この場合は boxdata.bin に切り替える
+  if(!path)throw noTemplate('このゲーム用の空のセーブが設定されていません。');
   let res;
   try{res=await fetch(path,{cache:'no-store'})}catch(e){throw new Error('空のセーブを読み込めませんでした(通信エラー)。')}
-  if(!res.ok)throw new Error('このゲーム用の空のセーブがまだ設置されていません。');
+  if(!res.ok)throw noTemplate('このゲーム用の空のセーブがまだ設置されていません。');
   const t=new Uint8Array(await res.arrayBuffer());
   if(t.length!==SAVE[game])throw new Error('空のセーブのサイズが想定と違います。');
   const tl=findGen6Layout(t);
@@ -269,7 +350,7 @@ async function loadTemplate(game){
 // 空のセーブに、選んだポケモン・道具・お金を書き込んだ main を作る(v25。v19〜v24 の buildItemsSave を拡張)。
 // opts: {game, bag, money, selected(一覧で選んだ個体), input(読み込んだセーブ), l6(そのブロック表)}
 async function buildRescueMain(opts){
-  const {game,bag,money,selected=[],input,l6}=opts;
+  const {game,bag,money,selected=[],input,l6}=opts;   // opts.includeEgg: 育て屋ごとにタマゴを引き継ぐか(v29)
   const {t,tl}=await loadTemplate(game);
   const out=t.slice(),changed=new Set(),report={pc:0,party:0,battle:0,daycare:0,partyToBox:0,skipped:0};
   const blk=id=>{const b=tl.blocks[id];if(!b)throw new Error('空のセーブのブロック表が想定と違います。');return b};
@@ -279,6 +360,22 @@ async function buildRescueMain(opts){
     const mb=blk(BLK.MISC);
     if(mb.len!==MISC_LEN[game])throw new Error('空のセーブのお金の位置が想定と違います。');
     put32(mb.orig+8,Math.min(money.money,MONEY_MAX)>>>0);changed.add(BLK.MISC);
+  }
+  // --- トレーナー情報(v31): 名前・TID(・読めていれば SID)を書く
+  if(opts.trainer){
+    const sb=blk(17),t=opts.trainer;
+    if(sb.len!==STATUS_LEN)throw new Error('空のセーブのトレーナー情報の位置が想定と違います。');
+    out[sb.orig]=t.tid&255;out[sb.orig+1]=(t.tid>>8)&255;
+    if(Number.isInteger(t.sid)){out[sb.orig+2]=t.sid&255;out[sb.orig+3]=(t.sid>>8)&255}
+    const no=sb.orig+TRAINER_NAME_OFF;out.fill(0,no,no+(TRAINER_NAME_MAX+1)*2);
+    for(let i=0;i<Math.min(t.name.length,TRAINER_NAME_MAX);i++){const c=t.name.charCodeAt(i);out[no+i*2]=c&255;out[no+i*2+1]=c>>8}
+    changed.add(17);
+  }
+  // --- 図鑑(v30): ブロックごと写す
+  if(opts.dex){
+    const db=blk(20);
+    if(db.len!==opts.dex.bytes.length)throw new Error('空のセーブの図鑑の位置が想定と違います。');
+    out.set(opts.dex.bytes,db.orig);changed.add(20);
   }
   // --- 道具(v19)。大切なものは空のセーブのまま
   if(bag){
@@ -344,7 +441,8 @@ async function buildRescueMain(opts){
           const done=occ.every(s=>dc.some(q=>q.__sp.couple===c&&q.__sp.index===s));
           if(!occ.length||!done)continue;
           const cb=b.orig+c*DAYCARE_COUPLE;
-          out[cb+0x1E0]=srcBytes[c*DAYCARE_COUPLE+0x1E0];
+          // v29: タマゴは「手持ち等」タブで外せる(外したらタマゴなし)
+          out[cb+0x1E0]=(opts.includeEgg&&opts.includeEgg[c]===false)?0:srcBytes[c*DAYCARE_COUPLE+0x1E0];
           out.set(srcBytes.subarray(c*DAYCARE_COUPLE+0x1E8,c*DAYCARE_COUPLE+0x1F0),cb+0x1E8);
         }
       }
@@ -364,8 +462,15 @@ async function buildRescueMain(opts){
     const lb=tl.blocks.find(b=>b.len===0x440),src=l6&&l6.blocks.find(b=>b.len===0x440);
     if(lb){
       if(src&&src.status==='ok'){const sb=readBlockBytes(input,l6,src);if(sb)out.set(sb,lb.orig)}
-      else if(window.__boxNames){
-        window.__boxNames.forEach((name,i)=>{const o=lb.orig+i*0x22;out.fill(0,o,o+0x22);for(let k=0;k<Math.min(name.length,16);k++){const c=name.charCodeAt(k);out[o+k*2]=c&255;out[o+k*2+1]=c>>8}});
+      else{
+        if(window.__boxNames){
+          window.__boxNames.forEach((name,i)=>{const o=lb.orig+i*0x22;out.fill(0,o,o+0x22);for(let k=0;k<Math.min(name.length,16);k++){const c=name.charCodeAt(k);out[o+k*2]=c&255;out[o+k*2+1]=c>>8}});
+        }
+        // v29: 壁紙(+0x41E から 31 バイト)。ブロックが壊れていても、31 個すべてが壁紙番号(0〜23)として妥当なら写す
+        const sb=src?readBlockBytes(input,l6,src):null;
+        if(sb){const w=sb.subarray(0x41E,0x41E+31);if(w.every(v=>v<=WALLPAPER_MAX))out.set(w,lb.orig+0x41E)}
+        // 使えるボックスの数(+0x43E)も、1〜31 なら元のセーブに合わせる
+        if(sb&&sb[0x43E]>=1&&sb[0x43E]<=31&&out[lb.orig+0x43E]<sb[0x43E])out[lb.orig+0x43E]=sb[0x43E];
       }
       if(out[lb.orig+0x43E]<maxBox)out[lb.orig+0x43E]=maxBox;
       changed.add(lb.id);
@@ -481,17 +586,23 @@ function renderList(hits){
       </div>
     </div>
     <div class="view-tabs" role="tablist">
-      <button type="button" class="view-tab active" role="tab" aria-selected="true" data-view="list">一覧表示</button>
-      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="box">ボックス表示</button>
-      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="items">道具</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="list">一覧</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="party">手持ち等</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="box">ボックス</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="items">バッグ</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="dex">図鑑</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="trainer">トレーナー</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="photo">写真</button>
     </div>
-    <div class="view-panel active" data-view="list">
+    <div class="view-panel" data-view="list">
       <div class="candidate-list${BALL_IMAGE_DIR?' ball-images':''}">${renderHeader()}${hits.map(p=>renderCandidate(p)).join('')}</div>
       <div class="list-resizer" role="separator" aria-orientation="horizontal" aria-label="一覧の縦幅を変更(ドラッグ、または上下キー)" tabindex="0"><span></span></div>
     </div>
+    <div class="view-panel" data-view="party"><div class="party-viewer"></div></div>
     <div class="view-panel" data-view="box"><div class="box-viewer"></div></div>
     <div class="view-panel" data-view="items"><div class="items-viewer"></div></div>
+    <div class="view-panel" data-view="dex"><div class="dex-viewer"></div></div>
+    <div class="view-panel" data-view="trainer"><div class="trainer-viewer"></div></div>
     <div class="view-panel" data-view="photo"><div class="photo-viewer"></div></div>`;
   setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',()=>{updateSelectionSummary();refreshBoxSelection()}));
@@ -501,12 +612,16 @@ function renderList(hits){
     updateSelectionSummary();refreshBoxSelection();
   }));
   listEl.querySelectorAll('.view-tab').forEach(tab=>tab.addEventListener('click',()=>showView(tab.dataset.view)));
-  boxState.slots=buildSlotMap(hits);
-  boxState.current=firstBoxWithPokemon(boxState.slots);
+  boxState.pages=buildBoxPages(hits);
+  boxState.current=firstBoxWithPokemon(boxState.pages);
   renderBoxViewer();
+  renderPartyViewer();
   renderItemsViewer(listEl.querySelector('.items-viewer'));
+  renderDexViewer(listEl.querySelector('.dex-viewer'));
+  renderTrainerViewer(listEl.querySelector('.trainer-viewer'));
   renderPhotoViewer(listEl.querySelector('.photo-viewer'));
   updateSelectionSummary();
+  showView('box');   // v29: 読み込み直後はボックスタブ(ポケモンがいる一番若いボックス)
 }
 function showView(view){
   listEl.querySelectorAll('.view-tab').forEach(t=>{const on=t.dataset.view===view;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false')});
@@ -585,7 +700,14 @@ function renderItemsViewer(viewer){
   if(!viewer)return;
   const bag=window.__bag,money=window.__money;
   const moneyHtml=`<p class="money-row"><span>お金</span><strong>${money?'¥'+money.money.toLocaleString('ja-JP'):'読み取れませんでした'}</strong></p>`;
-  if(!bag){viewer.innerHTML=moneyHtml+'<p class="photo-note">このセーブからは道具を復元できませんでした。</p>';return}
+  // v30: 「お金を取り出す」「道具を取り出す」を別々に(道具ごとの選択はしない)
+  const tg=(cls,on,label)=>`<label class="items-toggle"><input type="checkbox" class="${cls}"${on?' checked':''}><span>${label}</span></label>`;
+  const moneyToggle=money?tg('include-money',window.__includeMoney!==false,'お金を取り出す'):'',itemsToggle=bag?tg('include-items',window.__includeItems!==false,'道具を取り出す'):'';
+  const bindToggle=()=>{
+    const ci=viewer.querySelector('.include-items');if(ci)ci.addEventListener('change',()=>{window.__includeItems=ci.checked;updateItemsButton()});
+    const cm=viewer.querySelector('.include-money');if(cm)cm.addEventListener('change',()=>{window.__includeMoney=cm.checked;updateItemsButton()});
+  };
+  if(!bag){viewer.innerHTML=moneyToggle+moneyHtml+'<p class="photo-note">このセーブからは道具を復元できませんでした。</p>';bindToggle();return}
   const pouches=BAG_LAYOUT[bag.game].pouches.filter(p=>p.restore);
   const first=pouches.find(p=>(bag.pouches[p.key]||[]).length)||pouches[0];
   const tabs=pouches.map(p=>{const n=(bag.pouches[p.key]||[]).length;return `<button type="button" class="item-tab${p===first?' active':''}" role="tab" aria-selected="${p===first}" data-pouch="${p.key}">${p.name}<b>(${n})</b></button>`}).join('');
@@ -594,12 +716,73 @@ function renderItemsViewer(viewer){
     const rows=list.length?list.map(([id,cnt])=>`<li class="item-row"><span class="item-name">${escapeHtml(PK_ITEM_NAME[id]||('アイテム'+id))}</span><span class="item-count">×${cnt}</span></li>`).join(''):'<li class="item-empty">このポケットに復元できた道具はありません。</li>';
     return `<ul class="item-panel${p===first?' active':''}" role="tabpanel" data-pouch="${p.key}">${rows}</ul>`;
   }).join('');
-  viewer.innerHTML=moneyHtml+`<div class="item-tabs" role="tablist">${tabs}</div><div class="item-panels">${panels}</div>
-    <p class="photo-note">大切なものは復元の対象外です。「main を作る」で、選んだポケモンと一緒にお金とこれらの道具を入れた main をダウンロードできます。</p>`;
+  viewer.innerHTML=moneyToggle+moneyHtml+itemsToggle+`<div class="item-tabs" role="tablist">${tabs}</div><div class="item-panels">${panels}</div>
+    <p class="photo-note">大切なものは復元の対象外です。チェックがオンのものが、「ポケモンを救出する」で作る main に入ります。</p>`;
+  bindToggle();
   viewer.querySelectorAll('.item-tab').forEach(t=>t.addEventListener('click',()=>{
     viewer.querySelectorAll('.item-tab').forEach(x=>{const on=x===t;x.classList.toggle('active',on);x.setAttribute('aria-selected',on?'true':'false')});
     viewer.querySelectorAll('.item-panel').forEach(x=>x.classList.toggle('active',x.dataset.pouch===t.dataset.pouch));
   }));
+}
+// ---------------------------------------------------------------------------
+// 図鑑タブ(v31)。読み取れた図鑑の「見た」「捕まえた」を表示し、「図鑑を復元する」で main に入れるか選ぶ。
+// ---------------------------------------------------------------------------
+function dexStatus(b){
+  const list=[];let seen=0,caught=0;
+  for(let i=0;i<DEX_MAX;i++){
+    const c=dexBit(b,8,i);let sn=0;for(let k=0;k<4;k++)sn|=dexBit(b,0x68+k*DEX_BITS,i);
+    if(c)caught++;if(c||sn)seen++;
+    if(c||sn)list.push({no:i+1,caught:!!c});
+  }
+  return {list,seen,caught};
+}
+function renderDexViewer(viewer){
+  if(!viewer)return;
+  const dex=window.__dex;
+  if(!dex){viewer.innerHTML='<p class="photo-note">このセーブからは図鑑を読み取れませんでした。救出した main の図鑑は、空のセーブのままになります。</p>';return}
+  const st=dexStatus(dex.bytes);
+  const rows=st.list.map(e=>`<li class="dex-row${e.caught?' is-caught':''}"><span class="dex-no">${String(e.no).padStart(3,'0')}</span><span class="dex-name">${escapeHtml(SPECIES[e.no]||('No.'+e.no))}</span><span class="dex-mark" title="${e.caught?'捕まえた':'見た'}" aria-label="${e.caught?'捕まえた':'見た'}">${e.caught?'●':'○'}</span></li>`).join('');
+  viewer.innerHTML=`<label class="items-toggle"><input type="checkbox" class="include-dex"${window.__includeDex!==false?' checked':''}><span>図鑑を復元する</span></label>
+    <div class="dex-summary"><div><span>見た</span><strong>${st.seen}</strong></div><div><span>捕まえた</span><strong>${st.caught}</strong></div></div>
+    <ul class="dex-list">${rows}</ul>
+    <p class="photo-note"><span class="dex-legend-caught">●</span> 捕まえた <span class="dex-legend-seen">○</span> 見た。登録されている種だけを表示しています(全国図鑑番号順)。</p>`;
+  const cb=viewer.querySelector('.include-dex');
+  cb.addEventListener('change',()=>{window.__includeDex=cb.checked;updateItemsButton()});
+}
+// ---------------------------------------------------------------------------
+// トレーナータブ(v31)。読み取れたトレーナー名と ID を初期値として入力欄に入れる。
+// 読み取れなければ空のセーブ(試験データ)の値を入れる。「トレーナー情報を復元する」がオンなら、入力欄の値を main に書く。
+// SID(裏 ID)は表示しない。読み取れていれば一緒に書き、なければ空のセーブのまま。
+// ---------------------------------------------------------------------------
+async function templateTrainer(game){
+  try{
+    const {t,tl}=await loadTemplate(game);
+    const b=tl.blocks[17];if(!b)return null;
+    return readTrainerAt(i=>t[b.orig+i]);
+  }catch(e){return null}
+}
+function renderTrainerViewer(viewer){
+  if(!viewer)return;
+  const tr=window.__trainer,game=window.__itemsGame;
+  const draw=(base,fromTemplate)=>{
+    const st=window.__trainerInput||(window.__trainerInput={name:base?base.name:'',tid:base?base.tid:0});
+    const on=window.__includeTrainer!==false;
+    viewer.innerHTML=`<label class="items-toggle"><input type="checkbox" class="include-trainer"${on?' checked':''}><span>トレーナー情報を復元する</span></label>
+      <div class="trainer-form">
+        <label><span>トレーナー名</span><input type="text" class="trainer-name" maxlength="${TRAINER_NAME_MAX}" value="${escapeHtml(st.name)}"></label>
+        <label><span>ID</span><input type="text" class="trainer-tid" inputmode="numeric" maxlength="5" value="${String(st.tid).padStart(5,'0')}"></label>
+      </div>
+      <p class="photo-note">${tr?'セーブから読み取った値です。':fromTemplate?'セーブから読み取れなかったため、救出用の空のセーブ(試験データ)の値を表示しています。':'セーブから読み取れませんでした。'}変更すると、その値が main に入ります。</p>`;
+    const cb=viewer.querySelector('.include-trainer'),nm=viewer.querySelector('.trainer-name'),id=viewer.querySelector('.trainer-tid');
+    cb.addEventListener('change',()=>{window.__includeTrainer=cb.checked;updateItemsButton()});
+    nm.addEventListener('input',()=>{st.name=nm.value});
+    id.addEventListener('input',()=>{id.value=id.value.replace(/\D/g,'').slice(0,5);st.tid=Math.min(65535,Number(id.value||0))});
+    id.addEventListener('change',()=>{id.value=String(st.tid).padStart(5,'0')});
+  };
+  if(tr){draw(tr,false);return}
+  viewer.innerHTML='<p class="photo-note">読み込み中…</p>';
+  if(!game){draw(null,false);return}
+  templateTrainer(game).then(t=>draw(t,!!t));
 }
 let photoUrl=null;
 function renderPhotoViewer(viewer){
@@ -613,7 +796,7 @@ function renderPhotoViewer(viewer){
   const img=viewer.querySelector('img');
   img.addEventListener('error',()=>{viewer.innerHTML='<p class="photo-note">写真のデータは見つかりましたが、画像として読み込めませんでした(破損している可能性があります)。</p>'});
 }
-const boxState={slots:null,current:0};
+const boxState={pages:null,current:0};
 let BLANK_SLOT=null;
 function blankSlotBytes(){
   if(BLANK_SLOT)return BLANK_SLOT;
@@ -652,46 +835,113 @@ function buildSlotMap(hits){
   }
   return slots;
 }
-function firstBoxWithPokemon(slots){
-  if(!slots)return 0;
-  const i=slots.findIndex(s=>s.status==='pokemon');
-  return i<0?0:Math.floor(i/30);
+// ---------------------------------------------------------------------------
+// ボックス表示のページ(v28)。v29 で手持ち・バトルボックス・育て屋は「手持ち等」タブ(renderPartyViewer)へ移した。
+// 各ページ = {name, slots}。slots の要素は buildSlotMap と同じ {status, hit}。
+// 手持ち・バトルボックス・育て屋の枠の位置は getSpecialLocation と同じ(ブロック ID 18 / 13 / 38)。
+// ---------------------------------------------------------------------------
+function buildBoxPages(hits){
+  const slots=buildSlotMap(hits);
+  if(!slots)return null;
+  const pages=[];
+  for(let i=0;i<slots.length/30;i++)pages.push({name:boxName(i),kind:'box',slots:slots.slice(i*30,i*30+30)});
+  return pages;
 }
-function boxCounts(slots,box){
+// ---------------------------------------------------------------------------
+// 「手持ち等」タブ(v29)。左に手持ち(横 2 × 縦 3)、中央にバトルボックス(同じ並び)、右に育て屋(縦、一番下にタマゴ)。
+// マスのクリックで救出に含めるか切り替える(ボックスと同じ)。タマゴは「育て屋でタマゴが見つかった状態」を
+// 引き継ぐかどうか(元の育て屋のブロックが無事で、タマゴありのときだけ表示)。ORAS は育て屋 2 か所を縦に並べる。
+// ---------------------------------------------------------------------------
+function readDaycareInfo(){
+  const l6=window.__layout6,input=window.__input;
+  const dc=l6&&l6.blocks[BLK.DAYCARE];
+  if(!dc)return [];
+  const ok=dc.status==='ok',b=ok?readBlockBytes(input,l6,dc):null;
+  const n=Math.floor(dc.len/DAYCARE_COUPLE),out=[];
+  for(let c=0;c<n;c++)out.push({egg:!!(b&&b[c*DAYCARE_COUPLE+0x1E0]===1)});
+  return out;
+}
+function renderPartyViewer(){
+  const viewer=listEl.querySelector('.party-viewer');
+  const l6=window.__layout6;
+  if(!viewer)return;
+  if(!l6){viewer.innerHTML='<p class="box-empty-note">このセーブでは手持ち・バトルボックス・育て屋の位置を特定できません。</p>';return}
+  const byOffset=new Map((window.__hits||[]).map(h=>[h.offset,h])),B=l6.blocks;
+  const slot=o=>{const h=byOffset.get(l6.toFile(o));return h?{status:'pokemon',hit:h}:{status:'empty'}};
+  const grid=(cls,origs)=>`<div class="party-grid ${cls}">${origs.map((o,i)=>renderSlotCell(slot(o),i+1)).join('')}</div>`;
+  const six=(blk,size)=>blk?[0,1,2,3,4,5].map(i=>blk.orig+i*size):[];
+  const eggs=readDaycareInfo();
+  if(!window.__includeEgg||window.__includeEgg.length!==eggs.length)window.__includeEgg=eggs.map(()=>true);
+  const dc=B[BLK.DAYCARE],couples=dc?Math.floor(dc.len/DAYCARE_COUPLE):0;
+  const dcNames=couples>1?['117番道路','バトルリゾート']:[''];
+  let daycare='';
+  for(let c=0;c<couples;c++){
+    const cells=[0,1].map(s=>renderSlotCell(slot(dc.orig+c*DAYCARE_COUPLE+s*DAYCARE_SLOT+8),s+1)).join('');
+    const egg=eggs[c]&&eggs[c].egg
+      ?`<button type="button" class="box-cell is-egg${window.__includeEgg[c]?' selected':''}" data-couple="${c}" aria-pressed="${window.__includeEgg[c]}" title="育て屋で見つかったタマゴ(受け取り前)"><span class="box-name">タマゴ</span><span class="box-check" aria-hidden="true">✓</span></button>`
+      :`<div class="box-cell is-empty" aria-label="タマゴなし"></div>`;
+    daycare+=`${dcNames[c]?`<div class="party-sub">${dcNames[c]}</div>`:''}<div class="party-grid daycare">${cells}${egg}</div>`;
+  }
+  viewer.innerHTML=`<div class="party-layout">
+      <section class="party-col"><h4>手持ち</h4>${grid('two',six(B[BLK.PARTY],PARTY_SIZE))}</section>
+      <section class="party-col"><h4>バトルボックス</h4>${grid('two',six(B[BLK.BATTLE],232))}</section>
+      <section class="party-col"><h4>育て屋</h4>${daycare}</section>
+    </div>
+    <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span></div>
+    <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。タマゴは、育て屋に「タマゴが見つかった」状態を引き継ぐかどうかです(預けている 2 匹も救出するときだけ引き継がれます)。</p>`;
+  bindPokemonCells(viewer);
+  viewer.querySelectorAll('.box-cell.is-egg').forEach(cell=>cell.addEventListener('click',()=>{
+    const c=Number(cell.dataset.couple);window.__includeEgg[c]=!window.__includeEgg[c];
+    cell.classList.toggle('selected',window.__includeEgg[c]);cell.setAttribute('aria-pressed',String(window.__includeEgg[c]));
+  }));
+}
+function firstBoxWithPokemon(pages){
+  if(!pages)return 0;
+  const i=pages.findIndex(p=>p.slots.some(s=>s.status==='pokemon'));
+  return i<0?0:i;
+}
+function boxCounts(page){
   const c={pokemon:0,empty:0,damaged:0,missing:0};
-  for(let i=box*30;i<box*30+30;i++)c[slots[i].status]++;
+  for(const s of page.slots)c[s.status]++;
   return c;
 }
 function isHitChecked(hit){
   const cb=listEl.querySelector(`.candidate-check[data-offset="${hit.offset}"]`);
   return cb?cb.checked:false;
 }
+// 1 マス分の HTML(v29: ボックスと「手持ち等」タブで共通)
+function renderSlotCell(s,slotNo){
+  if(s.status==='pokemon'){
+    const sm=pkSummary(s.hit);
+    const tip=`${sm.name}${sm.gender?' '+sm.gender:''} ${sm.isEgg?'タマゴ':sm.level!==null?'Lv.'+sm.level:''} / 親名: ${sm.ot} / ${sm.ability} / ${sm.ball}`;
+    const icon=POKEMON_ICON_DIR?`<img class="box-icon" src="${POKEMON_ICON_DIR}${s.hit.species}.png" alt="${escapeHtml(sm.name)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'box-name',textContent:this.alt}))">`:`<span class="box-name">${escapeHtml(sm.name)}</span>`;
+    const shinyIcon=sm.shiny?`<img class="box-shiny" src="${SHINY_ICON}" alt="色違い">`:'';
+    const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
+    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}" data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${icon}${ballIcon}<span class="box-check" aria-hidden="true">✓</span></button>`;
+  }
+  // v18: 破損・データなしのマスは利用者には見せず、空きと同じ表示にする(一覧表示と同じ方針)。判定(s.status)は buildSlotMap() に残している。
+  return `<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`;
+}
+function bindPokemonCells(root){
+  root.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>cell.addEventListener('click',()=>{
+    const cb=listEl.querySelector(`.candidate-check[data-offset="${cell.dataset.offset}"]`);
+    if(!cb)return;
+    cb.checked=!cb.checked;
+    updateSelectionSummary();refreshBoxSelection();
+  }));
+}
 function renderBoxViewer(){
   const viewer=listEl.querySelector('.box-viewer');
   if(!viewer)return;
-  const slots=boxState.slots;
-  if(!slots){viewer.innerHTML='<p class="box-empty-note">このセーブではボックスの位置を特定できないため、ボックス表示はできません。</p>';return}
-  const boxes=slots.length/30,b=boxState.current;
+  const pages=boxState.pages;
+  if(!pages){viewer.innerHTML='<p class="box-empty-note">このセーブではボックスの位置を特定できないため、ボックス表示はできません。</p>';return}
+  const boxes=pages.length,b=boxState.current,pg=pages[b];
   const opts=[];
-  for(let i=0;i<boxes;i++){const c=boxCounts(slots,i);opts.push(`<option value="${i}"${i===b?' selected':''}>${escapeHtml(boxName(i))}${c.pokemon?`(${c.pokemon}匹)`:''}</option>`)}
-  const cells=[];
-  for(let i=b*30;i<b*30+30;i++){
-    const s=slots[i],slotNo=i-b*30+1;
-    if(s.status==='pokemon'){
-      const sm=pkSummary(s.hit);
-      const tip=`${sm.name}${sm.gender?' '+sm.gender:''} ${sm.isEgg?'タマゴ':sm.level!==null?'Lv.'+sm.level:''} / 親名: ${sm.ot} / ${sm.ability} / ${sm.ball}`;
-      const icon=POKEMON_ICON_DIR?`<img class="box-icon" src="${POKEMON_ICON_DIR}${s.hit.species}.png" alt="${escapeHtml(sm.name)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'box-name',textContent:this.alt}))">`:`<span class="box-name">${escapeHtml(sm.name)}</span>`;
-      const shinyIcon=sm.shiny?`<img class="box-shiny" src="${SHINY_ICON}" alt="色違い">`:'';
-      const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
-      cells.push(`<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}" data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${icon}${ballIcon}<span class="box-check" aria-hidden="true">✓</span></button>`);
-    }else{
-      // v18: 破損・データなしのマスは利用者には見せず、空きと同じ表示にする(一覧表示と同じ方針)。
-      // 判定(s.status)は buildSlotMap() に残している。
-      cells.push(`<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`);
-    }
-  }
-  const c=boxCounts(slots,b);
-  const outside=(window.__hits||[]).length-slots.filter(s=>s.status==='pokemon').length;
+  for(let i=0;i<boxes;i++){const c=boxCounts(pages[i]);opts.push(`<option value="${i}"${i===b?' selected':''}>${escapeHtml(pages[i].name)}${c.pokemon?`(${c.pokemon}匹)`:''}</option>`)}
+  const cells=pg.slots.map((s,i)=>renderSlotCell(s,i+1));
+  const c=boxCounts(pg);
+  const inBox=new Set();pages.forEach(p=>p.slots.forEach(s=>{if(s.status==='pokemon')inBox.add(s.hit.offset)}));
+  const outside=(window.__hits||[]).filter(h=>!inBox.has(h.offset)&&!getSpecialLocation(h)).length;
   viewer.innerHTML=`
     <div class="box-nav">
       <button type="button" class="box-prev small-button" aria-label="前のボックス">◀</button>
@@ -704,7 +954,7 @@ function renderBoxViewer(){
       <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>このボックスを選択解除</button>
     </div>
     <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span></div>
-    <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。${outside>0?` 手持ち・バトルボックス・育て屋など、ボックスの外にいる ${outside} 匹は一覧表示にだけ表示されます。`:''}</p>`;
+    <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。${outside>0?` ボックスと手持ち等以外の場所で見つかった ${outside} 匹は一覧にだけ表示されます(救出しても main には入りません)。`:''}</p>`;
   const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
   viewer.querySelector('.box-prev').addEventListener('click',()=>go(-1));
   viewer.querySelector('.box-next').addEventListener('click',()=>go(1));
@@ -718,12 +968,7 @@ function renderBoxViewer(){
     });
     updateSelectionSummary();refreshBoxSelection();
   }));
-  viewer.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>cell.addEventListener('click',()=>{
-    const cb=listEl.querySelector(`.candidate-check[data-offset="${cell.dataset.offset}"]`);
-    if(!cb)return;
-    cb.checked=!cb.checked;
-    updateSelectionSummary();refreshBoxSelection();
-  }));
+  bindPokemonCells(viewer);
 }
 function refreshBoxSelection(){
   listEl.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>{
@@ -802,21 +1047,18 @@ function renderCandidate(p){
   // 色違いアイコンの枠は全行に置く(色違いでなければ空)。名前の開始位置がずれないようにするため
   const shinyMark=`<span class="pk-shiny">${s.shiny?`<img src="${SHINY_ICON}" alt="色違い" title="色違い" width="16" height="16">`:''}</span>`;
   const genderCls=s.gender==='♂'?'male':s.gender==='♀'?'female':'';
-  const sp=getSpecialLocation(p),place=sp?sp.label:'';   // v25: ボックスの外にいる個体は場所を添える
   return `<label class="candidate pk-row"><input class="candidate-check" type="checkbox" data-offset="${p.offset}" data-ec="${p.ec}" checked>`+
     renderBall(s)+
     `<span class="pk-name">${shinyMark}<span class="pk-name-text">${escapeHtml(s.name)}</span></span>`+
     `<span class="pk-gender ${genderCls}">${s.gender?s.gender+'\uFE0E':''}</span>`+
     `<span class="pk-level">${s.isEgg?'タマゴ':s.level!==null?'Lv.'+s.level:''}</span>`+
     `<span class="pk-sub"><span class="pk-ot" title="${escapeHtml(s.ot)}"><span class="pk-lbl">親名：</span>${escapeHtml(s.ot)}</span>`+
-    `<span class="pk-ability"><span class="pk-lbl">特性：</span>${escapeHtml(s.ability)}${place?`<span class="pk-place">${place}</span>`:''}</span></span></label>`;
+    `<span class="pk-ability"><span class="pk-lbl">特性：</span>${escapeHtml(s.ability)}</span></span></label>`;
 }
 function updateSelectionSummary(){
   const checks=[...listEl.querySelectorAll('.candidate-check')];
   const selected=checks.filter(x=>x.checked).length;
   if(countEl)countEl.textContent=`${selected} / ${checks.length} 匹`;   // v22: 画面からは削除(要素がなければ何もしない)
-  const button=document.getElementById('download');
-  if(button)button.disabled=selected===0;
   const summary=document.getElementById('selectionSummary');
   if(summary)summary.textContent=`選択中 ${selected} 匹`;
   updateItemsButton();
@@ -865,13 +1107,16 @@ async function analyze(file){
   window.__boxNames=readBoxNames(input,l6);
   window.__bag=readBag(input,l6);
   window.__money=readMoney(input,l6);
-  window.__itemsGame=l6?l6.game:null;
+  window.__itemsGame=l6?l6.game:null;window.__includeItems=true;window.__includeMoney=true;window.__includeEgg=null;
   window.__input=input;window.__hits=[];
   updateItemsButton();
   window.__photo=readPhoto(input,l6);
   // 表示・出力の対象は完全復元のみ(振り分け結果は window.__allHits に残す)
   window.__allHits=hits;
   hits=visibleHits(hits);
+  window.__dex=readDex(input,l6,hits);   // v30
+  window.__trainer=readTrainer(input,l6,hits);   // v31
+  window.__includeDex=true;window.__trainerInput=null;window.__includeTrainer=!!window.__trainer;
   showStructureReport(l6,input.length,hits);
   if(!hits.length){
     if(countEl)countEl.textContent='0 匹';
@@ -881,7 +1126,7 @@ async function analyze(file){
     renderItemsViewer(listEl.querySelector('.items-viewer'));
     renderPhotoViewer(listEl.querySelector('.photo-viewer'));
     updateItemsButton();
-    result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);document.getElementById('download').disabled=true;return}
+    result.classList.remove('hidden');msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブ構造の診断」を参照してください。',true);return}   // v28: 道具・お金が残っていれば救出ボタンは使える
   window.__hits=hits;window.__inputName=file.name;window.__inputSize=input.length;window.__game=game;window.__gen=scanGen;window.__input=input;
   renderList(hits);
   clearMsg();   // v22: 正常終了時のメッセージは出さない
@@ -908,43 +1153,48 @@ function makePCBinary(selected,game,gen){
   }
   return {data:out,placed,unknown,conflicts,layout};
 }
-download.addEventListener('click',()=>{
-  const checks=[...listEl.querySelectorAll('.candidate-check')],selected=[];
-  for(const cb of checks)if(cb.checked){const q=(window.__hits||[]).find(h=>h.offset===Number(cb.dataset.offset)&&String(h.ec)===cb.dataset.ec);if(q)selected.push(q)}
-  if(!selected.length)return;
-  try{
-    const {data,placed,unknown,conflicts}=makePCBinary(selected,window.__game,window.__gen);
-    // 1 匹も配置できなかった bin は中身がすべて 0 になる。PKHeX は全 0 / 全 FF のファイルを
-    // 「データなし」とみなして「サポートされていないファイルの種類/サイズ」エラーを出すため、出力しない。
-    if(placed===0){msg(`ボックス位置に配置できる個体が 0 匹のため、boxdata.bin を作成しませんでした(選択 ${selected.length} 匹はすべて PC ボックス外、または位置不明です)。空の bin は PKHeX で読み込めません。`,true);return}
-    const blob=new Blob([data],{type:'application/octet-stream'});
-    if(window.NERCounter)window.NERCounter.countRescue();
-    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='boxdata.bin';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    msg(`boxdata.bin をダウンロードしました。選択 ${selected.length} 匹中 ${placed} 匹を元のボックス位置に配置しました${unknown?`。ボックスの外(手持ち・バトルボックス・育て屋など)にいる ${unknown} 匹は boxdata.bin には入りません(「main を作る」で入ります)`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。`);
-  }catch(e){msg('boxdata.bin の作成に失敗しました: '+e.message,true)}
-});
-
-// 「main を作る」ボタン(v25。v19〜v24 は「道具を取り出す」で道具とお金だけだった)
-// 空のセーブに、一覧で選んだポケモン(ボックス・手持ち・バトルボックス・育て屋)と道具・お金を書き込んだ main を出力する。
-const downloadItems=document.getElementById('downloadItems');
+// ---------------------------------------------------------------------------
+// 「ポケモンを救出する」ボタン(v28 でボタンを 1 つにまとめた)。
+// 空のセーブに、選んだポケモン(ボックス・手持ち・バトルボックス・育て屋は元の場所)と、
+// 道具タブの「道具とお金を取り出す」がオンなら道具・お金を書き込んだ main を出力する。
+// そのゲーム用の空のセーブが置かれていないとき(現在は ORAS)は、従来の boxdata.bin(ボックスの個体だけ)を出力する。
+// ---------------------------------------------------------------------------
 function selectedHits(){
   const out=[];
   for(const cb of listEl.querySelectorAll('.candidate-check'))if(cb.checked){const q=(window.__hits||[]).find(h=>h.offset===Number(cb.dataset.offset)&&String(h.ec)===cb.dataset.ec);if(q)out.push(q)}
   return out;
 }
-function updateItemsButton(){
-  if(!downloadItems)return;
-  const any=!!(window.__bag||window.__money)||listEl.querySelector('.candidate-check:checked');
-  downloadItems.disabled=!(window.__itemsGame&&any);
+function itemsIncluded(){return window.__includeItems!==false&&!!window.__bag}
+function moneyIncluded(){return window.__includeMoney!==false&&!!window.__money}
+function dexIncluded(){return window.__includeDex!==false&&!!window.__dex}
+function trainerIncluded(){return window.__includeTrainer===true&&!!window.__trainerInput&&window.__trainerInput.name.length>0}
+function updateItemsButton(){   // 名前は v19 以来のまま。救出ボタンの有効・無効を更新する
+  const any=!!listEl.querySelector('.candidate-check:checked')||(!!window.__itemsGame&&(itemsIncluded()||moneyIncluded()||dexIncluded()||trainerIncluded()));
+  download.disabled=!any;
 }
-if(downloadItems)downloadItems.addEventListener('click',async()=>{
-  const bag=window.__bag,money=window.__money,game=window.__itemsGame,selected=selectedHits();
-  if(!game||!(bag||money||selected.length))return;
-  downloadItems.disabled=true;
+function saveBlob(data,name){
+  const url=URL.createObjectURL(new Blob([data],{type:'application/octet-stream'})),a=document.createElement('a');
+  a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function downloadBoxdataBin(selected,reason){
+  const {data,placed,unknown,conflicts}=makePCBinary(selected,window.__game,window.__gen);
+  // 1 匹も配置できなかった bin は中身がすべて 0 になり、PKHeX で読み込めないため出力しない。
+  if(placed===0){msg(`${reason}ボックスに入れられる個体が 0 匹のため、boxdata.bin も作成しませんでした。`,true);return}
+  if(window.NERCounter)window.NERCounter.countRescue();
+  saveBlob(data,'boxdata.bin');
+  msg(`${reason}代わりに boxdata.bin(ボックスのポケモン ${placed} 匹)をダウンロードしました${unknown?`。ボックスの外にいる ${unknown} 匹は boxdata.bin には入りません`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。PKHeX で同じゲームのセーブを開いてから読み込んでください。`);
+}
+download.addEventListener('click',async()=>{
+  const selected=selectedHits(),game=window.__itemsGame,withItems=itemsIncluded(),withMoney=moneyIncluded();
+  const withDex=dexIncluded(),withTrainer=trainerIncluded();
+  if(!selected.length&&!withItems&&!withMoney&&!withDex&&!withTrainer)return;
+  download.disabled=true;
   try{
-    const {data,report:r}=await buildRescueMain({game,bag,money,selected,input:window.__input,l6:window.__layout6});
-    const url=URL.createObjectURL(new Blob([data],{type:'application/octet-stream'})),a=document.createElement('a');
-    a.href=url;a.download='main';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    if(!game)throw Object.assign(new Error('このセーブはゲームを判定できないため、main を作れません。'),{noTemplate:true});
+    const bag=withItems?window.__bag:null,money=withMoney?window.__money:null,dex=withDex?window.__dex:null;
+    const ti=window.__trainerInput,trainer=withTrainer?{name:ti.name.slice(0,TRAINER_NAME_MAX),tid:ti.tid,sid:window.__trainer?window.__trainer.sid:undefined}:null;
+    const {data,report:r}=await buildRescueMain({game,bag,money,selected,input:window.__input,l6:window.__layout6,includeEgg:window.__includeEgg,dex,trainer});
+    saveBlob(data,'main');
     const placed=r.pc+r.party+r.battle+r.daycare+r.partyToBox;
     if(placed&&window.NERCounter)window.NERCounter.countRescue();
     const parts=[];
@@ -954,12 +1204,17 @@ if(downloadItems)downloadItems.addEventListener('click',async()=>{
     if(r.daycare)parts.push(`育て屋 ${r.daycare}匹`);
     if(bag)parts.push(`道具 ${bag.total}種`);
     if(money)parts.push('お金');
-    let t=`main をダウンロードしました(${parts.join('・')})。PKHeX でこの main を開くと、そのまま確認できます。`;
+    if(dex)parts.push(`図鑑(捕まえた ${dex.caught}種)`);
+    if(trainer)parts.push(`トレーナー ${trainer.name}(ID ${String(trainer.tid).padStart(5,'0')})`);
+    let t=`main をダウンロードしました(${parts.join('・')})。PKHeX でこの main を開くと確認できます。`;
     if(r.partyToBox)t+=` 手持ちのうち ${r.partyToBox}匹は戦闘用のデータが壊れていたため、空いているボックスに入れました。`;
     if(r.skipped)t+=` ボックス・手持ち・バトルボックス・育て屋以外の場所で見つかった(または位置が重なる) ${r.skipped}匹は入れていません。`;
     msg(t);
-  }catch(e){msg('main の作成に失敗しました: '+e.message,true)}
-  finally{updateItemsButton()}
+  }catch(e){
+    if(e.noTemplate&&selected.length){
+      try{downloadBoxdataBin(selected,`${e.message} `)}catch(e2){msg('boxdata.bin の作成に失敗しました: '+e2.message,true)}
+    }else msg('救出に失敗しました: '+e.message,true);
+  }finally{updateItemsButton()}
 });
 
 // ---------------------------------------------------------------------------

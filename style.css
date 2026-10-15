@@ -210,3 +210,49 @@
 .btn-sub{display:block;margin-top:2px;font-size:12px;font-weight:700;opacity:.75}
 @media(max-width:650px){.pk-ability .pk-place{margin-left:6px}}
 .dev-note{margin-top:14px;padding:10px 13px;border-radius:12px;background:#fffaeb;color:#b54708;font-size:13px;font-weight:700;border:1px solid #fedf89}
+
+/* v28: 道具タブの「道具とお金を取り出す」 */
+.items-toggle{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:11px 13px;border:1px solid #d0d5dd;border-radius:12px;background:#fff;font-weight:800;cursor:pointer}
+.items-toggle input{width:20px;height:20px;flex:none;margin:0}
+/* v28: 手持ち・バトルボックス・育て屋のページは 1 段だけ */
+.box-grid.is-special{align-content:start}
+/* v29: 「手持ち等」タブ。左 手持ち(2×3)/ 中央 バトルボックス(2×3)/ 右 育て屋(縦、一番下にタマゴ) */
+.party-layout{display:grid;grid-template-columns:2fr 2fr 1fr;gap:10px;margin:12px auto 0;max-width:480px;padding:10px;background:#e7ecf3;border:1px solid #cfd8e3;border-radius:14px}
+.party-col{min-width:0}
+.party-col h4{margin:0 0 6px;font-size:12px;color:#475467;text-align:center;white-space:nowrap}
+.party-grid{display:grid;gap:5px}
+.party-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.party-grid.daycare{grid-template-columns:minmax(0,1fr)}
+.party-grid.daycare+.party-sub{margin-top:10px}
+.party-sub{font-size:10.5px;color:#667085;text-align:center;margin:0 0 4px;white-space:nowrap}
+.box-cell.is-egg{cursor:pointer;color:#344054;background:#fff;border-color:#b9c4d3}
+.box-cell.is-egg.selected{opacity:1;border-color:#2e90fa;box-shadow:0 0 0 1px #2e90fa inset}
+.box-cell.is-egg.selected .box-check{display:block}
+.box-cell.is-egg:not(.selected){opacity:.55}
+@media(max-width:650px){.party-layout{gap:6px;padding:6px}.party-grid{gap:3px}.party-col h4{font-size:11px}}
+/* v30: お金の行のあとに道具のチェックが来るので間をあける */
+.money-row+.items-toggle{margin-top:16px}
+/* v31: タブが 7 個になったので、狭い画面では横にスクロールできるように */
+.view-tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.view-tabs::-webkit-scrollbar{display:none}
+.view-tab{flex:none;white-space:nowrap}
+/* v31: 図鑑タブ */
+.dex-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}
+.dex-summary div{padding:10px 13px;border:1px solid #eaecf0;border-radius:12px;background:#f8fafc;display:flex;justify-content:space-between;align-items:baseline}
+.dex-summary span{color:#667085;font-size:13px;font-weight:700}
+.dex-summary strong{font-variant-numeric:tabular-nums;font-size:18px}
+.dex-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid #eaecf0;border-radius:12px;max-height:520px;overflow-y:auto}
+.dex-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #f2f4f7;min-width:0;font-size:13px}
+.dex-no{font-variant-numeric:tabular-nums;color:#98a2b3;font-size:12px;flex:none}
+.dex-name{font-weight:700;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dex-mark{flex:none;font-size:12px;color:#98a2b3}
+.dex-row.is-caught .dex-mark{color:#12b76a}
+@media(max-width:650px){.dex-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* v31: トレーナータブ */
+.trainer-form{display:grid;gap:10px;margin:0 0 10px}
+.trainer-form label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:700;color:#475467}
+.trainer-form input{font:inherit;font-size:16px;font-weight:700;color:#17202a;padding:10px 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff}
+.trainer-form input:focus{outline:2px solid #84adff;outline-offset:1px}
+.trainer-tid{font-variant-numeric:tabular-nums;max-width:9em}
+@media(max-width:650px){.view-tabs{flex-wrap:wrap;overflow:visible;border-bottom:0;gap:5px}.view-tab{border-bottom:1px solid #d0d5dd;border-radius:9px;margin-bottom:0;padding:7px 10px}.view-tab.active{background:#17202a;color:#fff;border-color:#17202a}}
+.dex-legend-caught{color:#12b76a}.dex-legend-seen{color:#98a2b3}
