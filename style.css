@@ -231,7 +231,6 @@
 .box-cell.is-egg:not(.selected){opacity:.55}
 @media(max-width:650px){.party-layout{gap:6px;padding:6px}.party-grid{gap:3px}.party-col h4{font-size:11px}}
 /* v30: お金の行のあとに道具のチェックが来るので間をあける */
-.money-row+.items-toggle{margin-top:16px}
 /* v31: タブが 7 個になったので、狭い画面では横にスクロールできるように */
 .view-tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .view-tabs::-webkit-scrollbar{display:none}
@@ -254,5 +253,30 @@
 .trainer-form input{font:inherit;font-size:16px;font-weight:700;color:#17202a;padding:10px 12px;border:1px solid #d0d5dd;border-radius:10px;background:#fff}
 .trainer-form input:focus{outline:2px solid #84adff;outline-offset:1px}
 .trainer-tid{font-variant-numeric:tabular-nums;max-width:9em}
-@media(max-width:650px){.view-tabs{flex-wrap:wrap;overflow:visible;border-bottom:0;gap:5px}.view-tab{border-bottom:1px solid #d0d5dd;border-radius:9px;margin-bottom:0;padding:7px 10px}.view-tab.active{background:#17202a;color:#fff;border-color:#17202a}}
 .dex-legend-caught{color:#12b76a}.dex-legend-seen{color:#98a2b3}
+/* v32: ポケモンタブの中の切り替え(一覧 / 手持ち等 / ボックス) */
+.view-panel[data-view="pokemon"]>.recovery-controls{margin-top:12px}
+.sub-tabs{display:flex;gap:4px;margin:12px 0 0;padding:4px;background:#f2f4f7;border-radius:11px}
+.sub-tab{flex:1;border:0;background:transparent;color:#475467;font:inherit;font-size:14px;font-weight:800;padding:8px 6px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.sub-tab.active{background:#fff;color:#17202a;box-shadow:0 1px 3px rgba(16,24,40,.12)}
+.sub-panel{display:none;margin-top:10px}.sub-panel.active{display:block}
+/* v32: 手持ち等の 3 つ(手持ち・バトルボックス・育て屋)を外枠で区切る */
+.party-col{border:1px solid #b9c4d3;border-radius:10px;padding:6px;background:#eef2f7}
+/* v32: バッグのチェックボックスは先頭に横並び */
+.bag-toggles{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}
+.bag-toggles .items-toggle{flex:1;min-width:0;margin:0;white-space:nowrap}
+/* v32: 写真はトレーナータブの中 */
+.trainer-photo-heading{margin:22px 0 10px}
+@media(max-width:650px){.bag-toggles{gap:6px}.bag-toggles .items-toggle{font-size:14px;padding:10px;gap:7px}.bag-toggles .items-toggle input{width:18px;height:18px}}
+/* v33: トレーナータブ(裏 ID・試験データ表示・アバター) */
+.trainer-ids{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.trainer-ids label{min-width:0}
+.trainer-form label>span{line-height:1.3;height:1.3em}
+.trainer-form input{width:100%;min-width:0}
+.trainer-ids input{max-width:none}
+.trainer-form.is-template input{background:#f2f4f7;color:#667085;border-color:#eaecf0}
+.items-toggle.is-disabled{opacity:.55;cursor:not-allowed}
+.avatar-info{display:grid;gap:6px;margin:0 0 6px}
+.avatar-row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:9px 12px;border:1px solid #eaecf0;border-radius:10px;background:#fff;font-size:13px}
+.avatar-row span{color:#667085;font-weight:700}
+.avatar-info.is-template .avatar-row{background:#f2f4f7;color:#667085}
