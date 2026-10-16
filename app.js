@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "38";
+const APP_VERSION = "40";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -678,7 +678,7 @@ function renderList(hits){
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="items">バッグ</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="trainer">トレーナー</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="dex">図鑑</button>
-      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="restore"><span class="tab-wrap">セーブデータ<wbr>復元</span></button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="restore">まるごと復元</button>
     </div>
     <div class="view-panel" data-view="pokemon">
       <div class="recovery-controls">
@@ -1263,6 +1263,7 @@ function showStructureReport(l6,size,hits){
 }
 async function analyze(file){
   result.classList.add('hidden');listEl.innerHTML='';msg('セーブデータを解析しています…');
+  {const g=document.getElementById('returnGuide');if(g)g.classList.add('hidden')}   // v40: 別のファイルを読み込んだら手順を閉じる
   devBarSet(null);   // v35: 読み込むたびに開発用のチェックを外す(試験用セーブなら読み込み後に付け直す)
   const input=new Uint8Array(await file.arrayBuffer());
   let [game,gen,maxSpecies]=detectGame(input.length);
@@ -1356,6 +1357,52 @@ function updateItemsButton(){   // 名前は v19 以来のまま。救出ボタ�
   const any=!!listEl.querySelector('.candidate-check:checked')||(!!window.__itemsGame&&(itemsIncluded()||moneyIncluded()||dexIncluded()||trainerIncluded()||avatarIncluded()));
   download.disabled=!any;
 }
+// ---------------------------------------------------------------------------
+// ゲームに戻す方法(v40)。ダウンロードの直後に、出したファイルの種類に合わせた手順を表示する。
+//   kind: 'rescue'(ポケモンを救出する → 空のセーブをもとにした main) / 'full'(まるごと復元 → 元のセーブを作り直した main) / 'bin'(boxdata.bin)
+// ---------------------------------------------------------------------------
+function showReturnGuide(kind){
+  const box=document.getElementById('returnGuide');
+  if(!box)return;
+  const intro={
+    rescue:'ダウンロードした <code>main</code> は、救出用の空のセーブ(別のトレーナーの、始めたばかりのセーブ)に、選んだポケモンや道具を入れたものです。自分のセーブにポケモンを移すなら「PKHeX で自分のセーブへ移す」、元のセーブがもう使えず、このセーブで遊び直すなら「3DS 本体に戻す」「Citra に戻す」の手順です。',
+    full:'ダウンロードした <code>main</code> は、壊れたセーブを作り直したものです。「3DS 本体に戻す」または「Citra に戻す」の手順で、元のセーブと入れ替えて使います。',
+    bin:'ダウンロードした <code>boxdata.bin</code> は、ボックスのポケモンだけのファイルです。「PKHeX で自分のセーブへ移す」の手順で、同じゲームのセーブに読み込みます。'
+  }[kind];
+  const open=k=>kind==='bin'?k==='pkhex':kind==='full'?k==='ds':k==='pkhex';
+  const sec=(k,title,body)=>`<details class="guide-sec"${open(k)?' open':''}><summary>${title}</summary>${body}</details>`;
+  const fileNote='<p class="guide-note">ファイル名は <code>main</code>(拡張子なし)にしてください。ダウンロードで <code>main.bin</code> や <code>main(1)</code> のように名前が変わっていたら、<code>main</code> に直してから使います。</p>';
+  const ds=`<ol>
+      <li>Checkpoint(または JKSM)を起動し、そのゲームの今のセーブを<b>まずバックアップ</b>します(Backup)。失敗しても元に戻せるようにするためです。</li>
+      <li>3DS の SD カードをパソコンなどにつなぎ、<code>/3ds/Checkpoint/saves/</code> の中のゲーム名のフォルダを開きます。いま作ったバックアップのフォルダをコピーし、分かる名前(例: <code>rescue</code>)にします。</li>
+      <li>そのフォルダの中の <code>main</code> を、ダウンロードした <code>main</code> と置き換えます。</li>
+      <li>SD カードを 3DS に戻し、Checkpoint でそのフォルダを選んで <b>Restore</b> します。</li>
+      <li>ゲームを起動して確かめます。うまく起動しないときは、手順 1 のバックアップを Restore すると元に戻ります。</li>
+    </ol>${fileNote}<p class="guide-note">パッケージ版とダウンロード版で同じ手順です。セーブを吸い出した 3DS 本体に戻してください(ダウンロード版は、別の本体に戻すと「レポートがこわれています」になることがあります)。</p>`;
+  const citra=`<ol>
+      <li>Citra(Azahar)のゲーム一覧でゲームを右クリックし、「セーブデータの場所を開く」(Open Save Data Location)を選びます。</li>
+      <li>開いたフォルダの <code>main</code> を、別の場所に<b>コピーしてバックアップ</b>します。</li>
+      <li>ダウンロードした <code>main</code> を、そのフォルダに上書きで置きます。</li>
+      <li>ゲームを起動して確かめます。うまく起動しないときは、バックアップした <code>main</code> を戻します。</li>
+    </ol>${fileNote}`;
+  const pkhex=kind==='bin'?`<ol>
+      <li>PKHeX で、ポケモンを入れたい<b>同じゲーム</b>(X・Y なら X・Y、ORAS なら ORAS)のセーブを開きます。</li>
+      <li><code>boxdata.bin</code> を PKHeX のウィンドウにドラッグ＆ドロップします。</li>
+      <li><b>ボックス 31 個がまるごと置き換わります。</b>必ずバックアップを取ったセーブで行い、問題なければ PKHeX で保存(Export)します。</li>
+    </ol>`:`<ol>
+      <li>PKHeX で、ダウンロードした <code>main</code> を開き、ポケモンを確かめます。</li>
+      <li>PKHeX をもう 1 つ起動して自分のセーブを開き、移したいポケモンを、ボックスからボックスへドラッグ＆ドロップで移します(または、ポケモンを .pk6 で保存して読み込みます)。</li>
+      <li>自分のセーブを PKHeX で保存(Export)し、上の「3DS 本体に戻す」「Citra に戻す」の手順でゲームに戻します。</li>
+    </ol>`;
+  box.innerHTML=`<div class="guide-head"><strong>ゲームに戻す方法</strong><button type="button" class="guide-close" aria-label="閉じる">×</button></div>
+    <p class="guide-intro">${intro}</p>
+    ${sec('ds','3DS 本体に戻す(Checkpoint)',ds)}
+    ${sec('citra','Citra に戻す',citra)}
+    ${sec('pkhex','PKHeX で自分のセーブへ移す',pkhex)}`;
+  box.classList.remove('hidden');
+  box.querySelector('.guide-close').addEventListener('click',()=>box.classList.add('hidden'));
+  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 function saveBlob(data,name){
   const url=URL.createObjectURL(new Blob([data],{type:'application/octet-stream'})),a=document.createElement('a');
   a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -1366,6 +1413,7 @@ function downloadBoxdataBin(selected,reason){
   if(placed===0){msg(`${reason}ボックスに入れられる個体が 0 匹のため、boxdata.bin も作成しませんでした。`,true);return}
   if(window.NERCounter)window.NERCounter.countRescue();
   saveBlob(data,'boxdata.bin');
+  showReturnGuide('bin');
   msg(`${reason}代わりに boxdata.bin(ボックスのポケモン ${placed} 匹)をダウンロードしました${unknown?`。ボックスの外にいる ${unknown} 匹は boxdata.bin には入りません`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。PKHeX で同じゲームのセーブを開いてから読み込んでください。`);
 }
 download.addEventListener('click',async()=>{
@@ -1379,6 +1427,7 @@ download.addEventListener('click',async()=>{
     const trainer=withTrainer?trainerValue():null,avatar=withAvatar?window.__avatar:null;
     const {data,report:r}=await buildRescueMain({game,bag,money,selected,input:window.__input,l6:window.__layout6,includeEgg:window.__includeEgg,dex,trainer,avatar});
     saveBlob(data,'main');
+    showReturnGuide('rescue');
     const placed=r.pc+r.party+r.battle+r.daycare+r.partyToBox;
     if(placed&&window.NERCounter)window.NERCounter.countRescue();
     const parts=[];
@@ -1513,6 +1562,7 @@ function renderRestoreViewer(){
     try{
       const {data,report:r}=await buildFullRestore();
       saveBlob(data,'main');
+      showReturnGuide('full');
       if(window.NERCounter)window.NERCounter.countRescue();
       msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`,!r.allValid);
     }catch(e){msg('まるごとの復元に失敗しました: '+e.message,true)}

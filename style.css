@@ -342,3 +342,14 @@
 .restore-button{margin-top:14px}
 /* v38: タブが 5 つになったので、狭い画面では詰めて全部見えるように(長い「セーブデータ復元」は 2 行まで) */
 @media(max-width:650px){.view-tabs{gap:4px;overflow:visible}.view-tab{flex:1 1 auto;padding:7px 6px;font-size:12.5px;line-height:1.25}.view-tab .tab-wrap{white-space:normal;word-break:keep-all;display:inline-block}}
+/* v40: ゲームに戻す方法 */
+.return-guide{margin-top:14px;padding:14px 16px;border:2px solid #2e90fa;border-radius:14px;background:#f5faff}
+.guide-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.guide-head strong{font-size:16px}
+.guide-close{border:0;background:transparent;font-size:22px;line-height:1;color:#475467;cursor:pointer;padding:2px 6px}
+.guide-intro{margin:8px 0 10px;font-size:13.5px;line-height:1.7;color:#344054}
+.guide-sec{border-top:1px solid #d1e9ff;padding:8px 0}
+.guide-sec summary{cursor:pointer;font-weight:800;font-size:14px;color:#175cd3}
+.guide-sec ol{margin:8px 0 4px;padding-left:22px;font-size:13.5px;line-height:1.75;color:#344054}
+.guide-sec li{margin:3px 0}
+.guide-note{margin:6px 0 0;font-size:12.5px;line-height:1.7;color:#475467}

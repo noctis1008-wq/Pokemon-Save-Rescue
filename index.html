@@ -7,7 +7,7 @@
 <title>ポケモン破損セーブ救出 | NER Pokémon Recovery</title>
 <!-- 末尾の ?v= はブラウザのキャッシュ対策。app.js の APP_VERSION を上げたら、
      index.html と privacy.html のこの数字も同じ値に揃えること。 -->
-<link rel="stylesheet" href="style.css?v=38">
+<link rel="stylesheet" href="style.css?v=40">
 </head>
 <body>
 <div class="social-fixed">
@@ -17,7 +17,7 @@
 <main class="wrap">
 <section class="hero">
 <p class="eyebrow">POKÉMON SAVE RECOVERY</p>
-<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=38" type="image/webp"><img src="img/logo.png?v=38" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
+<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=40" type="image/webp"><img src="img/logo.png?v=40" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
 <p class="lead">破損したポケモンのセーブデータをブラウザ内で解析し、内部に残っている個体データを抽出し、PKHeXでボックス情報として読み込める <code>boxdata.bin</code> にまとめます。抽出したデータは、PKHeXで元のボックス位置を維持した1つの <code>boxdata.bin</code> として保存できます。</p>
 </section>
 <section class="card">
@@ -41,6 +41,7 @@
 <span class="sample-info" tabindex="0" role="button" aria-label="サンプル提供について" aria-describedby="sampleTip">i<span id="sampleTip" class="sample-tip" role="tooltip">より多くの破損データの修復を可能にするために、引き続きアプリケーションの改善が必要です。サンプルデータを提供していただければ、更なる改善が期待できます。ポケモンを掠取するなどの私的利用は行わないと約束します。第三者にセーブデータが渡ることはありません。</span></span>
 <button type="button" id="sampleButton" class="small-button sample-button">提供する</button>
 </div>
+<div id="returnGuide" class="return-guide hidden" aria-live="polite"></div>
 <div id="sampleDialog" class="sample-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="sampleDialogText">
 <div class="sample-dialog-box">
 <p id="sampleDialogText">破損データをサンプルとして管理者に提供しますか？</p>
@@ -62,8 +63,8 @@
 </section>
 <footer><a href="../">NER Converter</a> · <a href="privacy.html">プライバシーポリシー</a> · <a href="https://github.com/kwsch/PKHeX" target="_blank" rel="noopener">PKHeX reference</a></footer>
 </main>
-<script src="pkdata.js?v=38"></script>
-<script src="pk_fashion.js?v=38"></script>
-<script src="app.js?v=38"></script>
-<script src="counter.js?v=38"></script>
+<script src="pkdata.js?v=40"></script>
+<script src="pk_fashion.js?v=40"></script>
+<script src="app.js?v=40"></script>
+<script src="counter.js?v=40"></script>
 </body></html>
