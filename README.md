@@ -1,6 +1,6 @@
 # NER Pokémon Recovery
 
-**バージョン: v35**(2026-10-16 / 変更履歴は `CHANGELOG.md`)
+**バージョン: v37**(2026-10-16 / 変更履歴は `CHANGELOG.md`)
 
 破損した第6世代ポケモンのセーブデータをブラウザ内で解析し、残存している
 個体データ(PK6)を抽出して、PKHeX で読み込める `boxdata.bin` として
@@ -32,3 +32,8 @@ Checkpoint で取り出したボックスが空の `main` をそのまま置き�
 
 `app.js` の `DEV_AUTOLOAD` に試験用セーブ(`test/main` = X、`test/main_oras` = AS)を指定しているため、ページを開くと X の試験用セーブを読み込んだ状態で表示され、開発用の帯で ORAS に切り替えられます。
 `?noautoload` を付けると自動読み込みしません。**完成品として公開するときは `DEV_AUTOLOAD` を `null` にし、`test/` フォルダを削除してください。**
+
+## 破損データのサンプル提供(v36〜)
+
+「ポケモンを救出する」の下の「提供する」→ 確認で「はい」のときだけ、読み込んだセーブを運営者の Google ドライブへ送ります。
+送り先は `app.js` の `SAMPLE_UPLOAD_URL`(Google Apps Script のウェブアプリ)。受け取り側のプログラムは `sample_receiver.gs`。

@@ -303,3 +303,23 @@
 /* v35: トレーナー・図鑑もタブとの間をあける(バッグと同じ) */
 .trainer-viewer,.dex-viewer{margin-top:12px}
 .party-sub{white-space:normal;line-height:1.25;word-break:keep-all}
+/* v36: 破損データのサンプル提供 */
+.sample-offer{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;border:1px solid #eaecf0;border-radius:12px;background:#f8fafc;font-size:13px;color:#344054}
+.sample-text{flex:1;min-width:0}
+.sample-info{position:relative;flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid #667085;color:#667085;display:grid;place-items:center;font:italic 700 12px/1 Georgia,serif;cursor:pointer;user-select:none}
+.sample-info:focus-visible{outline:2px solid #84adff;outline-offset:2px}
+.sample-tip{display:none;position:absolute;right:-8px;bottom:calc(100% + 8px);width:min(300px,80vw);padding:10px 12px;border-radius:10px;background:#17202a;color:#fff;font:400 12.5px/1.6 system-ui,-apple-system,sans-serif;font-style:normal;text-align:left;box-shadow:0 8px 24px rgba(16,24,40,.25);z-index:20}
+.sample-info:hover .sample-tip,.sample-info:focus .sample-tip,.sample-info.open .sample-tip{display:block}
+.sample-button{flex:none}
+.sample-button:disabled{opacity:.6;cursor:default}
+.sample-dialog{position:fixed;inset:0;z-index:2000;background:rgba(16,24,40,.45);display:grid;place-items:center;padding:16px}
+.sample-dialog.hidden{display:none}
+.sample-dialog-box{width:min(380px,100%);background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 50px rgba(16,24,40,.3)}
+.sample-dialog-box p{margin:0 0 16px;font-weight:700;line-height:1.6}
+.sample-dialog-actions{display:flex;gap:10px}
+.sample-dialog-actions .button{margin-top:0;flex:1}
+/* v36: 説明は欄の幅いっぱいに、欄の上に出す(狭い画面ではみ出さないように) */
+.sample-offer{position:relative}
+.sample-info{position:static}
+.sample-tip{left:0;right:0;width:auto;bottom:calc(100% + 6px)}
+.policy h3{font-size:15px;margin:18px 0 6px}

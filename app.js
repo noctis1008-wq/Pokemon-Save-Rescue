@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "35";
+const APP_VERSION = "37";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -1206,7 +1206,7 @@ async function analyze(file){
   window.__bag=readBag(input,l6);
   window.__money=readMoney(input,l6);
   window.__itemsGame=l6?l6.game:null;window.__includeItems=true;window.__includeMoney=true;window.__includeEgg=null;
-  window.__input=input;window.__hits=[];
+  window.__input=input;window.__hits=[];window.__inputName=file.name;window.__sampleSent=false;
   updateItemsButton();
   window.__photo=readPhoto(input,l6);
   // 表示・出力の対象は完全復元のみ(振り分け結果は window.__allHits に残す)
@@ -1274,7 +1274,8 @@ function trainerValue(){   // v34: main に書くトレーナー情報(なけれ
 }
 function trainerIncluded(){return !!trainerValue()}
 function avatarIncluded(){return window.__includeAvatar!==false&&!!window.__avatar}
-function updateItemsButton(){   // 名前は v19 以来のまま。救出ボタンの有効・無効を更新する
+function updateItemsButton(){   // 名前は v19 以来のまま。救出ボタンの有効・無効を更新する(v36: サンプル提供の欄も)
+  showSampleOffer();
   const any=!!listEl.querySelector('.candidate-check:checked')||(!!window.__itemsGame&&(itemsIncluded()||moneyIncluded()||dexIncluded()||trainerIncluded()||avatarIncluded()));
   download.disabled=!any;
 }
@@ -1323,6 +1324,49 @@ download.addEventListener('click',async()=>{
     }else msg('救出に失敗しました: '+e.message,true);
   }finally{updateItemsButton()}
 });
+
+// ---------------------------------------------------------------------------
+// 破損データのサンプル提供(v36)。「提供する」→ 確認(はい / いいえ)→「はい」のときだけ、読み込んだセーブを送る。
+// 送り先 SAMPLE_UPLOAD_URL は保存先(Google ドライブ または Cloudflare)が決まってから設定する。
+// 未設定のあいだは、開発用の自動読み込み(DEV_AUTOLOAD)があるときだけ欄を出し、「はい」でも送らずに未設定と表示する。
+// 送る内容: ファイル名・大きさ・推定ソフト・ツールの版・セーブ本体(base64)。同じファイルは 1 回だけ送る。
+// ---------------------------------------------------------------------------
+const SAMPLE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbyaUk8UsW6ScHiWK_Vx4y8cTyXyuLipKPQlx2Cr9F-jVrqWk-1OuZLDQexib-w-VMcl/exec';   // v37: 管理者の Google Apps Script(受け取り側は sample_receiver.gs)
+const sampleOffer=document.getElementById('sampleOffer'),sampleDialog=document.getElementById('sampleDialog'),sampleButton=document.getElementById('sampleButton');
+function showSampleOffer(){
+  if(!sampleOffer)return;
+  const enabled=!!SAMPLE_UPLOAD_URL||!!DEV_AUTOLOAD;
+  sampleOffer.classList.toggle('hidden',!enabled||!window.__input);
+  if(sampleButton){sampleButton.disabled=!!window.__sampleSent;sampleButton.textContent=window.__sampleSent?'提供済み':'提供する'}
+}
+function toBase64(u8){let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)}
+async function sendSample(){
+  const input=window.__input;
+  if(!input)return;
+  if(!SAMPLE_UPLOAD_URL){msg('(開発中)サンプルの送り先がまだ設定されていないため、送信していません。');return}
+  sampleButton.disabled=true;sampleButton.textContent='送信中…';
+  try{
+    const body=JSON.stringify({name:window.__inputName||'',size:input.length,game:window.__itemsGame||'',version:APP_VERSION,data:toBase64(input)});
+    // Google Apps Script は応答を読めない(CORS)ため no-cors で送る。送信できたかどうかだけ分かる
+    await fetch(SAMPLE_UPLOAD_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body});
+    window.__sampleSent=true;
+    msg('破損データのサンプルを提供しました。ご協力ありがとうございました。');
+  }catch(e){msg('サンプルを送信できませんでした。時間をおいて、もう一度お試しください。',true)}
+  finally{showSampleOffer()}
+}
+if(sampleButton)sampleButton.addEventListener('click',()=>{if(window.__input&&!window.__sampleSent)sampleDialog.classList.remove('hidden')});
+if(sampleDialog){
+  sampleDialog.addEventListener('click',e=>{
+    const b=e.target.closest('[data-sample]');
+    if(!b&&e.target!==sampleDialog)return;
+    sampleDialog.classList.add('hidden');
+    if(b&&b.dataset.sample==='yes')sendSample();
+  });
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')sampleDialog.classList.add('hidden')});
+}
+// i マーク: マウスを乗せる(CSS)か、タップで説明を出す
+document.querySelectorAll('.sample-info').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();el.classList.toggle('open')}));
+document.addEventListener('click',()=>document.querySelectorAll('.sample-info.open').forEach(el=>el.classList.remove('open')));
 
 // ---------------------------------------------------------------------------
 // 開発中の自動読み込み(v26)。DEV_AUTOLOAD にファイルの場所を書くと、ページを開いた時点でそのセーブを読み込む。
