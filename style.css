@@ -323,3 +323,22 @@
 .sample-info{position:static}
 .sample-tip{left:0;right:0;width:auto;bottom:calc(100% + 6px)}
 .policy h3{font-size:15px;margin:18px 0 6px}
+/* v38: セーブデータ復元タブ */
+.restore-viewer{margin-top:12px}
+.restore-score{padding:14px 16px;border:1px solid #eaecf0;border-radius:14px;background:#f8fafc}
+.restore-score-head{display:flex;align-items:baseline;gap:10px}
+.restore-score-head span{font-weight:800;color:#475467}
+.restore-score-head strong{font-size:34px;line-height:1;font-variant-numeric:tabular-nums;margin-left:auto}
+.restore-score-head small{font-size:16px;margin-left:2px}
+.restore-score-head em{font-style:normal;font-weight:800;font-size:13px;padding:3px 10px;border-radius:999px}
+.restore-score.high em{background:#ecfdf3;color:#027a48}.restore-score.mid em{background:#fffaeb;color:#b54708}.restore-score.low em{background:#fef3f2;color:#b42318}
+.restore-bar{height:10px;border-radius:999px;background:#eaecf0;margin:10px 0 8px;overflow:hidden}
+.restore-bar i{display:block;height:100%;border-radius:999px;background:#12b76a}
+.restore-score.mid .restore-bar i{background:#f79009}.restore-score.low .restore-bar i{background:#f04438}
+.restore-score p{margin:0;font-size:13px;color:#475467}
+.restore-notes{margin:12px 0 0;padding-left:20px;font-size:13px;line-height:1.7;color:#344054}
+.restore-lost{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0;font-size:12.5px}
+.restore-lost span{padding:3px 9px;border-radius:999px;background:#fef3f2;color:#b42318;font-weight:700}
+.restore-button{margin-top:14px}
+/* v38: タブが 5 つになったので、狭い画面では詰めて全部見えるように(長い「セーブデータ復元」は 2 行まで) */
+@media(max-width:650px){.view-tabs{gap:4px;overflow:visible}.view-tab{flex:1 1 auto;padding:7px 6px;font-size:12.5px;line-height:1.25}.view-tab .tab-wrap{white-space:normal;word-break:keep-all;display:inline-block}}

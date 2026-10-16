@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "37";
+const APP_VERSION = "38";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -78,6 +78,40 @@ function parseGen6Footer(input,magicPos){
   const footerOrig=off,saveSize=footerOrig+0x200;            // XY: 0x65400 / 0x65600, ORAS: 0x75E00 / 0x76000
   const footerFile=magicPos-0x10;
   return {game,blocks,pcBase:pc.orig,footerOrig,footerFile,saveSize};
+}
+// ---------------------------------------------------------------------------
+// ブロックの位置合わせ(v38)。ブロック表の CRC と一致する位置を探し、ずれていても中身が無事なブロックを見つける。
+// 実例: ORAS の破損セーブで 58 ブロック中 45 ブロックが -0x1F ずれたまま無事だった(お金・図鑑・トレーナーと同じずれ)。
+// 見つかったブロックは status を 'ok' にし、at(本来の座標での実際の開始位置)と moved(ずれ)を付ける。
+// 元の状態は rawStatus に残す。全部 0 の範囲は一致しても採らない。PC ボックスより大きいブロックは全探索しない。
+// まず他のブロックで見つかったずれを試し、だめなら ±0x200 を 1 バイト刻みで探す。
+// ---------------------------------------------------------------------------
+const RELOCATE_RANGE=0x200;
+let CRC16_TABLE=null;
+function crc16fast(a,start,len){
+  if(!CRC16_TABLE){CRC16_TABLE=new Uint16Array(256);for(let i=0;i<256;i++){let c=i<<8;for(let k=0;k<8;k++)c=(c&0x8000)?((c<<1)^0x1021)&0xFFFF:(c<<1)&0xFFFF;CRC16_TABLE[i]=c}}
+  let c=0xFFFF;for(let i=start,e=start+len;i<e;i++)c=((c<<8)&0xFFFF)^CRC16_TABLE[((c>>8)^a[i])&0xFF];
+  return c;
+}
+function relocateBlocks(input,l6){
+  // 本来の座標で並べ直したコピー(回転していても 1 本の配列で扱える)
+  const size=l6.saveSize,lin=new Uint8Array(size),n=input.length;
+  for(let o=0;o<size;o++){const f=l6.toFile(o);if(f>=0&&f<n)lin[o]=input[f]}
+  const nz=new Uint32Array(size+1);for(let i=0;i<size;i++)nz[i+1]=nz[i]+(lin[i]!==0?1:0);   // 0 以外の数の累積
+  l6.lin=lin;
+  const tried=new Map();   // ずれ → 見つかった数
+  for(const b of l6.blocks){
+    b.rawStatus=b.status;
+    if(b.status==='ok'){b.at=b.orig;b.moved=0;continue}
+    const fits=s=>{const o=b.orig+s;return o>=0&&o+b.len<=size&&nz[o+b.len]-nz[o]>0&&crc16fast(lin,o,b.len)===b.chk};
+    let found=null;
+    for(const s of [...tried.entries()].sort((x,y)=>y[1]-x[1]).map(e=>e[0]))if(s!==0&&fits(s)){found=s;break}
+    if(found===null&&b.len<=0x20000){for(let s=-RELOCATE_RANGE;s<=RELOCATE_RANGE;s++){if(s!==0&&fits(s)){found=s;break}}}
+    if(found!==null){b.status='ok';b.at=b.orig+found;b.moved=found;tried.set(found,(tried.get(found)||0)+1)}
+  }
+  l6.okCount=l6.blocks.filter(b=>b.status==='ok').length;
+  l6.movedCount=l6.blocks.filter(b=>b.moved).length;
+  return l6;
 }
 function findGen6Layout(input){
   let best=null;
@@ -157,6 +191,11 @@ function readBag(input,l6){
   if(!layout||!blk||blk.len!==layout.len)return null;
   const sets=getBagSets()[l6.game],n=input.length,buf=new Uint8Array(layout.len);
   let best=null;
+  if(blk.status==='ok'){   // v38: CRC で確かめた位置があればそこを使う
+    const r=parseBag(readBlockBytes(input,l6,blk),layout,sets);
+    if(r.used===0||r.valid/r.used>=BAG_MIN_VALID_RATIO)best={...r,shift:blk.moved||0};
+  }
+  if(!best)
   for(let shift=-BAG_SEARCH_RANGE;shift<=BAG_SEARCH_RANGE;shift++){
     const start=l6.toFile(blk.orig+shift);
     if(!l6.rotated&&(start<0||start+layout.len>n))continue;
@@ -200,9 +239,9 @@ function readMoney(input,l6){
   const n=input.length;let best=null;
   // v35: ブロックの CRC が一致していれば、そのまま +0x08 を読む(ライバル名が空のセーブでも読めるように)
   if(blk.status==='ok'){
-    const start=l6.toFile(blk.orig),get=i=>input[((start+i)%n+n)%n];
-    const m=(get(8)|(get(9)<<8)|(get(10)<<16)|(get(11)<<24))>>>0;
-    if(m<=MONEY_MAX)return {game:l6.game,money:m,shift:0};
+    const bb=readBlockBytes(input,l6,blk);
+    const m=(bb[8]|(bb[9]<<8)|(bb[10]<<16)|(bb[11]<<24))>>>0;
+    if(m<=MONEY_MAX)return {game:l6.game,money:m,shift:blk.moved||0};
   }
   for(let shift=-BAG_SEARCH_RANGE;shift<=BAG_SEARCH_RANGE;shift++){
     const start=l6.toFile(blk.orig+shift);
@@ -243,7 +282,7 @@ function readDex(input,l6,hits){
   if(!blk||blk.len!==len)return null;
   const species=new Set();
   for(const h of hits){if(h.species>=1&&h.species<=DEX_MAX&&!((u32(h.data,0x74)>>>30)&1))species.add(h.species)}
-  if(blk.status==='ok'){const b=readBlockBytes(input,l6,blk);const r=b&&dexCheck(b,new Set());return b?{bytes:b,shift:0,caught:r?r.caught:0}:null}
+  if(blk.status==='ok'){const b=readBlockBytes(input,l6,blk);const r=b&&dexCheck(b,new Set());return b?{bytes:b,shift:blk.moved||0,caught:r?r.caught:0}:null}
   if(species.size<5)return null;
   const n=input.length;let best=null;
   for(let shift=-BAG_SEARCH_RANGE;shift<=BAG_SEARCH_RANGE;shift++){
@@ -277,8 +316,8 @@ function readTrainer(input,l6,hits){
   if(!blk||blk.len!==STATUS_LEN)return null;
   const n=input.length;
   if(blk.status==='ok'){
-    const start=l6.toFile(blk.orig),t=readTrainerAt(i=>input[((start+i)%n+n)%n]);
-    return t&&isPlausibleName(t.name)?{...t,shift:0}:null;
+    const bb=readBlockBytes(input,l6,blk),t=readTrainerAt(i=>bb[i]);
+    return t&&isPlausibleName(t.name)?{...t,shift:blk.moved||0}:null;
   }
   const owners=new Map();
   for(const h of hits){const k=`${u16(h.data,0x0C)}/${u16(h.data,0x0E)}/${pkOTName(h.data)}`;owners.set(k,(owners.get(k)||0)+1)}
@@ -331,7 +370,7 @@ function getSpecialLocation(q){
   const l6=window.__layout6;
   if(!l6)return null;
   const orig=l6.toOrig(q.offset),B=l6.blocks;
-  const rel=id=>B[id]?orig-B[id].orig:-1;
+  const rel=id=>B[id]?orig-(B[id].at??B[id].orig):-1;   // v38: 位置合わせ済みの開始位置
   let r=rel(BLK.PARTY);
   if(r>=0&&r<PARTY_SIZE*6&&r%PARTY_SIZE===0)return {kind:'party',index:r/PARTY_SIZE,label:'手持ち'};
   r=rel(BLK.BATTLE);
@@ -342,6 +381,25 @@ function getSpecialLocation(q){
     if(rr<DAYCARE_SLOT*2&&rr%DAYCARE_SLOT===8)return {kind:'daycare',couple,index:(rr-8)/DAYCARE_SLOT,label:'育て屋'};
   }
   return null;
+}
+// v38: 手持ち・バトルボックス・育て屋の枠を、位置合わせしたブロックから直接読んで個体に加える。
+// 全体スキャンは 2 バイト刻みなので、奇数バイトずれたブロック(実例 -0x1F)の個体は見つからないため。
+function addSpecialHits(input,l6,hits){
+  if(!l6||!l6.lin)return hits;
+  const have=new Set(hits.map(h=>h.offset)),B=l6.blocks,add=[];
+  const tryAt=o=>{
+    const f=l6.toFile(o);
+    if(have.has(f))return;
+    const p=decryptPK(l6.lin.subarray(o,o+232));
+    if(!p||p.species>721||p.confidence!=='complete')return;
+    add.push({offset:f,...p,gen:6});have.add(f);
+  };
+  const st=(id,cnt,size,base=0)=>{const b=B[id];if(!b||b.status!=='ok')return;for(let i=0;i<cnt;i++)tryAt(b.at+base+i*size)};
+  st(BLK.PARTY,6,PARTY_SIZE);st(BLK.BATTLE,6,232);
+  const dc=B[BLK.DAYCARE];
+  if(dc&&dc.status==='ok')for(let c=0;c*DAYCARE_COUPLE<dc.len;c++)for(let s=0;s<2;s++)tryAt(dc.at+c*DAYCARE_COUPLE+s*DAYCARE_SLOT+8);
+  if(!add.length)return hits;
+  return classifyHits(hits.concat(add));
 }
 function readRaw(input,off,len){
   const n=input.length,out=new Uint8Array(len);
@@ -537,7 +595,8 @@ function classifyHits(hits){
 }
 function scan(input,gen,maxSpecies){
   const out=[];
-  for(let i=0;i+232<=input.length;i+=2){
+  // v38: 1 バイト刻み(v37 までは 2 バイト刻み)。奇数バイトずれた範囲(実例 ORAS -0x1F)の個体を見落としていたため
+  for(let i=0;i+232<=input.length;i++){
     const p=decryptPK(input.subarray(i,i+232));
     if(!p||p.species>maxSpecies)continue;
     out.push({offset:i,...p,gen});
@@ -565,9 +624,10 @@ function getLocation(q,game,gen){
     const b=blockAt(l6,orig);
     return {box:null,slot:null,label:b&&b.label?`${b.label}(PC外・bin には含まれません)`:'位置不明'};
   }
-  const index=Math.floor(rel/layout.size);
+  // v38: 位置合わせで見つかったずれ(実例 -0x1F)の分だけずれて入っている個体も、元のマスに当てはめる
+  let index=Math.floor(rel/layout.size),aligned=rel%layout.size===0;
+  if(!aligned)for(const sh of pcShifts()){const r=rel-sh;if(r>=0&&r<total&&r%layout.size===0){index=r/layout.size;aligned=true;break}}
   const box=Math.floor(index/30)+1,slot=(index%30)+1;
-  const aligned=rel%layout.size===0;
   const estimated = !layout.exact;
   const suffix = aligned ? '' : '（位置ずれ候補）';
   const prefix = estimated ? '推定 ' : '';
@@ -618,6 +678,7 @@ function renderList(hits){
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="items">バッグ</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="trainer">トレーナー</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="dex">図鑑</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="restore"><span class="tab-wrap">セーブデータ<wbr>復元</span></button>
     </div>
     <div class="view-panel" data-view="pokemon">
       <div class="recovery-controls">
@@ -641,7 +702,8 @@ function renderList(hits){
     </div>
     <div class="view-panel" data-view="items"><div class="items-viewer"></div></div>
     <div class="view-panel" data-view="trainer"><div class="trainer-viewer"></div><h3 class="photo-heading trainer-photo-heading">写真</h3><div class="photo-viewer"></div></div>
-    <div class="view-panel" data-view="dex"><div class="dex-viewer"></div></div>`;
+    <div class="view-panel" data-view="dex"><div class="dex-viewer"></div></div>
+    <div class="view-panel" data-view="restore"><div class="restore-viewer"></div></div>`;
   setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',()=>{updateSelectionSummary();refreshBoxSelection()}));
   listEl.querySelectorAll('.small-button').forEach(btn=>btn.addEventListener('click',()=>{
@@ -658,6 +720,7 @@ function renderList(hits){
   renderItemsViewer(listEl.querySelector('.items-viewer'));
   renderDexViewer(listEl.querySelector('.dex-viewer'));
   renderTrainerViewer(listEl.querySelector('.trainer-viewer'));
+  renderRestoreViewer();
   renderPhotoViewer(listEl.querySelector('.photo-viewer'));
   updateSelectionSummary();
   showView('pokemon');showSub('box');   // v32: 読み込み直後はポケモンタブのボックス(ポケモンがいる一番若いボックス)
@@ -692,6 +755,7 @@ const POKEMON_ICON_DIR=null;
 // 壊れた文字列を名前として出さないため。使えなければ「ボックスN」。
 // ---------------------------------------------------------------------------
 function readBlockBytes(input,l6,block){
+  if(l6.lin&&block.at!==undefined)return l6.lin.slice(block.at,block.at+block.len);   // v38: 位置合わせ済み
   const start=l6.toFile(block.orig),n=input.length,out=new Uint8Array(block.len);
   if(!l6.rotated&&(start<0||start+block.len>n))return null;
   for(let i=0;i<block.len;i++)out[i]=input[(start+i)%n];
@@ -907,6 +971,12 @@ function isEmptySlot(raw){
   for(let i=0;i<232;i++)if(raw[i]!==blank[i])return false;
   return true;
 }
+// 位置合わせで見つかったずれの一覧(多い順)。PC ボックスの個体の当てはめに使う
+function pcShifts(){
+  const l6=window.__layout6;if(!l6)return [];
+  const c=new Map();for(const b of l6.blocks)if(b.moved)c.set(b.moved,(c.get(b.moved)||0)+1);
+  return [...c.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+}
 function slotFileOffset(index){
   const gen=window.__gen,layout=getStorageLayout(window.__game,gen);
   if(!layout)return null;
@@ -916,19 +986,24 @@ function slotFileOffset(index){
 function buildSlotMap(hits){
   const layout=getStorageLayout(window.__game,window.__gen);
   if(!layout)return null;
-  const byOffset=new Map(hits.map(h=>[h.offset,h]));
-  const input=window.__input,slots=[];
+  const input=window.__input,l6=window.__layout6,slots=new Array(layout.slots).fill(null);
+  // v38: 個体はずれも考えてマスに当てはめる(getLocation)。同じマスに 2 匹なら先に見つかった方
+  for(const h of hits){
+    const loc=getLocation(h,window.__game,window.__gen);
+    if(loc.box===null||!loc.aligned)continue;
+    const idx=(loc.box-1)*30+(loc.slot-1);
+    if(!slots[idx])slots[idx]={status:'pokemon',hit:h};
+  }
+  const rawAt=orig=>{
+    if(l6&&l6.lin)return orig>=0&&orig+232<=l6.lin.length?l6.lin.subarray(orig,orig+232):null;
+    return orig>=0&&orig+232<=input.length?input.subarray(orig,orig+232):null;
+  };
   for(let i=0;i<layout.slots;i++){
-    const off=slotFileOffset(i);
-    if(off===null||off<0||off>=input.length){slots.push({status:'missing'});continue}
-    const hit=byOffset.get(off);
-    if(hit){slots.push({status:'pokemon',hit});continue}
-    let raw;
-    if(off+232<=input.length)raw=input.subarray(off,off+232);
-    else if(window.__layout6&&window.__layout6.rotated){   // ファイル末尾と先頭にまたがるスロット
-      raw=new Uint8Array(232);raw.set(input.subarray(off));raw.set(input.subarray(0,232-(input.length-off)),input.length-off);
-    }else{slots.push({status:'missing'});continue}
-    slots.push({status:isEmptySlot(raw)?'empty':'damaged'});
+    if(slots[i])continue;
+    const o=layout.base+i*232;
+    let empty=false,any=false;
+    for(const sh of [0,...pcShifts()]){const raw=rawAt(o+sh);if(!raw)continue;any=true;if(isEmptySlot(raw)){empty=true;break}}
+    slots[i]={status:!any?'missing':empty?'empty':'damaged'};
   }
   return slots;
 }
@@ -966,14 +1041,14 @@ function renderPartyViewer(){
   const byOffset=new Map((window.__hits||[]).map(h=>[h.offset,h])),B=l6.blocks;
   const slot=o=>{const h=byOffset.get(l6.toFile(o));return h?{status:'pokemon',hit:h}:{status:'empty'}};
   const grid=(cls,origs)=>`<div class="party-grid ${cls}">${origs.map((o,i)=>renderSlotCell(slot(o),i+1)).join('')}</div>`;
-  const six=(blk,size)=>blk?[0,1,2,3,4,5].map(i=>blk.orig+i*size):[];
+  const six=(blk,size)=>blk?[0,1,2,3,4,5].map(i=>(blk.at??blk.orig)+i*size):[];
   const eggs=readDaycareInfo();
   if(!window.__includeEgg||window.__includeEgg.length!==eggs.length)window.__includeEgg=eggs.map(()=>true);
   const dc=B[BLK.DAYCARE],couples=dc?Math.floor(dc.len/DAYCARE_COUPLE):0;
   const dcNames=couples>1?['117番道路','バトル<wbr>リゾート']:[''];   // v35: 狭い画面では「バトル/リゾート」で折り返す
   let daycare='';
   for(let c=0;c<couples;c++){
-    const cells=[0,1].map(s=>renderSlotCell(slot(dc.orig+c*DAYCARE_COUPLE+s*DAYCARE_SLOT+8),s+1)).join('');
+    const cells=[0,1].map(s=>renderSlotCell(slot((dc.at??dc.orig)+c*DAYCARE_COUPLE+s*DAYCARE_SLOT+8),s+1)).join('');
     const egg=eggs[c]&&eggs[c].egg
       ?`<button type="button" class="box-cell is-egg${window.__includeEgg[c]?' selected':''}" data-couple="${c}" aria-pressed="${window.__includeEgg[c]}" title="育て屋で見つかったタマゴ(受け取り前)"><span class="box-name">タマゴ</span><span class="box-check" aria-hidden="true">✓</span></button>`
       :`<div class="box-cell is-empty" aria-label="タマゴなし"></div>`;
@@ -1174,9 +1249,9 @@ function showStructureReport(l6,size,hits){
     if(size!==l6.saveSize)rows.push(['ファイルサイズ',badge('不一致','ng')+`<span class="diag-sub">${size.toLocaleString()} バイト(${gameName} は ${l6.saveSize.toLocaleString()} バイト)</span>`]);
     const sh=((l6.shift%l6.saveSize)+l6.saveSize)%l6.saveSize;
     rows.push(['データの位置',sh?badge('ずれあり','warn')+`<span class="diag-sub">${hex(sh)} バイト(補正して読み取り)</span>`:badge('正常','ok')]);
-    rows.push(['チェックサム一致',`<b>${l6.okCount}</b> / ${l6.blocks.length} ブロック`]);
+    rows.push(['チェックサム一致',`<b>${l6.okCount}</b> / ${l6.blocks.length} ブロック`+(l6.movedCount?`<span class="diag-sub">うち ${l6.movedCount} ブロックは位置のずれを補正</span>`:'')]);
     for(const b of l6.blocks.filter(b=>b.label)){
-      rows.push([b.label,b.status==='ok'?badge('正常','ok'):b.status==='missing'?badge('欠落','ng'):badge('破損','ng')]);
+      rows.push([b.label,b.status==='ok'?(b.moved?badge('正常(位置を補正)','ok'):badge('正常','ok')):b.rawStatus==='missing'?badge('欠落','ng'):badge('破損','ng')]);
     }
   }
   let tail='';
@@ -1193,6 +1268,7 @@ async function analyze(file){
   let [game,gen,maxSpecies]=detectGame(input.length);
   // サイズより先にブロック表で判定する(サイズが合っていても中身が別ゲーム・回転していることがある)
   const l6=findGen6Layout(input);window.__layout6=l6;
+  if(l6)relocateBlocks(input,l6);   // v38
   if(l6){game=l6.game==='XY'?'XY / X・Y':'ORAS / オメガルビー・アルファサファイア';gen=6;maxSpecies=721}
   let scanGen=gen||6;
   // セーブ全体が回転して保存されている場合、ファイル末尾と先頭にまたがる 1 スロットがある。
@@ -1201,6 +1277,7 @@ async function analyze(file){
   const wrapScan=!!(l6&&l6.rotated&&((l6.shift%l6.saveSize)+l6.saveSize)%l6.saveSize!==0);
   const scanInput=wrapScan?(()=>{const a=new Uint8Array(input.length+232);a.set(input);a.set(input.subarray(0,232),input.length);return a})():input;
   let hits=scan(scanInput,scanGen,maxSpecies).filter(h=>h.offset<input.length);
+  hits=addSpecialHits(input,l6,hits);   // v38
   gameEl.textContent=game;   // v22: 「(ブロック表から判定)」と入力サイズの表示は削除
   window.__boxNames=readBoxNames(input,l6);
   window.__bag=readBag(input,l6);
@@ -1244,7 +1321,7 @@ function makePCBinary(selected,game,gen){
   let placed=0,unknown=0,conflicts=0;const used=new Set();
   for(const q of selected){
     const loc=getLocation(q,game,gen);
-    if(loc.box!==null){
+    if(loc.box!==null&&loc.aligned){   // v38: マスにぴったり合う個体だけ(ずれた個体を隣のマスに入れないため)
       const slot=(loc.box-1)*30+(loc.slot-1);
       if(used.has(slot)){conflicts++;continue}
       out.set(encryptPK(q.data),slot*232);used.add(slot);placed++;
@@ -1324,6 +1401,124 @@ download.addEventListener('click',async()=>{
     }else msg('救出に失敗しました: '+e.message,true);
   }finally{updateItemsButton()}
 });
+
+// ---------------------------------------------------------------------------
+// セーブデータ復元(v38)。位置合わせ(relocateBlocks)で無事だったブロックを本来の位置に戻し、
+// 失われたブロックは空のセーブ(ないゲームは 0)で補って、セーブをまるごと作り直す。
+// PC ボックスのブロックが壊れていれば、救出できた個体を元のマスに入れ、ほかのマスは空きにする。
+// フッター(ブロック表)は CRC を付け直し、先頭 16 バイト(セキュアバリュー・日時)は元のセーブのものを使う。
+// 復元信頼度: ブロックごとの重み(遊ぶうえでの大事さ)で、戻せた割合を出す。PC ボックスは読めたマスの割合。
+// ---------------------------------------------------------------------------
+const BLOCK_NAME={0:'ポフレ',1:'バッグ',2:'Yボタンに登録した道具',3:'ゲーム内の時刻',4:'現在地',5:'乱数の種',6:'プレイ時間',7:'持っている服',8:'ポケパルレのミニゲーム記録',9:'一時的な状態',
+  10:'マップ上の人や物の位置',11:'お金・バッジ・BP',12:'ボックス名・壁紙',13:'バトルボックス',14:'PSS(1)',15:'PSS(2)',16:'PSS(3)',17:'トレーナー情報',18:'手持ち',19:'ストーリーの進み具合(イベント)',
+  20:'図鑑',21:'ホロキャスターの記録',22:'合体中のポケモン',23:'設定',24:'ポケパルレのかざり',25:'Oパワー',26:'かいりきの岩の位置',27:'トレーナーPRビデオ',28:'GTS',29:'メニューの状態',
+  30:'PSSのプロフィール',31:'むしよけスプレーなどの状態',32:'ふしぎなおくりものの受信履歴',33:'すれちがい通信の履歴',34:'ライブ大会・バトルスポット',35:'通信の記録',36:'殿堂入り',37:'バトルハウス',38:'育て屋',39:'トライアルハウス',
+  40:'きのみ畑',41:'ふしぎなおくりもの',42:'イベントの記録',43:'ポケモンの日記',44:'レコード',45:'フレンドサファリ',46:'スーパートレーニング',47:'(未使用)',48:'ポケモンリンク',49:'PSSの利用状況',
+  50:'ゲームシンク',51:'PSSのアイコン',52:'通信用の検証データ'};
+const BLOCK_NAME_ORAS={53:'コンテスト',54:'ひみつきち',55:'むげんのチケット',56:'ボックスのポケモン',57:'写真'},BLOCK_NAME_XY={53:'ボックスのポケモン',54:'写真'};
+const BLOCK_WEIGHT={1:6,4:5,6:1,10:3,11:4,12:2,13:2,17:6,18:8,19:10,20:4,36:2,38:2,44:1,47:0};   // 書いていないブロックは 1、PC ボックスは 30
+function blockName(game,id){return (game==='ORAS'?BLOCK_NAME_ORAS:BLOCK_NAME_XY)[id]||BLOCK_NAME[id]||`ブロック${id}`}
+function pcBlockOf(l6){return l6.blocks.find(b=>b.len===0x34AD0)}
+function restoreAnalysis(){
+  const l6=window.__layout6;
+  if(!l6)return null;
+  const pc=pcBlockOf(l6),slots=boxState.pages?boxState.pages.flatMap(p=>p.slots):null;
+  let wSum=0,wGot=0;const lost=[],moved=[];
+  let pcInfo=null;
+  for(const b of l6.blocks){
+    const isPc=b===pc,w=isPc?30:(BLOCK_WEIGHT[b.id]??1);
+    let got=b.status==='ok'?1:0;
+    if(isPc&&!got&&slots){
+      const good=slots.filter(x=>x.status==='pokemon'||x.status==='empty').length;
+      got=good/slots.length;
+      pcInfo={pokemon:slots.filter(x=>x.status==='pokemon').length,unreadable:slots.length-good};
+    }
+    wSum+=w;wGot+=w*got;
+    if(b.status!=='ok'&&!isPc)lost.push(b);
+    if(b.moved)moved.push(b);
+  }
+  const score=wSum?Math.round(wGot/wSum*100):0;
+  const story=[19,4,10].filter(id=>l6.blocks[id]&&l6.blocks[id].status!=='ok');
+  return {l6,score,lost,moved,pc,pcOk:pc&&pc.status==='ok',pcInfo,story,total:l6.blocks.length,ok:l6.okCount};
+}
+// ゲームが書く空きマス(EC=0・種族 0。ニックネーム欄に「タマゴ」、チェックサム 0x9552)を作る
+function emptySlotStub(){
+  const b=new Uint8Array(232);
+  b[6]=0x52;b[7]=0x95;
+  [0xBF,0x30,0xDE,0x30,0xB4,0x30].forEach((v,i)=>{b[0x40+i]=v});
+  b[0xE0]=1;b[0xE1]=2;b[0xE3]=1;
+  return crypt(b,8,232,0);
+}
+async function buildFullRestore(){
+  const a=restoreAnalysis();
+  if(!a)throw new Error('ブロック表が見つからないセーブは、まるごとの復元ができません。');
+  const l6=a.l6,game=l6.game,size=l6.saveSize;
+  let tpl=null;
+  try{tpl=await loadTemplate(game)}catch(e){if(!e.noTemplate)throw e}
+  const out=tpl?tpl.t.slice():new Uint8Array(size);
+  const report={restored:0,moved:0,fromTemplate:0,zero:0,pcPokemon:0,pcEmpty:0};
+  for(const b of l6.blocks){
+    if(b.status==='ok'){out.set(l6.lin.subarray(b.at,b.at+b.len),b.orig);report.restored++;if(b.moved)report.moved++;continue}
+    if(b===a.pc){
+      // 壊れた PC ボックス: 救出できた個体は元の暗号化データのまま元のマスへ、ほかは空きマス
+      const stub=emptySlotStub(),slots=boxState.pages?boxState.pages.flatMap(p=>p.slots):[];
+      for(let i=0;i<b.len/232;i++){
+        const o=b.orig+i*232,sl=slots[i];
+        if(sl&&sl.status==='pokemon'){const src=l6.toOrig(sl.hit.offset);out.set(l6.lin.subarray(src,src+232),o);report.pcPokemon++}
+        else{out.set(stub,o);report.pcEmpty++}
+      }
+      continue;
+    }
+    if(tpl)report.fromTemplate++;else{out.fill(0,b.orig,b.orig+b.len);report.zero++}
+  }
+  // フッター: ブロック表(長さ・ID)は元のセーブのもの、CRC は付け直す。先頭 16 バイトは元のセーブのもの
+  const F=l6.footerOrig;
+  out.set(l6.lin.subarray(F,F+0x200),F);
+  for(const b of l6.blocks){
+    const e=F+0x10+4+b.id*8,c=crc16fast(out,b.orig,b.len);
+    out[e]=b.len&255;out[e+1]=(b.len>>8)&255;out[e+2]=(b.len>>16)&255;out[e+3]=(b.len>>>24)&255;
+    out[e+4]=b.id&255;out[e+5]=b.id>>8;out[e+6]=c&255;out[e+7]=c>>8;
+  }
+  out[F+0x10]=0x46;out[F+0x11]=0x45;out[F+0x12]=0x45;out[F+0x13]=0x42;   // "FEEB"(0x42454546)
+  const check=findGen6Layout(out);
+  report.allValid=!!(check&&check.okCount===l6.blocks.length&&check.game===game);
+  report.hasTemplate=!!tpl;
+  return {data:out,report,analysis:a};
+}
+function renderRestoreViewer(){
+  const viewer=listEl.querySelector('.restore-viewer');
+  if(!viewer)return;
+  const a=restoreAnalysis();
+  if(!a){viewer.innerHTML='<p class="photo-note">このセーブはブロック表が見つからないため、まるごとの復元はできません。ポケモンタブから個体を救出してください。</p>';return}
+  const g=a.score>=90?['高い','high']:a.score>=70?['ふつう','mid']:['低い','low'];
+  const lostNames=a.lost.map(b=>blockName(a.l6.game,b.id));
+  const notes=[];
+  if(a.story.length)notes.push(`<li><b>${a.story.map(id=>blockName(a.l6.game,id)).join('・')}</b> が失われているため、続きから遊ぶと話の流れや現在地が合わず、不具合が出る可能性があります。</li>`);
+  if(!a.pcOk&&a.pcInfo)notes.push(`<li>ボックスのポケモン: 救出できた ${a.pcInfo.pokemon} 匹を元のマスに戻します${a.pcInfo.unreadable?`(読めないマス ${a.pcInfo.unreadable} 個は空きになります)`:''}。</li>`);
+  if(a.moved.length)notes.push(`<li>${a.moved.length} 個の部分は位置がずれていたので、本来の位置に戻します。</li>`);
+  viewer.innerHTML=`<div class="restore-score ${g[1]}">
+      <div class="restore-score-head"><span>復元信頼度</span><strong>${a.score}<small>%</small></strong><em>${g[0]}</em></div>
+      <div class="restore-bar"><i style="width:${a.score}%"></i></div>
+      <p>セーブを作る ${a.total} 個の部分のうち、${a.ok} 個がそのまま残っています。</p>
+    </div>
+    ${notes.length?`<ul class="restore-notes">${notes.join('')}</ul>`:''}
+    <div class="avatar-sub">失われている部分</div>
+    <p class="restore-lost">${lostNames.length?lostNames.map(n=>`<span>${escapeHtml(n)}</span>`).join(''):'なし'}</p>
+    <p class="photo-note">失われている部分は、救出用の空のセーブ(試験データ)の内容で補います。空のセーブがないゲームでは、空の状態になります。</p>
+    <button type="button" class="button restore-button">セーブデータをまるごと復元する</button>
+    <p class="photo-note">元のセーブとは別のファイル(main)として保存されます。ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。</p>`;
+  const btn=viewer.querySelector('.restore-button');
+  btn.addEventListener('click',async()=>{
+    btn.disabled=true;
+    try{
+      const {data,report:r}=await buildFullRestore();
+      saveBlob(data,'main');
+      if(window.NERCounter)window.NERCounter.countRescue();
+      msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`,!r.allValid);
+    }catch(e){msg('まるごとの復元に失敗しました: '+e.message,true)}
+    finally{btn.disabled=false}
+  });
+}
 
 // ---------------------------------------------------------------------------
 // 破損データのサンプル提供(v36)。「提供する」→ 確認(はい / いいえ)→「はい」のときだけ、読み込んだセーブを送る。
