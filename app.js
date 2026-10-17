@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "40";
+const APP_VERSION = "42";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -378,7 +378,12 @@ function getSpecialLocation(q){
   r=rel(BLK.DAYCARE);
   if(r>=0&&B[BLK.DAYCARE]&&r<B[BLK.DAYCARE].len){
     const couple=Math.floor(r/DAYCARE_COUPLE),rr=r%DAYCARE_COUPLE;
-    if(rr<DAYCARE_SLOT*2&&rr%DAYCARE_SLOT===8)return {kind:'daycare',couple,index:(rr-8)/DAYCARE_SLOT,label:'育て屋'};
+    if(rr<DAYCARE_SLOT*2&&rr%DAYCARE_SLOT===8){
+      // v41: 預け中でない枠(引き取り済みの個体データが残っているだけ)は育て屋として扱わない
+      const st=(B[BLK.DAYCARE].at??B[BLK.DAYCARE].orig)+couple*DAYCARE_COUPLE+(rr-8);
+      if(l6.lin&&B[BLK.DAYCARE].status==='ok'&&l6.lin[st]!==1)return null;
+      return {kind:'daycare',couple,index:(rr-8)/DAYCARE_SLOT,label:'育て屋'};
+    }
   }
   return null;
 }
@@ -397,7 +402,8 @@ function addSpecialHits(input,l6,hits){
   const st=(id,cnt,size,base=0)=>{const b=B[id];if(!b||b.status!=='ok')return;for(let i=0;i<cnt;i++)tryAt(b.at+base+i*size)};
   st(BLK.PARTY,6,PARTY_SIZE);st(BLK.BATTLE,6,232);
   const dc=B[BLK.DAYCARE];
-  if(dc&&dc.status==='ok')for(let c=0;c*DAYCARE_COUPLE<dc.len;c++)for(let s=0;s<2;s++)tryAt(dc.at+c*DAYCARE_COUPLE+s*DAYCARE_SLOT+8);
+  // 育て屋は「預け中」(枠の先頭 u32 = 1)の枠だけ。引き取ったあとの個体データが枠に残っていることがあるため(v41)
+  if(dc&&dc.status==='ok')for(let c=0;c*DAYCARE_COUPLE<dc.len;c++)for(let s=0;s<2;s++){const base=dc.at+c*DAYCARE_COUPLE+s*DAYCARE_SLOT;if(l6.lin[base]===1)tryAt(base+8)}
   if(!add.length)return hits;
   return classifyHits(hits.concat(add));
 }
@@ -568,6 +574,9 @@ async function buildRescueMain(opts){
       changed.add(lb.id);
     }
   }
+  // v42: フッターの先頭 16 バイト(最後に保存した日時 = セキュアバリュー / その前の日時)は、読み込んだセーブのものにする。
+  // 空のセーブの値のままだと、ダウンロード版では本体に記録された値と合わず「レポートがこわれています」になりうるため。
+  if(l6&&l6.lin&&l6.game===game){const F=l6.footerOrig;out.set(l6.lin.subarray(F,F+16),tl.footerFile)}
   // 書き換えたブロックの CRC16 をフッターのブロック表に書く(マジックの 4 バイト後から 8 バイトずつ: 長さ u32, ID u16, CRC u16)
   for(const id of changed){
     const b=tl.blocks[id],crc=crc16ccitt(i=>out[b.orig+i],b.len),e=tl.footerFile+0x10+4+id*8;
@@ -746,7 +755,20 @@ function showSub(sub){
 // POKEMON_ICON_DIR に権利上問題のない画像を置いたディレクトリを指定すると <dir><全国図鑑番号>.png を表示し、
 // null(既定)または読めない場合はポケモン名を表示する。
 // ---------------------------------------------------------------------------
-const POKEMON_ICON_DIR=null;
+const POKEMON_ICON_DIR='img/pokemon/';   // v42: PokeSprite のアイコン(pk_icons.js と img/pokemon/)
+// アイコンのファイル名。タマゴ・フォルム・メスの姿に対応し、分からないときはふつうの姿にする
+function pkIconPath(hit){
+  const b=hit.data,sp=hit.species;
+  if(((u32(b,0x74)>>>30)&1)===1)return POKEMON_ICON_DIR+(sp===490?'egg-manaphy':'egg')+'.png';
+  const slug=(typeof PK_ICON_BASE!=='undefined'&&PK_ICON_BASE[sp])||null;
+  if(!slug)return POKEMON_ICON_DIR+'unknown.png';
+  const form=b[0x1D]>>>3,forms=PK_ICON_FORMS[sp];
+  if(forms&&forms[form])return POKEMON_ICON_DIR+forms[form]+'.png';
+  const female=((b[0x1D]>>>1)&3)===1;
+  if(form===0&&((female&&PK_ICON_FEMALE.has(sp))))return POKEMON_ICON_DIR+'female/'+slug+'.png';
+  if(sp===678&&form===1)return POKEMON_ICON_DIR+'female/meowstic.png';
+  return POKEMON_ICON_DIR+slug+'.png';
+}
 
 // ---------------------------------------------------------------------------
 // ボックス名(v17)。第6世代の「ボックス名・壁紙」ブロック(長さ 0x440)の先頭に
@@ -1048,9 +1070,13 @@ function renderPartyViewer(){
   const dcNames=couples>1?['117番道路','バトル<wbr>リゾート']:[''];   // v35: 狭い画面では「バトル/リゾート」で折り返す
   let daycare='';
   for(let c=0;c<couples;c++){
-    const cells=[0,1].map(s=>renderSlotCell(slot((dc.at??dc.orig)+c*DAYCARE_COUPLE+s*DAYCARE_SLOT+8),s+1)).join('');
+    const cells=[0,1].map(s=>{
+      const base=(dc.at??dc.orig)+c*DAYCARE_COUPLE+s*DAYCARE_SLOT;
+      const occupied=!(l6.lin&&dc.status==='ok')||l6.lin[base]===1;   // v41: 預け中の枠だけ
+      return renderSlotCell(occupied?slot(base+8):{status:'empty'},s+1);
+    }).join('');
     const egg=eggs[c]&&eggs[c].egg
-      ?`<button type="button" class="box-cell is-egg${window.__includeEgg[c]?' selected':''}" data-couple="${c}" aria-pressed="${window.__includeEgg[c]}" title="育て屋で見つかったタマゴ(受け取り前)"><span class="box-name">タマゴ</span><span class="box-check" aria-hidden="true">✓</span></button>`
+      ?`<button type="button" class="box-cell is-egg${window.__includeEgg[c]?' selected':''}" data-couple="${c}" aria-pressed="${window.__includeEgg[c]}" title="育て屋で見つかったタマゴ(受け取り前)">${POKEMON_ICON_DIR?`<img class="box-icon" src="${POKEMON_ICON_DIR}egg.png" alt="タマゴ">`:'<span class="box-name">タマゴ</span>'}<span class="box-check" aria-hidden="true">✓</span></button>`
       :`<div class="box-cell is-empty" aria-label="タマゴなし"></div>`;
     daycare+=`${dcNames[c]?`<div class="party-sub">${dcNames[c]}</div>`:''}<div class="party-grid daycare">${cells}${egg}</div>`;
   }
@@ -1086,7 +1112,7 @@ function renderSlotCell(s,slotNo){
   if(s.status==='pokemon'){
     const sm=pkSummary(s.hit);
     const tip=`${sm.name}${sm.gender?' '+sm.gender:''} ${sm.isEgg?'タマゴ':sm.level!==null?'Lv.'+sm.level:''} / 親名: ${sm.ot} / ${sm.ability} / ${sm.ball}`;
-    const icon=POKEMON_ICON_DIR?`<img class="box-icon" src="${POKEMON_ICON_DIR}${s.hit.species}.png" alt="${escapeHtml(sm.name)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'box-name',textContent:this.alt}))">`:`<span class="box-name">${escapeHtml(sm.name)}</span>`;
+    const icon=POKEMON_ICON_DIR?`<img class="box-icon" src="${pkIconPath(s.hit)}" loading="lazy" alt="${escapeHtml(sm.name)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'box-name',textContent:this.alt}))">`:`<span class="box-name">${escapeHtml(sm.name)}</span>`;
     const shinyIcon=sm.shiny?`<img class="box-shiny" src="${SHINY_ICON}" alt="色違い">`:'';
     const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
     return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}" data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${icon}${ballIcon}<span class="box-check" aria-hidden="true">✓</span></button>`;
@@ -1384,7 +1410,7 @@ function showReturnGuide(kind){
       <li>開いたフォルダの <code>main</code> を、別の場所に<b>コピーしてバックアップ</b>します。</li>
       <li>ダウンロードした <code>main</code> を、そのフォルダに上書きで置きます。</li>
       <li>ゲームを起動して確かめます。うまく起動しないときは、バックアップした <code>main</code> を戻します。</li>
-    </ol>${fileNote}`;
+    </ol>${fileNote}<p class="guide-note">セーブが正しいのに「レポートがこわれています」と出るときは、Citra 側のそのゲームの情報が原因のことがあります。<code>main</code> を別の場所に保存してから、ゲームを入れ直して(アンインストール → インストール)、もう一度 <code>main</code> を置いてみてください。</p>`;
   const pkhex=kind==='bin'?`<ol>
       <li>PKHeX で、ポケモンを入れたい<b>同じゲーム</b>(X・Y なら X・Y、ORAS なら ORAS)のセーブを開きます。</li>
       <li><code>boxdata.bin</code> を PKHeX のウィンドウにドラッグ＆ドロップします。</li>

@@ -6,7 +6,7 @@
 次の **5 か所** を必ず同じ値に揃えること。
 
 1. `app.js` の `APP_VERSION`
-2. `index.html` の `?v=`(style.css / pkdata.js / pk_fashion.js / app.js / counter.js / ロゴ画像)
+2. `index.html` の `?v=`(style.css / pkdata.js / pk_fashion.js / pk_icons.js / app.js / counter.js / ロゴ画像)
 3. `privacy.html` の `?v=`(1 か所: style.css)
 4. 配布 ZIP のファイル名
 5. この `CHANGELOG.md` の見出し
@@ -15,6 +15,26 @@
 公開中のサイトのバージョンはページ下部のフッターに表示される。
 
 ---
+
+## v42 — 2026-10-17
+
+- ボックス・手持ち等のマスのアイコンを [PokeSprite](https://msikma.github.io/pokesprite/) の画像にした(`img/pokemon/`, 対応表 `pk_icons.js`)。
+  - No.1〜721。フォルム(アンノーン・ビビヨン・フラベベ・トリミアン・アルセウス・おきがえピカチュウなど)、メスの姿(ニャオニクス・プルリル など)、タマゴ(マナフィのタマゴ)に対応。読めないときは種族名の文字に戻る。
+  - 画像は © Nintendo/Creatures Inc./GAME FREAK Inc.。PokeSprite のコード・データは MIT(`img/pokemon/LICENSE-pokesprite.md`)。フッターにクレジットを追加。
+  - 作り直しはスクラッチの `gen_icons.py`(PKHeX のフォルム順 → PokeSprite の名前)。
+- 「ポケモンを救出する」の `main` で、フッター先頭 16 バイト(セキュアバリュー = 最後に保存した日時と、その前の日時)を、空のセーブのものではなく**読み込んだセーブのもの**にした。ダウンロード版で本体に記録された値と食い違って「レポートがこわれています」になるのを防ぐため。同じゲーム(XY / ORAS)のときだけ。
+- Citra の戻し方の案内に「正しいセーブなのに起動しないときは、ゲームを入れ直す」を追加。
+- 使い方の「空のセーブがないゲーム(ORAS)」の記述を、ORAS の空のセーブ設置済みに合わせて直した。
+
+---
+
+## v41 — 2026-10-17
+
+- 育て屋は「預け中」(枠の先頭 u32 = 1)の枠だけを育て屋の個体として扱う(`addSpecialHits()` / `getSpecialLocation()` / 手持ち等の表示)。
+  引き取ったあとも個体データが枠に残っていることがあり、v38〜v40 ではそれを預け中として main に書き込み、同じ個体が 2 匹になるおそれがあった。
+  実例(ORAS 破損例): 117番道路の 2 枠目のヨルノズクは預け中ではない → v41 では育て屋に入れない。
+- ORAS の空のセーブ `templates/main_oras` を管理者が設置(アルファサファイア、はいたついん、58/58 有効、ボックス空)。ORAS でも main を作れるようになった。
+  PKHeX.Core で確認: ORAS 破損例から作った main・まるごと復元とも 58/58 有効、ボックス 770 匹。
 
 ## v40 — 2026-10-16
 
