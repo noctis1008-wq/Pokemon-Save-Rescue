@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "53";
+const APP_VERSION = "54";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -1210,7 +1210,7 @@ function isHitChecked(hit){
 // 手がかり: レベル・努力値の合計(最大 510)・リボンの数・ニックネーム。タマゴは対象外。
 // どれも低いポケモンばかりのときは選ばない(点数が FAVORITE_MIN_SCORE 未満は除く)。
 // ---------------------------------------------------------------------------
-const FAVORITE_MAX=5,FAVORITE_MIN_SCORE=4,FAVORITE_PERIOD_MS=1200;   // 跳ねる間隔(1.2 秒ごと。全員そろって跳ねる。描き直しても拍がずれないよう、今の時刻に合わせて途中から始める)
+const FAVORITE_MAX=5,FAVORITE_MIN_SCORE=4,FAVORITE_PERIOD_MS=500;   // 跳ねる間隔(0.5 秒ごとに着地。全員そろって跳ねる。描き直しても拍がずれないよう、今の時刻に合わせて途中から始める)
 function popcount8(v){let n=0;while(v){n+=v&1;v>>=1}return n}
 function favoriteScore(hit){
   const b=hit.data;if(!b)return 0;
