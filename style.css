@@ -94,9 +94,9 @@
 .box-icon{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;box-sizing:border-box;padding:var(--icon-pad,6px)}   /* v44: マスの上下左右に約 1mm(スマホで 6px)の余白。v43 は 0 */
 .box-cell.is-pokemon,.box-cell.is-egg{padding:1px}
 .box-shiny,.box-ball,.box-check{z-index:1}
-.box-shiny{position:absolute;top:2px;left:2px;width:14px;height:14px}
+.box-shiny{position:absolute;top:2px;right:2px;width:14px;height:14px}
 .box-ball{position:absolute;right:2px;bottom:2px;width:17px;height:17px;filter:drop-shadow(0 1px 1.5px rgba(16,24,40,.55)) drop-shadow(0 0 1px rgba(16,24,40,.35))}   /* v44: 少し大きく、影を付けて見やすく */
-.box-check{position:absolute;top:2px;right:3px;font-size:10px;font-weight:900;color:#2e90fa;display:none}
+.box-check{position:absolute;top:2px;left:3px;font-size:10px;font-weight:900;color:#2e90fa;display:none}
 .box-cell.is-pokemon.selected .box-check{display:block}
 .box-legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;margin-top:10px;font-size:12px;color:#475467}
 .box-legend .lg{display:inline-block;width:12px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;border:1px solid #b9c4d3;background:#fff}
@@ -355,3 +355,29 @@
 .guide-sec ol{margin:8px 0 4px;padding-left:22px;font-size:13.5px;line-height:1.75;color:#344054}
 .guide-sec li{margin:3px 0}
 .guide-note{margin:6px 0 0;font-size:12.5px;line-height:1.7;color:#475467}
+
+/* v45: 「すべて選択」「すべて解除」と同じ行の右端に選択数 */
+.recovery-controls .selection-actions{align-items:center}
+.selection-actions .selection-count{margin-left:auto;font-size:15px;font-weight:800;color:#17202a}
+/* v45: ボックスの表示切り替え(アイコン / ポケモン名) */
+.box-mode{display:flex;justify-content:center;gap:0;margin:10px auto 10px;width:max-content;border:1px solid #d0d5dd;border-radius:9px;overflow:hidden}
+.box-mode-btn{border:0;background:#fff;color:#475467;padding:6px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.box-mode-btn+.box-mode-btn{border-left:1px solid #d0d5dd}
+.box-mode-btn.active{background:#17202a;color:#fff}
+.box-grid:not(.with-icons) .box-cell.is-pokemon{padding:2px 3px}   /* v46: ポケモン名は上下中央 */
+/* v46: チェックは左上、色違いの印は右上 */
+/* v46: まるごと復元の推奨 */
+.restore-recommend{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#fff4e5;border:1px solid #f79009;color:#b54708;font-weight:800;line-height:1.6}
+/* v46: 目的のアンケート */
+.survey-box{width:min(420px,100%);max-height:calc(100vh - 32px);overflow-y:auto}
+.survey-box h3{margin:0 0 6px;font-size:17px}
+.survey-lead{font-weight:400!important;font-size:13px;color:#667085;margin:0 0 12px!important}
+.survey-q{border:0;margin:0 0 12px;padding:0}
+.survey-q legend{font-weight:800;margin-bottom:6px;font-size:14px}
+.survey-opt{display:flex;gap:8px;align-items:center;padding:9px 10px;border:1px solid #d0d5dd;border-radius:10px;margin-bottom:6px;cursor:pointer;font-size:14px}
+.survey-opt:has(input:checked){border-color:#2e90fa;background:#eff8ff}
+.survey-opt input{width:17px;height:17px;flex:none;margin:0}
+.survey-text{font-weight:400!important;font-size:14px;margin:0 0 8px!important}
+.survey-apply-note{font-weight:400!important;font-size:12px;color:#667085;margin:8px 0 0!important}
+.survey-off{display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:12px;font-size:12px;color:#667085;cursor:pointer}
+.survey-box .button:disabled{opacity:.45;cursor:not-allowed}
