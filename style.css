@@ -91,11 +91,11 @@
 .box-cell.is-missing{background:#eceff3;border-style:dashed}
 .box-damaged{font-size:10px;font-weight:700;color:#b42318}
 .box-name{font-size:12px;font-weight:800;line-height:1.2;text-align:center;word-break:keep-all;overflow-wrap:anywhere;color:#17202a}
-.box-icon{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;box-sizing:border-box;padding:0}   /* v43: 余白を切り落とした画像をマスいっぱいに広げ、大きさを揃える(色違い・ボールの印は重なってよい) */
+.box-icon{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;box-sizing:border-box;padding:var(--icon-pad,6px)}   /* v44: マスの上下左右に約 1mm(スマホで 6px)の余白。v43 は 0 */
 .box-cell.is-pokemon,.box-cell.is-egg{padding:1px}
 .box-shiny,.box-ball,.box-check{z-index:1}
 .box-shiny{position:absolute;top:2px;left:2px;width:14px;height:14px}
-.box-ball{position:absolute;right:2px;bottom:2px;width:14px;height:14px}
+.box-ball{position:absolute;right:2px;bottom:2px;width:17px;height:17px;filter:drop-shadow(0 1px 1.5px rgba(16,24,40,.55)) drop-shadow(0 0 1px rgba(16,24,40,.35))}   /* v44: 少し大きく、影を付けて見やすく */
 .box-check{position:absolute;top:2px;right:3px;font-size:10px;font-weight:900;color:#2e90fa;display:none}
 .box-cell.is-pokemon.selected .box-check{display:block}
 .box-legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;margin-top:10px;font-size:12px;color:#475467}
@@ -104,7 +104,7 @@
 .box-legend .lg.is-damaged{background:#fbd5d5;border-color:#f5b5b5}
 .box-legend .lg.is-missing{background:#eceff3;border-style:dashed}
 .box-help,.box-empty-note{margin:8px 0 0;font-size:12px;color:#667085;text-align:center;line-height:1.6}
-@media(max-width:650px){.box-grid{gap:3px;padding:6px}.box-name{font-size:9.5px}.box-shiny,.box-ball{width:11px;height:11px}.view-tab{padding:8px 12px;font-size:13px}}
+@media(max-width:650px){.box-grid{gap:3px;padding:6px}.box-name{font-size:9.5px}.box-shiny{width:11px;height:11px}.box-ball{width:15px;height:15px}.view-tab{padding:8px 12px;font-size:13px}}
 /* ===== v17 ===== */
 /* タイトルロゴ */
 .hero-logo{margin:0 auto;max-width:680px;line-height:0}
