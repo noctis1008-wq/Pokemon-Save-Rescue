@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "47";
+const APP_VERSION = "48";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -681,13 +681,18 @@ function setupListResizer(list,handle){
 }
 function renderList(hits){
   // v32: タブは ポケモン / バッグ / 図鑑 / トレーナー。ポケモンタブの中で 一覧 / 手持ち等 / ボックス を切り替える。写真はトレーナータブの中。
+  const ra0=restoreAnalysis();
   listEl.innerHTML=`
+    <div class="method-switch" role="tablist" aria-label="復元の方法">
+      <button type="button" class="method-card" role="tab" data-method="rescue"><span class="method-icon" aria-hidden="true">🎒</span><b>ポケモンを救出</b><span class="method-desc">ポケモンや道具などを選んで、正常なセーブデータに連れていきます</span></button>
+      <button type="button" class="method-card" role="tab" data-method="full"${ra0?'':' disabled'}><span class="method-icon" aria-hidden="true">💾</span><b>まるごと復元</b><span class="method-desc">${ra0?'残っている全ての情報を保持したまま、元のセーブを作り直します':'このセーブではできません'}</span>${ra0?'<em class="method-score"></em>':''}</button>
+    </div>
+    <p class="method-caption">救出に入れるものを、タブごとに選んでください</p>
     <div class="view-tabs" role="tablist">
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="pokemon">ポケモン</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="items">バッグ</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="trainer">トレーナー</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="dex">図鑑</button>
-      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="restore">まるごと復元</button>
     </div>
     <div class="view-panel" data-view="pokemon">
       <div class="recovery-controls">
@@ -722,6 +727,7 @@ function renderList(hits){
     updateSelectionSummary();refreshBoxSelection();
   }));
   listEl.querySelectorAll('.view-tab').forEach(tab=>tab.addEventListener('click',()=>showView(tab.dataset.view)));
+  listEl.querySelectorAll('.method-card').forEach(c=>c.addEventListener('click',()=>showView(c.dataset.method==='full'?'restore':(window.__lastRescueView||'pokemon'))));
   listEl.querySelectorAll('.sub-tab').forEach(tab=>tab.addEventListener('click',()=>showSub(tab.dataset.sub)));
   boxState.pages=buildBoxPages(hits);
   boxState.current=firstBoxWithPokemon(boxState.pages);
@@ -731,6 +737,7 @@ function renderList(hits){
   renderDexViewer(listEl.querySelector('.dex-viewer'));
   renderTrainerViewer(listEl.querySelector('.trainer-viewer'));
   renderRestoreViewer();
+  {const a=restoreAnalysis(),em=listEl.querySelector('.method-score');if(a&&em){em.textContent=`信頼度 ${a.score}%`;em.classList.add(a.score>=RESTORE_TAB_MIN_SCORE?'high':a.score>=RESTORE_LOW_SCORE?'mid':'low')}}
   renderPhotoViewer(listEl.querySelector('.photo-viewer'));
   updateSelectionSummary();
   showView(preferRestoreTab()?'restore':'pokemon');showSub('box');   // v32: 読み込み直後はポケモンタブのボックス(ポケモンがいる一番若いボックス)。v45: まるごと復元できそうならそのタブ
@@ -795,13 +802,13 @@ function showPurposeSurvey(){
   const result=(title,paras,applyLabel,apply,extra='')=>{
     show(`<h3 id="surveyTitle">おすすめ: ${escapeHtml(title)}</h3>${extra}${paras.filter(Boolean).map(t=>`<p class="survey-text">${escapeHtml(t)}</p>`).join('')}
       <div class="sample-dialog-actions"><button type="button" class="button survey-apply">この設定にする</button><button type="button" class="button button-secondary survey-back">戻る</button></div>
-      <p class="survey-apply-note">「この設定にする」で: ${escapeHtml(applyLabel)}</p>`);
+      <p class="survey-apply-note">「この設定にする」で${escapeHtml(applyLabel)}</p>`);
     d.querySelector('.survey-apply').addEventListener('click',()=>done(apply));
     d.querySelector('.survey-back').addEventListener('click',ask);
   };
-  const rescue=()=>result('ポケモンを救出する',['ポケモンタブで選んで「ポケモンを救出する」を押すと、そのままゲームで遊べる main ができます。'],'ポケモンをすべて選んでボックスを開く',goRescueAll);
+  const rescue=()=>result('ポケモンを救出する',['ポケモンタブで選んで「ポケモンを救出する」を押すと、そのままゲームで遊べるセーブデータをダウンロードできます。'],'「ポケモンを救出」に切り替えて、ポケモンをすべて選ぶ',goRescueAll);
   const full=()=>{
-    if(!a){result('ポケモンを救出する',['このセーブはまるごとの復元ができません(セーブの部品の一覧が見つからないため)。','ポケモンは救出で取り出せます。'],'ポケモンをすべて選んでボックスを開く',goRescueAll);return}
+    if(!a){result('ポケモンを救出する',['このセーブはまるごとの復元ができません(セーブの部品の一覧が見つからないため)。','ポケモンは救出で取り出せます。'],'「ポケモンを救出」に切り替えて、ポケモンをすべて選ぶ',goRescueAll);return}
     if(a.score<RESTORE_LOW_SCORE){
       show(`<h3 id="surveyTitle">まるごと復元の確認</h3><p class="survey-warn">${escapeHtml(lowScoreText(a.score))}</p>${note?`<p class="survey-text">${escapeHtml(note)}</p>`:''}
         <div class="sample-dialog-actions"><button type="button" class="button survey-go">続ける</button><button type="button" class="button button-secondary survey-rescue">救出だけにする</button></div>
@@ -811,14 +818,20 @@ function showPurposeSurvey(){
       d.querySelector('.survey-back').addEventListener('click',ask);
       return;
     }
-    result('まるごと復元',[`復元信頼度は ${a.score}% です。${a.score>=RESTORE_TAB_MIN_SCORE?'ほとんどの部分が残っています。':'一部の部分は空のセーブ(始めたばかりの状態)の内容で補われます。'}`,note,'ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。'],'「まるごと復元」タブを開く',()=>showView('restore'));
+    result('まるごと復元',[`復元信頼度は ${a.score}% です。${a.score>=RESTORE_TAB_MIN_SCORE?'ほとんどの部分が残っています。':'一部の部分は空のセーブ(始めたばかりの状態)の内容で補われます。'}`,note,'ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。'],'「まるごと復元」に切り替える',()=>showView('restore'));
   };
   ask();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const d=document.getElementById('purposeSurvey');if(d)d.classList.add('hidden')}});
 function showView(view){
+  // v48: 「ポケモンを救出」と「まるごと復元」を上の 2 枚のカードで切り替える。救出のときだけ、入れるもののタブ(ポケモン・バッグ・トレーナー・図鑑)を出す
+  const full=view==='restore';
+  if(!full)window.__lastRescueView=view;
+  listEl.querySelectorAll('.method-card').forEach(c=>{const on=(c.dataset.method==='full')===full;c.classList.toggle('active',on);c.setAttribute('aria-selected',on?'true':'false')});
+  listEl.querySelectorAll('.view-tabs,.method-caption').forEach(e=>{e.style.display=full?'none':''});
   listEl.querySelectorAll('.view-tab').forEach(t=>{const on=t.dataset.view===view;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false')});
   listEl.querySelectorAll('.view-panel').forEach(p=>p.classList.toggle('active',p.dataset.view===view));
+  {const dl=document.getElementById('download');if(dl)dl.closest('.action-buttons').style.display=view==='restore'?'none':''}   // v48: まるごと復元の画面では「ポケモンを救出する」を出さない
   if(view==='pokemon')refreshBoxSelection();
 }
 function showSub(sub){
