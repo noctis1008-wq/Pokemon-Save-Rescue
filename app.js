@@ -743,62 +743,77 @@ function renderList(hits){
 // ---------------------------------------------------------------------------
 function surveyOff(){try{return localStorage.getItem('nerSurveyOff')==='1'}catch(e){return false}}
 function setSurveyOff(v){try{v?localStorage.setItem('nerSurveyOff','1'):localStorage.removeItem('nerSurveyOff')}catch(e){}}
-function surveyAdvice(purpose,after){
-  const a=restoreAnalysis(),sc=a?a.score:null;
-  const toRestore={label:'「まるごと復元」タブを開く',apply:()=>showView('restore')};
-  const toRescue={label:'ポケモンをすべて選んでボックスを開く',apply:()=>{listEl.querySelectorAll('.candidate-check').forEach(cb=>{cb.checked=true});updateSelectionSummary();refreshBoxSelection();showView('pokemon');showSub('box')}};
-  if(purpose==='play'){
-    if(!a)return {title:'ポケモンの救出',body:['このセーブはまるごとの復元ができません(セーブの部品の一覧が見つからないため)。','続きから遊ぶことはできませんが、「ポケモンを救出する」でポケモンを取り出せます。'],...toRescue};
-    const body=[`復元信頼度は ${sc}% です。`];
-    if(sc>=RESTORE_TAB_MIN_SCORE)body.push('ほとんどの部分が残っているので、まるごと復元で続きから遊べる見込みが高いです。');
-    else if(sc>=70)body.push('一部の部分は空のセーブの内容で補われます。続きから遊べる見込みはありますが、一部の記録が変わることがあります。');
-    else body.push('多くの部分が失われているため、まるごと復元しても話の進み具合や現在地が合わず、思うように遊べない可能性があります。ポケモンを残すことを優先するなら、あわせて「ポケモンを救出する」も使ってください。');
-    body.push('ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。');
-    return {title:'まるごと復元',body,...toRestore};
-  }
-  if(after==='bank'){
-    if(!a)return {title:'ポケモンを救出する',body:['このセーブはまるごとの復元ができません。','「ポケモンを救出する」で作る main は、ツールに入っている空のセーブを受け皿にして、ポケモンを元の場所(ボックス・手持ち・バトルボックス・育て屋)に入れた、そのままゲームで開けるセーブです。ゲームに戻してからポケモンバンクへ預けられます。'],...toRescue};
-    return {title:'まるごと復元',body:[`復元信頼度は ${sc}% です。`,'すぐにポケモンバンクへ預けるなら、信頼度が低くても「まるごと復元」がおすすめです。ゲームでそのまま開けるセーブになり、残っていたものがまとめて元に戻ります。',sc<RESTORE_TAB_MIN_SCORE?'失われた部分は空のセーブで補われるため、ゲームを始めた場所などが変わることがありますが、ボックスを開いてバンクへ預けるだけなら問題になりにくいです。':'ほとんどの部分が残っています。',a.pcOk?'':`ボックスのポケモンは救出できた ${a.pcInfo?a.pcInfo.pokemon:''} 匹が元のマスに戻ります。`,'手持ち・育て屋のポケモンは、ゲームでボックスに移してからバンクへ預けてください。'].filter(Boolean),...toRestore};
-  }
-  return {title:'ポケモンを救出する',body:['ほかのセーブ(今遊んでいるセーブなど)へ移すなら、ポケモンタブで選んで「ポケモンを救出する」を使います。','できた main はツールに入っている空のセーブを受け皿にしたもので、ポケモンは元の場所(ボックス・手持ち・バトルボックス・育て屋)に入ります。','今のセーブをバックアップしてから main をゲームに戻し、ポケモンバンクへ預けて、今のセーブに戻してから引き出します(手順はダウンロード後に表示します)。'],...toRescue};
+// v46: 信頼度がこの値未満を「低い」とする(まるごと復元タブの表示と同じ区切り)
+const RESTORE_LOW_SCORE=70;
+// まるごと復元では戻らないポケモンの数。手持ち・バトルボックス・育て屋の部分が壊れていると、
+// まるごと復元ではその部分が空のセーブの内容になるが、救出ならそこで見つかった個体を入れられる。
+function fullRestoreMissing(){
+  const l6=window.__layout6;if(!l6)return 0;
+  const blk={party:BLK.PARTY,battle:BLK.BATTLE,daycare:BLK.DAYCARE};
+  return (window.__hits||[]).filter(h=>{const sp=getSpecialLocation(h);if(!sp||!blk[sp.kind])return false;const b=l6.blocks[blk[sp.kind]];return !b||b.status!=='ok'}).length;
+}
+function missingNote(){const n=fullRestoreMissing();return n?`${n}体のポケモンが戻ってきません。「ポケモンの救出」をおすすめします。`:''}
+function goRescueAll(){listEl.querySelectorAll('.candidate-check').forEach(cb=>{cb.checked=true});updateSelectionSummary();refreshBoxSelection();showView('pokemon');showSub('box')}
+// 共通の小さな確認画面(アンケートと同じ見た目)。buttons: [{label, primary, onClick}]
+function surveyDialog(){
+  let d=document.getElementById('purposeSurvey');
+  if(!d){d=document.createElement('div');d.id='purposeSurvey';d.className='sample-dialog survey-dialog';d.setAttribute('role','dialog');d.setAttribute('aria-modal','true');d.setAttribute('aria-labelledby','surveyTitle');document.body.appendChild(d)}
+  d.onclick=e=>{if(e.target===d)d.classList.add('hidden')};
+  return d;
+}
+function lowScoreText(sc){return `復元信頼度が${sc}%しかありません。ポケモンだけの救出をおすすめします。このまま続けますか？`}
+// まるごと復元のボタンを押したときも、信頼度が低ければ確かめる
+function confirmLowRestore(onContinue){
+  const a=restoreAnalysis();
+  if(!a||a.score>=RESTORE_LOW_SCORE){onContinue();return}
+  const d=surveyDialog(),note=missingNote();
+  d.innerHTML=`<div class="sample-dialog-box survey-box"><h3 id="surveyTitle">まるごと復元の確認</h3>
+    <p class="survey-warn">${escapeHtml(lowScoreText(a.score))}</p>${note?`<p class="survey-text">${escapeHtml(note)}</p>`:''}
+    <div class="sample-dialog-actions"><button type="button" class="button survey-go">続ける</button><button type="button" class="button button-secondary survey-rescue">救出だけにする</button></div></div>`;
+  d.querySelector('.survey-go').addEventListener('click',()=>{d.classList.add('hidden');onContinue()});
+  d.querySelector('.survey-rescue').addEventListener('click',()=>{d.classList.add('hidden');goRescueAll()});
+  d.classList.remove('hidden');
 }
 function showPurposeSurvey(){
   if(surveyOff()||!listEl.querySelector('.view-tabs'))return;
-  let d=document.getElementById('purposeSurvey');
-  if(!d){d=document.createElement('div');d.id='purposeSurvey';d.className='sample-dialog survey-dialog';d.setAttribute('role','dialog');d.setAttribute('aria-modal','true');d.setAttribute('aria-labelledby','surveyTitle');document.body.appendChild(d)}
-  const ans={purpose:null,after:null};
+  const d=surveyDialog();
   const close=()=>d.classList.add('hidden');
   const offBox=`<label class="survey-off"><input type="checkbox" class="survey-off-check"${surveyOff()?' checked':''}> 次から表示しない</label>`;
   const bindOff=()=>{const c=d.querySelector('.survey-off-check');if(c)c.addEventListener('change',()=>setSurveyOff(c.checked))};
-  const q=(name,title,opts)=>`<fieldset class="survey-q" data-q="${name}"><legend>${title}</legend>${opts.map(([v,t])=>`<label class="survey-opt"><input type="radio" name="sv-${name}" value="${v}"${ans[name]===v?' checked':''}><span>${t}</span></label>`).join('')}</fieldset>`;
+  const show=html=>{d.innerHTML=`<div class="sample-dialog-box survey-box">${html}${offBox}</div>`;bindOff();d.classList.remove('hidden')};
+  const done=(fn)=>{fn();close();const t=listEl.querySelector('.view-tabs');if(t)t.scrollIntoView({behavior:'smooth',block:'start'})};
+  const a=restoreAnalysis(),note=missingNote();
   const ask=()=>{
-    const ready=ans.purpose==='play'||(ans.purpose==='pokemon'&&ans.after);
-    d.innerHTML=`<div class="sample-dialog-box survey-box">
-      <h3 id="surveyTitle">どのように復元しますか？</h3>
-      <p class="survey-lead">目的に合わせて、おすすめの操作をご案内します(スキップできます)。</p>
-      ${q('purpose','いちばんの目的は？',[['play','ゲームの続きを遊びたい'],['pokemon','ポケモンだけ取り戻したい']])}
-      ${ans.purpose==='pokemon'?q('after','取り戻したポケモンは？',[['bank','すぐにポケモンバンクへ預ける'],['move','ほかのセーブ(今遊んでいるセーブなど)に移す']]):''}
-      <div class="sample-dialog-actions"><button type="button" class="button survey-next"${ready?'':' disabled'}>おすすめを見る</button><button type="button" class="button button-secondary survey-skip">スキップ</button></div>
-      ${offBox}</div>`;
-    d.querySelectorAll('input[type=radio]').forEach(r=>r.addEventListener('change',()=>{const n=r.name.slice(3);ans[n]=r.value;if(n==='purpose'&&r.value==='play')ans.after=null;ask()}));
-    d.querySelector('.survey-next').addEventListener('click',result);
+    show(`<h3 id="surveyTitle">何を取り戻したいですか？</h3>
+      <p class="survey-lead">ご希望に合わせて、おすすめの使い方をご案内します（スキップ可）。</p>
+      <button type="button" class="survey-choice" data-c="rescue"><b>ポケモンだけ救出したい</b><span>救出したポケモンを、正常なセーブデータに連れていきます。道具等も復元できることがあります。</span></button>
+      <button type="button" class="survey-choice" data-c="full"><b>できる限りすべてのデータを復元したい</b><span>ポケモンや道具等に加え、トレーナーの詳細情報や殿堂入りなど、残っている全ての情報を保持したまま復元を試みます。</span></button>
+      <div class="sample-dialog-actions"><button type="button" class="button button-secondary survey-skip">スキップ</button></div>`);
     d.querySelector('.survey-skip').addEventListener('click',close);
-    bindOff();
+    d.querySelectorAll('.survey-choice').forEach(btn=>btn.addEventListener('click',()=>btn.dataset.c==='rescue'?rescue():full()));
   };
-  const result=()=>{
-    const adv=surveyAdvice(ans.purpose,ans.after);
-    d.innerHTML=`<div class="sample-dialog-box survey-box">
-      <h3 id="surveyTitle">おすすめ: ${escapeHtml(adv.title)}</h3>
-      ${adv.body.map(t=>`<p class="survey-text">${escapeHtml(t)}</p>`).join('')}
+  const result=(title,paras,applyLabel,apply,extra='')=>{
+    show(`<h3 id="surveyTitle">おすすめ: ${escapeHtml(title)}</h3>${extra}${paras.filter(Boolean).map(t=>`<p class="survey-text">${escapeHtml(t)}</p>`).join('')}
       <div class="sample-dialog-actions"><button type="button" class="button survey-apply">この設定にする</button><button type="button" class="button button-secondary survey-back">戻る</button></div>
-      <p class="survey-apply-note">「この設定にする」で: ${escapeHtml(adv.label)}</p>
-      ${offBox}</div>`;
-    d.querySelector('.survey-apply').addEventListener('click',()=>{adv.apply();close();const t=listEl.querySelector('.view-tabs');if(t)t.scrollIntoView({behavior:'smooth',block:'start'})});
+      <p class="survey-apply-note">「この設定にする」で: ${escapeHtml(applyLabel)}</p>`);
+    d.querySelector('.survey-apply').addEventListener('click',()=>done(apply));
     d.querySelector('.survey-back').addEventListener('click',ask);
-    bindOff();
   };
-  d.onclick=e=>{if(e.target===d)close()};
-  ask();d.classList.remove('hidden');
+  const rescue=()=>result('ポケモンを救出する',['ポケモンタブで選んで「ポケモンを救出する」を押すと、そのままゲームで遊べる main ができます。'],'ポケモンをすべて選んでボックスを開く',goRescueAll);
+  const full=()=>{
+    if(!a){result('ポケモンを救出する',['このセーブはまるごとの復元ができません(セーブの部品の一覧が見つからないため)。','ポケモンは救出で取り出せます。'],'ポケモンをすべて選んでボックスを開く',goRescueAll);return}
+    if(a.score<RESTORE_LOW_SCORE){
+      show(`<h3 id="surveyTitle">まるごと復元の確認</h3><p class="survey-warn">${escapeHtml(lowScoreText(a.score))}</p>${note?`<p class="survey-text">${escapeHtml(note)}</p>`:''}
+        <div class="sample-dialog-actions"><button type="button" class="button survey-go">続ける</button><button type="button" class="button button-secondary survey-rescue">救出だけにする</button></div>
+        <div class="sample-dialog-actions survey-sub"><button type="button" class="small-button survey-back">戻る</button></div>`);
+      d.querySelector('.survey-go').addEventListener('click',()=>done(()=>showView('restore')));
+      d.querySelector('.survey-rescue').addEventListener('click',()=>done(goRescueAll));
+      d.querySelector('.survey-back').addEventListener('click',ask);
+      return;
+    }
+    result('まるごと復元',[`復元信頼度は ${a.score}% です。${a.score>=RESTORE_TAB_MIN_SCORE?'ほとんどの部分が残っています。':'一部の部分は空のセーブ(始めたばかりの状態)の内容で補われます。'}`,note,'ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。'],'「まるごと復元」タブを開く',()=>showView('restore'));
+  };
+  ask();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const d=document.getElementById('purposeSurvey');if(d)d.classList.add('hidden')}});
 function showView(view){
@@ -1650,13 +1665,14 @@ function renderRestoreViewer(){
   if(!viewer)return;
   const a=restoreAnalysis();
   if(!a){viewer.innerHTML='<p class="photo-note">このセーブはブロック表が見つからないため、まるごとの復元はできません。ポケモンタブから個体を救出してください。</p>';return}
-  const g=a.score>=90?['高い','high']:a.score>=70?['ふつう','mid']:['低い','low'];
+  const g=a.score>=90?['高い','high']:a.score>=RESTORE_LOW_SCORE?['ふつう','mid']:['低い','low'];
   const lostNames=a.lost.map(b=>blockName(a.l6.game,b.id));
   const notes=[];
   if(a.story.length)notes.push(`<li><b>${a.story.map(id=>blockName(a.l6.game,id)).join('・')}</b> が失われているため、続きから遊ぶと話の流れや現在地が合わず、不具合が出る可能性があります。</li>`);
   if(!a.pcOk&&a.pcInfo)notes.push(`<li>ボックスのポケモン: 救出できた ${a.pcInfo.pokemon} 匹を元のマスに戻します${a.pcInfo.unreadable?`(読めないマス ${a.pcInfo.unreadable} 個は空きになります)`:''}。</li>`);
+  {const n=fullRestoreMissing();if(n)notes.push(`<li><b>${n}体のポケモンが戻ってきません。「ポケモンの救出」をおすすめします。</b>(手持ち・バトルボックス・育て屋の部分が壊れているため)</li>`)}
   if(a.moved.length)notes.push(`<li>${a.moved.length} 個の部分は位置がずれていたので、本来の位置に戻します。</li>`);
-  const recommend=a.score>=RESTORE_TAB_MIN_SCORE&&a.score<100?`<p class="restore-recommend">復元信頼度が${RESTORE_TAB_MIN_SCORE}%を超えています。まるごと復元を推奨します</p>`:'';
+  const recommend=a.score>=RESTORE_TAB_MIN_SCORE&&a.score<100?`<p class="restore-recommend"><span class="restore-recommend-icon" aria-hidden="true">🎉</span>復元信頼度が${RESTORE_TAB_MIN_SCORE}%を超えています。ほとんどの情報を復元可能です！</p>`:'';
   viewer.innerHTML=`${recommend}<div class="restore-score ${g[1]}">
       <div class="restore-score-head"><span>復元信頼度</span><strong>${a.score}<small>%</small></strong><em>${g[0]}</em></div>
       <div class="restore-bar"><i style="width:${a.score}%"></i></div>
@@ -1669,7 +1685,7 @@ function renderRestoreViewer(){
     <button type="button" class="button restore-button">セーブデータをまるごと復元する</button>
     <p class="photo-note">元のセーブとは別のファイル(main)として保存されます。ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。</p>`;
   const btn=viewer.querySelector('.restore-button');
-  btn.addEventListener('click',async()=>{
+  btn.addEventListener('click',()=>confirmLowRestore(async()=>{
     btn.disabled=true;
     try{
       const {data,report:r}=await buildFullRestore();
@@ -1679,7 +1695,7 @@ function renderRestoreViewer(){
       msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`,!r.allValid);
     }catch(e){msg('まるごとの復元に失敗しました: '+e.message,true)}
     finally{btn.disabled=false}
-  });
+  }));
 }
 
 // ---------------------------------------------------------------------------
