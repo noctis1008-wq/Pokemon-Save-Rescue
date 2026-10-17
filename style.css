@@ -402,3 +402,7 @@
 .method-caption{margin:14px 0 0;font-size:13px;font-weight:700;color:#475467}
 .method-caption+.view-tabs{margin-top:6px}
 @media(max-width:650px){.method-card{padding:10px}.method-card b{font-size:14.5px}.method-desc{font-size:11.5px}.method-score{position:static;margin-top:2px}}
+/* v50: 大切にされていたポケモンが跳ねる */
+@keyframes fav-hop{0%,70%,92%,100%{transform:translateY(0) scale(1)}35%{transform:translateY(-14%) scale(1)}80%{transform:translateY(0) scale(1.06,.93)}}
+.box-cell.is-favorite .box-icon,.box-cell.is-favorite .box-name{animation:fav-hop 1s ease-in-out infinite;animation-delay:var(--fav-delay,0s);transform-origin:50% 100%}
+@media (prefers-reduced-motion:reduce){.box-cell.is-favorite .box-icon,.box-cell.is-favorite .box-name{animation:none}}

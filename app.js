@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "48";
+const APP_VERSION = "50";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -730,6 +730,7 @@ function renderList(hits){
   listEl.querySelectorAll('.method-card').forEach(c=>c.addEventListener('click',()=>showView(c.dataset.method==='full'?'restore':(window.__lastRescueView||'pokemon'))));
   listEl.querySelectorAll('.sub-tab').forEach(tab=>tab.addEventListener('click',()=>showSub(tab.dataset.sub)));
   boxState.pages=buildBoxPages(hits);
+  window.__favHits=null;   // v50: 大切なポケモンの判定をやり直す
   boxState.current=firstBoxWithPokemon(boxState.pages);
   renderBoxViewer();
   renderPartyViewer();
@@ -1203,6 +1204,35 @@ function isHitChecked(hit){
   const cb=listEl.querySelector(`.candidate-check[data-offset="${hit.offset}"]`);
   return cb?cb.checked:false;
 }
+// ---------------------------------------------------------------------------
+// v50: 大切にされていたポケモンを推定して、ボックスで跳ねさせる(最大 5 体)。
+// 手がかり: レベル・努力値の合計(最大 510)・リボンの数・ニックネーム。タマゴは対象外。
+// どれも低いポケモンばかりのときは選ばない(点数が FAVORITE_MIN_SCORE 未満は除く)。
+// ---------------------------------------------------------------------------
+const FAVORITE_MAX=5,FAVORITE_MIN_SCORE=4,FAVORITE_PERIOD_MS=1000;   // 跳ねる間隔(1 秒ごと。全員そろって跳ねる。描き直しても拍がずれないよう、今の時刻に合わせて途中から始める)
+function popcount8(v){let n=0;while(v){n+=v&1;v>>=1}return n}
+function favoriteScore(hit){
+  const b=hit.data;if(!b)return 0;
+  const iv32=u32(b,0x74);
+  if(((iv32>>>30)&1)===1)return 0;                       // タマゴ
+  const lv=pkLevel(hit.species,u32(b,0x10))||0;
+  let ev=0;for(let i=0x1E;i<0x24;i++)ev+=b[i];
+  if(ev>510)ev=0;                                        // ありえない値は数えない
+  let rib=0;for(let i=0x30;i<0x37;i++)rib+=popcount8(b[i]);
+  rib+=Math.min(b[0x38],40)/8+Math.min(b[0x39],8)/4;     // コンテスト・バトルの思い出リボン
+  const nick=((iv32>>>31)&1)===1;
+  return lv/100*3 + ev/510*3 + Math.min(rib,20)/20*3 + (nick?1.5:0);
+}
+function favoriteRank(hit){
+  const hits=window.__hits||[];
+  if(window.__favHits!==hits){
+    window.__favHits=hits;
+    // ボックス・手持ち・バトルボックス・育て屋に表示されるポケモンだけから選ぶ
+    const shown=new Set();(boxState.pages||[]).forEach(p=>p.slots.forEach(x=>{if(x.status==='pokemon')shown.add(x.hit.offset)}));
+    window.__favMap=new Map(hits.filter(h=>shown.has(h.offset)||getSpecialLocation(h)).map(h=>[h,favoriteScore(h)]).filter(([,sc])=>sc>=FAVORITE_MIN_SCORE).sort((a,b)=>b[1]-a[1]).slice(0,FAVORITE_MAX).map(([h],i)=>[h.offset,i+1]));
+  }
+  return window.__favMap.get(hit.offset)||0;
+}
 // 1 マス分の HTML(v29: ボックスと「手持ち等」タブで共通)
 // v45: ボックスの表示を「アイコン」と「ポケモン名」で切り替える(この端末のブラウザに覚えておく)
 let boxLabelMode=(()=>{try{return localStorage.getItem('nerBoxLabel')==='name'?'name':'icon'}catch(e){return 'icon'}})();
@@ -1215,7 +1245,8 @@ function renderSlotCell(s,slotNo){
     const icon=useIcon?`<img class="box-icon" src="${pkIconPath(s.hit)}" loading="lazy" alt="${escapeHtml(sm.name)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'box-name',textContent:this.alt}))">`:`<span class="box-name">${escapeHtml(sm.name)}</span>`;
     const shinyIcon=sm.shiny?`<img class="box-shiny" src="${SHINY_ICON}" alt="色違い">`:'';
     const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
-    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}" data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${icon}${ballIcon}<span class="box-check" aria-hidden="true">✓</span></button>`;
+    const fav=favoriteRank(s.hit);
+    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}${fav?' is-favorite':''}"${fav?` style="--fav-delay:-${(performance.now()%FAVORITE_PERIOD_MS)/1000}s"`:''} data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${icon}${ballIcon}<span class="box-check" aria-hidden="true">✓</span></button>`;
   }
   // v18: 破損・データなしのマスは利用者には見せず、空きと同じ表示にする(一覧表示と同じ方針)。判定(s.status)は buildSlotMap() に残している。
   return `<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`;
@@ -1493,43 +1524,36 @@ function showReturnGuide(kind){
   const box=document.getElementById('returnGuide');
   if(!box)return;
   const intro={
-    rescue:'ダウンロードした <code>main</code> は、ツールに入っている救出用の空のセーブ(始めたばかりのセーブ)を受け皿にして、選んだポケモンを元の場所(ボックス・手持ち・バトルボックス・育て屋)に、道具などをバッグに入れたものです。「3DS 本体に戻す」「Citra に戻す」の手順で、そのままゲームで遊べます。ほかのセーブへ移すときは「ポケモンバンクで移す」の手順です。',
-    full:'ダウンロードした <code>main</code> は、壊れたセーブを作り直したものです。「3DS 本体に戻す」または「Citra に戻す」の手順で、元のセーブと入れ替えて使います。ポケモンをほかのセーブへ移すときは「ポケモンバンクで移す」の手順です。',
-    bin:'ダウンロードした <code>boxdata.bin</code> は、ボックスのポケモンだけのファイルです。「PKHeX で自分のセーブへ移す」の手順で、同じゲームのセーブに読み込みます。'
+    rescue:'選んだポケモンや道具を入れたセーブデータです。そのままゲームで遊べます。',
+    full:'壊れたセーブを作り直した <code>main</code> です。元のセーブと入れ替えて遊べます。',
+    bin:'ボックスのポケモンだけのファイルです。PKHeX で同じゲームのセーブに読み込みます。'
   }[kind];
   const open=k=>kind==='bin'?k==='pkhex':k==='ds';
   const sec=(k,title,body)=>`<details class="guide-sec"${open(k)?' open':''}><summary>${title}</summary>${body}</details>`;
-  const fileNote='<p class="guide-note">ファイル名は <code>main</code>(拡張子なし)にしてください。ダウンロードで <code>main.bin</code> や <code>main(1)</code> のように名前が変わっていたら、<code>main</code> に直してから使います。</p>';
+  const fileNote='<p class="guide-note">ファイル名は <code>main</code>(拡張子なし)にしてください。</p>';
+  // v49: 短くした
   const ds=`<ol>
-      <li>Checkpoint(または JKSM)を起動し、そのゲームの今のセーブを<b>まずバックアップ</b>します(Backup)。失敗しても元に戻せるようにするためです。</li>
-      <li>3DS の SD カードをパソコンなどにつなぎ、<code>/3ds/Checkpoint/saves/</code> の中のゲーム名のフォルダを開きます。いま作ったバックアップのフォルダをコピーし、分かる名前(例: <code>rescue</code>)にします。</li>
-      <li>そのフォルダの中の <code>main</code> を、ダウンロードした <code>main</code> と置き換えます。</li>
-      <li>SD カードを 3DS に戻し、Checkpoint でそのフォルダを選んで <b>Restore</b> します。</li>
-      <li>ゲームを起動して確かめます。うまく起動しないときは、手順 1 のバックアップを Restore すると元に戻ります。</li>
-    </ol>${fileNote}<p class="guide-note">パッケージ版とダウンロード版で同じ手順です。セーブを吸い出した 3DS 本体に戻してください(ダウンロード版は、別の本体に戻すと「レポートがこわれています」になることがあります)。</p>`;
-  const citra=`<ol>
-      <li>Citra(Azahar)のゲーム一覧でゲームを右クリックし、「セーブデータの場所を開く」(Open Save Data Location)を選びます。</li>
-      <li>開いたフォルダの <code>main</code> を、別の場所に<b>コピーしてバックアップ</b>します。</li>
-      <li>ダウンロードした <code>main</code> を、そのフォルダに上書きで置きます。</li>
-      <li>ゲームを起動して確かめます。うまく起動しないときは、バックアップした <code>main</code> を戻します。</li>
-    </ol>${fileNote}<p class="guide-note">セーブが正しいのに「レポートがこわれています」と出るときは、Citra 側のそのゲームの情報が原因のことがあります。<code>main</code> を別の場所に保存してから、ゲームを入れ直して(アンインストール → インストール)、もう一度 <code>main</code> を置いてみてください。</p>`;
+      <li>Checkpoint(または JKSM)で、今のセーブを<b>バックアップ</b>します。</li>
+      <li>SD カードの <code>/3ds/Checkpoint/saves/</code> にできたバックアップのフォルダで、<code>main</code> をダウンロードしたものと置き換えます。</li>
+      <li>Checkpoint でそのフォルダを <b>Restore</b> して、ゲームを起動します。</li>
+    </ol>${fileNote}<p class="guide-note">ダウンロード版は、セーブを吸い出した本体に戻してください。</p>`;
+  const emu=`<ol>
+      <li>エミュレータのゲーム一覧でゲームを右クリックし、「セーブデータの場所を開く」を選びます。</li>
+      <li>そこにある <code>main</code> を<b>バックアップ</b>し、ダウンロードした <code>main</code> で上書きします。</li>
+    </ol>${fileNote}<p class="guide-note">正しいセーブなのに起動しないときは、ゲームを入れ直してから、もう一度 <code>main</code> を置いてみてください。</p>`;
   const pkhex=kind==='bin'?`<ol>
-      <li>PKHeX で、ポケモンを入れたい<b>同じゲーム</b>(X・Y なら X・Y、ORAS なら ORAS)のセーブを開きます。</li>
-      <li><code>boxdata.bin</code> を PKHeX のウィンドウにドラッグ＆ドロップします。</li>
-      <li><b>ボックス 31 個がまるごと置き換わります。</b>必ずバックアップを取ったセーブで行い、問題なければ PKHeX で保存(Export)します。</li>
+      <li>PKHeX で同じゲームのセーブを開き、<code>boxdata.bin</code> をドラッグ＆ドロップします。</li>
+      <li><b>ボックス 31 個が置き換わる</b>ので、バックアップを取ったセーブで行ってください。</li>
     </ol>`:'';
-  // v46: PKHeX を使わずに、ポケモンバンク経由でほかのセーブへ移す
   const bank=`<ol>
-      <li>いま遊んでいるセーブがあれば、Checkpoint で<b>まずバックアップ</b>します。</li>
-      <li>「3DS 本体に戻す」の手順で、ダウンロードした <code>main</code> をゲームに戻します。</li>
-      <li>ゲームを起動し、手持ち・育て屋などのポケモンも預けたいときはボックスに移してレポートを書きます(ポケモンバンクに預けられるのはボックスのポケモンです)。</li>
-      <li>ポケモンバンクを起動して、ポケモンを預けます。</li>
-      <li>Checkpoint で、手順 1 のバックアップを Restore して自分のセーブに戻し、ポケモンバンクから引き出します。</li>
-    </ol><p class="guide-note">ポケモンバンクは 3DS 本体で使います(Citra では使えません)。</p>`;
+      <li>今のセーブをバックアップし、ダウンロードした <code>main</code> をゲームに戻します。</li>
+      <li>預けたいポケモンをボックスに入れ、ポケモンバンクに預けます。</li>
+      <li>バックアップから自分のセーブに戻し、バンクから引き出します。</li>
+    </ol><p class="guide-note">ポケモンバンクは 3DS 本体でのみ使えます。</p>`;
   box.innerHTML=`<div class="guide-head"><strong>ゲームに戻す方法</strong><button type="button" class="guide-close" aria-label="閉じる">×</button></div>
     <p class="guide-intro">${intro}</p>
     ${sec('ds','3DS 本体に戻す(Checkpoint)',ds)}
-    ${sec('citra','Citra に戻す',citra)}
+    ${sec('emu','エミュレータに戻す',emu)}
     ${kind==='bin'?sec('pkhex','PKHeX で自分のセーブへ移す',pkhex):sec('bank','ポケモンバンクで移す',bank)}`;
   box.classList.remove('hidden');
   box.querySelector('.guide-close').addEventListener('click',()=>box.classList.add('hidden'));
