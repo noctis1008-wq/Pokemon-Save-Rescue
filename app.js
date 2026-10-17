@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "50";
+const APP_VERSION = "51";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -1192,6 +1192,7 @@ function renderPartyViewer(){
 }
 function firstBoxWithPokemon(pages){
   if(!pages)return 0;
+  {const f=pages.findIndex(p=>p.slots.some(s=>s.status==='pokemon'&&favoriteRank(s.hit)));if(f>=0)return f}   // v51: 跳ねるポケモンがいる一番若いボックス
   const i=pages.findIndex(p=>p.slots.some(s=>s.status==='pokemon'));
   return i<0?0:i;
 }
@@ -1235,7 +1236,7 @@ function favoriteRank(hit){
 }
 // 1 マス分の HTML(v29: ボックスと「手持ち等」タブで共通)
 // v45: ボックスの表示を「アイコン」と「ポケモン名」で切り替える(この端末のブラウザに覚えておく)
-let boxLabelMode=(()=>{try{return localStorage.getItem('nerBoxLabel')==='name'?'name':'icon'}catch(e){return 'icon'}})();
+let boxLabelMode='icon';   // v51: 切り替えスイッチは削除し、常にアイコン
 function setBoxLabelMode(m){boxLabelMode=m;try{localStorage.setItem('nerBoxLabel',m)}catch(e){}renderBoxViewer();renderPartyViewer()}
 function renderSlotCell(s,slotNo){
   if(s.status==='pokemon'){
@@ -1266,7 +1267,8 @@ function renderBoxViewer(){
   if(!pages){viewer.innerHTML='<p class="box-empty-note">このセーブではボックスの位置を特定できないため、ボックス表示はできません。</p>';return}
   const boxes=pages.length,b=boxState.current,pg=pages[b];
   const opts=[];
-  for(let i=0;i<boxes;i++){const c=boxCounts(pages[i]);opts.push(`<option value="${i}"${i===b?' selected':''}>${escapeHtml(pages[i].name)}${c.pokemon?`(${c.pokemon}匹)`:''}</option>`)}
+  const favBox=i=>pages[i].slots.some(x=>x.status==='pokemon'&&favoriteRank(x.hit));   // v51: 跳ねるポケモンがいるボックスに ⭐
+  for(let i=0;i<boxes;i++){const c=boxCounts(pages[i]);opts.push(`<option value="${i}"${i===b?' selected':''}>${escapeHtml(pages[i].name)}${c.pokemon?`(${c.pokemon}匹)`:''}${favBox(i)?' ⭐':''}</option>`)}
   const cells=pg.slots.map((s,i)=>renderSlotCell(s,i+1));
   const c=boxCounts(pg);
   const inBox=new Set();pages.forEach(p=>p.slots.forEach(s=>{if(s.status==='pokemon')inBox.add(s.hit.offset)}));
@@ -1277,19 +1279,17 @@ function renderBoxViewer(){
       <select class="box-select" aria-label="ボックスを選ぶ">${opts.join('')}</select>
       <button type="button" class="box-next small-button" aria-label="次のボックス">▶</button>
     </div>
-    ${POKEMON_ICON_DIR?`<div class="box-mode" role="group" aria-label="表示の切り替え"><button type="button" class="box-mode-btn${boxLabelMode==='icon'?' active':''}" data-mode="icon" aria-pressed="${boxLabelMode==='icon'}">アイコン</button><button type="button" class="box-mode-btn${boxLabelMode==='name'?' active':''}" data-mode="name" aria-pressed="${boxLabelMode==='name'}">ポケモン名</button></div>`:''}
     <div class="box-grid${POKEMON_ICON_DIR&&boxLabelMode==='icon'?' with-icons':''}">${cells.join('')}</div>
     <div class="box-actions">
       <button type="button" class="small-button" data-box-action="on"${c.pokemon?'':' disabled'}>このボックスを選択</button>
       <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>このボックスを選択解除</button>
     </div>
     <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span></div>
-    <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。${outside>0?` ボックスと手持ち等以外の場所で見つかった ${outside} 匹は一覧にだけ表示されます(救出しても main には入りません)。`:''}</p>`;
+`;
   const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
   viewer.querySelector('.box-prev').addEventListener('click',()=>go(-1));
   viewer.querySelector('.box-next').addEventListener('click',()=>go(1));
   viewer.querySelector('.box-select').addEventListener('change',e=>{boxState.current=Number(e.target.value);renderBoxViewer()});
-  viewer.querySelectorAll('.box-mode-btn').forEach(btn=>btn.addEventListener('click',()=>setBoxLabelMode(btn.dataset.mode)));
   // このボックスの個体をまとめて選択/選択解除(v23)
   viewer.querySelectorAll('[data-box-action]').forEach(btn=>btn.addEventListener('click',()=>{
     const on=btn.dataset.boxAction==='on';
