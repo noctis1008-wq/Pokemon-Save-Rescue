@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "52";
+const APP_VERSION = "53";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -1210,7 +1210,7 @@ function isHitChecked(hit){
 // 手がかり: レベル・努力値の合計(最大 510)・リボンの数・ニックネーム。タマゴは対象外。
 // どれも低いポケモンばかりのときは選ばない(点数が FAVORITE_MIN_SCORE 未満は除く)。
 // ---------------------------------------------------------------------------
-const FAVORITE_MAX=5,FAVORITE_MIN_SCORE=4,FAVORITE_PERIOD_MS=1000;   // 跳ねる間隔(1 秒ごと。全員そろって跳ねる。描き直しても拍がずれないよう、今の時刻に合わせて途中から始める)
+const FAVORITE_MAX=5,FAVORITE_MIN_SCORE=4,FAVORITE_PERIOD_MS=1200;   // 跳ねる間隔(1.2 秒ごと。全員そろって跳ねる。描き直しても拍がずれないよう、今の時刻に合わせて途中から始める)
 function popcount8(v){let n=0;while(v){n+=v&1;v>>=1}return n}
 function favoriteScore(hit){
   const b=hit.data;if(!b)return 0;
@@ -1222,7 +1222,13 @@ function favoriteScore(hit){
   let rib=0;for(let i=0x30;i<0x37;i++)rib+=popcount8(b[i]);
   rib+=Math.min(b[0x38],40)/8+Math.min(b[0x39],8)/4;     // コンテスト・バトルの思い出リボン
   const nick=((iv32>>>31)&1)===1;
-  return lv/100*3 + ev/510*3 + Math.min(rib,20)/20*3 + (nick?1.5:0);
+  // v53: どのソフトから連れてきたか(0xDF)。古い世代から何本ものソフトを渡ってきたポケモンほど大切にされていると考える
+  const ver=b[0xDF];
+  const origin=[1,2,3,4,5,15].includes(ver)?2.5          // 第3世代(ルビー・サファイア・エメラルド・ファイアレッド・リーフグリーン・コロシアム/XD)
+    :[7,8,10,11,12].includes(ver)?2                       // 第4世代(ダイヤモンド・パール・プラチナ・ハートゴールド・ソウルシルバー)
+    :[20,21,22,23].includes(ver)?1.5                      // 第5世代(ブラック・ホワイト・ブラック2・ホワイト2)
+    :0;                                                   // 第6世代(X・Y・オメガルビー・アルファサファイア)
+  return lv/100*3 + ev/510*3 + Math.min(rib,20)/20*3 + (nick?1.5:0) + origin;
 }
 function favoriteRank(hit){
   const hits=window.__hits||[];
