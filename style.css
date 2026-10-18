@@ -405,5 +405,9 @@
 /* v50: 大切にされていたポケモンが跳ねる */
 @keyframes fav-hop{0%,100%{transform:translateY(0) scale(1.05,.95)}25%{transform:translateY(-5px) scale(1)}50%{transform:translateY(-7px) scale(1)}75%{transform:translateY(-3px) scale(1)}}   /* v57: 4 コマ(8 コマ/秒)、0.5 秒ごとに着地。一番高いところで 7px 上がる */
 /* v57: 跳ねるポケモンは下寄せ(上 8px・下 2px の余白)にして低い位置から跳ねる。上の余白 8px + マスの内側 1px − 跳ねる高さ 7px で、枠の上の線との間は最低 2px あく */
-.box-cell.is-favorite .box-icon{padding:8px 6px 2px;object-position:50% 100%}
-.box-cell.is-favorite .box-icon,.box-cell.is-favorite .box-name{will-change:transform;-webkit-animation:fav-hop .5s steps(1,end) infinite;animation:fav-hop .5s steps(1,end) infinite;-webkit-animation-delay:var(--fav-delay,0s);animation-delay:var(--fav-delay,0s);transform-origin:50% 100%}
+.box-cell.is-favorite .fav-wrap{will-change:transform;-webkit-animation:fav-hop .5s steps(1,end) infinite;animation:fav-hop .5s steps(1,end) infinite;-webkit-animation-delay:var(--fav-delay,0s);animation-delay:var(--fav-delay,0s);transform-origin:50% 100%}
+/* v58: 跳ねるポケモンは枠(.fav-wrap)ごと動かす。枠はマスの内側から上 9px・下 2px・左右 6px の位置に固定し、
+   画像はその中で下寄せ。一番高いところで 7px 上がるので、マスの上の線との間は必ず 2px 以上あく(ブラウザによらない) */
+.box-cell.is-favorite .fav-wrap{position:absolute;top:9px;bottom:2px;left:6px;right:6px;display:flex;align-items:flex-end;justify-content:center}
+.box-cell.is-favorite .fav-wrap .box-icon{width:100%;height:100%;padding:0;object-fit:contain;object-position:50% 100%}
+.box-cell.is-favorite .fav-wrap .box-name{font-size:inherit}

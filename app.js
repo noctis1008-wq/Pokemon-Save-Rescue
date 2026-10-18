@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "57";
+const APP_VERSION = "58";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -1253,7 +1253,7 @@ function renderSlotCell(s,slotNo){
     const shinyIcon=sm.shiny?`<img class="box-shiny" src="${SHINY_ICON}" alt="色違い">`:'';
     const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
     const fav=favoriteRank(s.hit);
-    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}${fav?' is-favorite':''}"${fav?` style="--fav-delay:-${(performance.now()%FAVORITE_PERIOD_MS)/1000}s"`:''} data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${icon}${ballIcon}<span class="box-check" aria-hidden="true">✓</span></button>`;
+    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}${fav?' is-favorite':''}"${fav?` style="--fav-delay:-${(performance.now()%FAVORITE_PERIOD_MS)/1000}s"`:''} data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${fav?`<span class="fav-wrap">${icon}</span>`:icon}${ballIcon}<span class="box-check" aria-hidden="true">✓</span></button>`;
   }
   // v18: 破損・データなしのマスは利用者には見せず、空きと同じ表示にする(一覧表示と同じ方針)。判定(s.status)は buildSlotMap() に残している。
   return `<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`;
