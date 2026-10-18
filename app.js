@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "59";
+const APP_VERSION = "60";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -1706,10 +1706,12 @@ download.addEventListener('click',async()=>{
     if(dex)parts.push(`図鑑(捕まえた ${dex.caught}種)`);
     if(trainer)parts.push(`トレーナー ${trainer.name}(ID ${String(trainer.tid).padStart(5,'0')})`);
     if(avatar)parts.push('アバター');
-    let t=`main をダウンロードしました(${parts.join('・')})。そのままゲームで遊べるセーブです(戻し方は下の手順)。`+verifyText(verifyMain(new Uint8Array(data)));
-    if(r.partyToBox)t+=` 手持ちのうち ${r.partyToBox}匹は戦闘用のデータが壊れていたため、空いているボックスに入れました。`;
-    if(r.skipped)t+=` ボックス・手持ち・バトルボックス・育て屋以外の場所で見つかった(または位置が重なる) ${r.skipped}匹は入れていません。`;
-    msg(t);
+    // v60: ダウンロード後の「main をダウンロードしました…」「✅ 確認…」の表示はやめた(戻し方の案内が出るため)。注意が必要なときだけ表示する
+    const notes=[];
+    if(r.partyToBox)notes.push(`手持ちのうち ${r.partyToBox}匹は戦闘用のデータが壊れていたため、空いているボックスに入れました。`);
+    if(r.skipped)notes.push(`ボックス・手持ち・バトルボックス・育て屋以外の場所で見つかった(または位置が重なる) ${r.skipped}匹は入れていません。`);
+    {const v=verifyMain(new Uint8Array(data));if(!v||v.ok!==v.total)notes.push('作った main を読み直したところ、一部のチェックサムが一致しませんでした。');}
+    if(notes.length)msg(notes.join(' '));else clearMsg();
   }catch(e){
     if(e.noTemplate&&selected.length){
       try{downloadBoxdataBin(selected,`${e.message} `)}catch(e2){msg('boxdata.bin の作成に失敗しました: '+e2.message,true)}
