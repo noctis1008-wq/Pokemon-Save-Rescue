@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "58";
+const APP_VERSION = "59";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -112,6 +112,26 @@ function relocateBlocks(input,l6){
   l6.okCount=l6.blocks.filter(b=>b.status==='ok').length;
   l6.movedCount=l6.blocks.filter(b=>b.moved).length;
   return l6;
+}
+// v59: ダウンロードする main を読み直して、中身を確かめる
+function verifyMain(out){
+  try{
+    const l6=findGen6Layout(out);if(!l6)return null;
+    relocateBlocks(out,l6);
+    const at=b=>b.at??b.orig,B=l6.blocks;
+    const cnt=(base,n,step)=>{let c=0;for(let i=0;i<n;i++){const p=decryptPK(out.subarray(base+i*step,base+i*step+232));if(p&&p.checksumValid)c++}return c};
+    const pc=B.find(b=>b.len===0x34AD0);
+    const r={ok:l6.okCount,total:B.length,box:pc?cnt(at(pc),pc.len/232,232):0};
+    if(B[BLK.PARTY])r.party=out[at(B[BLK.PARTY])+0x618]||0;
+    if(B[BLK.BATTLE])r.battle=cnt(at(B[BLK.BATTLE]),6,232);
+    const bag=readBag(out,l6);r.items=bag?bag.total:0;
+    return r;
+  }catch(e){console.warn('verify',e);return null}
+}
+function verifyText(v){
+  if(!v)return ' 確認: 作った main を読み直せませんでした。';
+  const parts=[`ボックス ${v.box}匹`];if(v.party)parts.push(`手持ち ${v.party}匹`);if(v.battle)parts.push(`バトルボックス ${v.battle}匹`);if(v.items)parts.push(`道具 ${v.items}種`);
+  return ` ✅ 確認: 作った main を読み直しました(セーブの部分 ${v.ok}/${v.total} のチェックサムが一致・${parts.join('・')})。`;
 }
 function findGen6Layout(input){
   let best=null;
@@ -740,6 +760,7 @@ function renderList(hits){
   renderRestoreViewer();
   {const a=restoreAnalysis(),em=listEl.querySelector('.method-score');if(a&&em){em.textContent=`信頼度 ${a.score}%`;em.classList.add(a.score>=RESTORE_TAB_MIN_SCORE?'high':a.score>=RESTORE_LOW_SCORE?'mid':'low')}}
   renderPhotoViewer(listEl.querySelector('.photo-viewer'));
+  markDuplicates();
   updateSelectionSummary();
   showView(preferRestoreTab()?'restore':'pokemon');showSub('box');   // v32: 読み込み直後はポケモンタブのボックス(ポケモンがいる一番若いボックス)。v45: まるごと復元できそうならそのタブ
   showPurposeSurvey();   // v46: 目的のアンケート(スキップ可)
@@ -854,6 +875,16 @@ function showSub(sub){
 const POKEMON_ICON_DIR='img/pokemon/';   // v42: PokeSprite のアイコン(pk_icons.js と img/pokemon/)
 // アイコンのファイル名。タマゴ・フォルム・メスの姿に対応し、分からないときはふつうの姿にする
 function pkIconPath(hit){return pkIconPath0(hit)+'?v='+APP_VERSION}
+// v59: アイコンは 1 枚の画像(atlas.png)から切り出して表示する(読み込みが 1 回ですむ)。
+// コンテナクエリに対応していない古いブラウザでは、これまでどおり 1 匹ずつの画像を使う。
+const USE_ATLAS=typeof PK_ATLAS!=='undefined'&&window.CSS&&CSS.supports&&CSS.supports('container-type:size');
+if(USE_ATLAS){document.documentElement.style.setProperty('--atlas-w',PK_ATLAS_SIZE[0]);document.documentElement.style.setProperty('--atlas-url',`url("${POKEMON_ICON_DIR}atlas.png?v=${APP_VERSION}")`)}
+function pkIconHtml(hit,alt){
+  const key=pkIconPath0(hit).slice(POKEMON_ICON_DIR.length).replace(/\.png$/,'');
+  const r=USE_ATLAS&&(PK_ATLAS[key]||PK_ATLAS[key.replace(/^female\//,'')]);
+  if(r)return `<span class="spr-box" role="img" aria-label="${escapeHtml(alt)}"><span class="spr" style="--x:${r[0]};--y:${r[1]};--w:${r[2]};--h:${r[3]}"></span></span>`;
+  return `<img class="box-icon" src="${pkIconPath(hit)}" loading="lazy" alt="${escapeHtml(alt)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'box-name',textContent:this.alt}))">`;
+}
 function pkIconPath0(hit){
   const b=hit.data,sp=hit.species;
   if(((u32(b,0x74)>>>30)&1)===1)return POKEMON_ICON_DIR+(sp===490?'egg-manaphy':'egg')+'.png';
@@ -1182,7 +1213,7 @@ function renderPartyViewer(){
       <section class="party-col"><h4>バトルボックス</h4>${grid('two',six(B[BLK.BATTLE],232))}</section>
       <section class="party-col"><h4>育て屋</h4>${daycare}</section>
     </div>
-    <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span></div>
+    <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span><span class="lg-hint">長押しで詳細</span></div>
     <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。タマゴは、育て屋に「タマゴが見つかった」状態を引き継ぐかどうかです(預けている 2 匹も救出するときだけ引き継がれます)。</p>`;
   bindPokemonCells(viewer);
   viewer.querySelectorAll('.box-cell.is-egg').forEach(cell=>cell.addEventListener('click',()=>{
@@ -1230,6 +1261,31 @@ function favoriteScore(hit){
     :0;                                                   // 第6世代(X・Y・オメガルビー・アルファサファイア)
   return lv/100*3 + ev/510*3 + Math.min(rib,20)/20*3 + (nick?1.5:0) + origin;
 }
+// v59: 同じポケモンのデータが 2 か所以上に残っていたら(暗号を解いた 232 バイトが完全に同じ)、
+// 二重に救出されないよう最初の 1 匹以外の選択を外す。交換や配布で生まれた「似ているが別の個体」は中身が違うので外れない。
+function markDuplicates(){
+  const shown=new Set();(boxState.pages||[]).forEach(p=>p.slots.forEach(x=>{if(x.status==='pokemon')shown.add(x.hit.offset)}));
+  const seen=new Map();let n=0;
+  for(const h of (window.__hits||[])){
+    if(!shown.has(h.offset)&&!getSpecialLocation(h))continue;
+    const key=Array.prototype.join.call(h.data.subarray(0,232),',');
+    if(seen.has(key)){const cb=listEl.querySelector(`.candidate-check[data-offset="${h.offset}"]`);if(cb){cb.checked=false;n++}}
+    else seen.set(key,h.offset);
+  }
+  window.__dupCount=n;
+  const box=listEl.querySelector('.recovery-controls');
+  if(box&&n){const p=document.createElement('p');p.className='dup-note';p.textContent=`同じポケモンのデータが重複していた ${n}匹は、二重にならないよう選択を外しました。`;box.appendChild(p)}
+}
+// v59: 跳ねている理由(詳細画面に出す)
+function favoriteReasons(hit){
+  const b=hit.data,iv32=u32(b,0x74),out=[];
+  const lv=pkLevel(hit.species,u32(b,0x10));if(lv)out.push(`Lv.${lv}`);
+  let ev=0;for(let i=0x1E;i<0x24;i++)ev+=b[i];if(ev>0&&ev<=510)out.push(`努力値 ${ev}`);
+  let rib=0;for(let i=0x30;i<0x37;i++)rib+=popcount8(b[i]);if(rib)out.push(`リボン ${rib}個`);
+  if(((iv32>>>31)&1)===1)out.push('ニックネーム付き');
+  const v=b[0xDF];if(v&&v<24&&typeof PK_VERSION_NAME!=='undefined'&&PK_VERSION_NAME[v])out.push(`${PK_VERSION_NAME[v]}生まれ`);
+  return out;
+}
 function favoriteRank(hit){
   const hits=window.__hits||[];
   if(window.__favHits!==hits){
@@ -1249,7 +1305,7 @@ function renderSlotCell(s,slotNo){
     const sm=pkSummary(s.hit);
     const useIcon=POKEMON_ICON_DIR&&boxLabelMode==='icon';
     const tip=`${sm.name}${sm.gender?' '+sm.gender:''} ${sm.isEgg?'タマゴ':sm.level!==null?'Lv.'+sm.level:''} / 親名: ${sm.ot} / ${sm.ability} / ${sm.ball}`;
-    const icon=useIcon?`<img class="box-icon" src="${pkIconPath(s.hit)}" loading="lazy" alt="${escapeHtml(sm.name)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'box-name',textContent:this.alt}))">`:`<span class="box-name">${escapeHtml(sm.name)}</span>`;
+    const icon=useIcon?pkIconHtml(s.hit,sm.name):`<span class="box-name">${escapeHtml(sm.name)}</span>`;
     const shinyIcon=sm.shiny?`<img class="box-shiny" src="${SHINY_ICON}" alt="色違い">`:'';
     const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
     const fav=favoriteRank(s.hit);
@@ -1259,12 +1315,60 @@ function renderSlotCell(s,slotNo){
   return `<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`;
 }
 function bindPokemonCells(root){
-  root.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>cell.addEventListener('click',()=>{
-    const cb=listEl.querySelector(`.candidate-check[data-offset="${cell.dataset.offset}"]`);
-    if(!cb)return;
-    cb.checked=!cb.checked;
-    updateSelectionSummary();refreshBoxSelection();
-  }));
+  root.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>{
+    // v59: 長押し(または右クリック)で詳細。タップはこれまでどおり救出に含める/外すの切り替え
+    let timer=null,longPressed=false,sx=0,sy=0;
+    const cancel=()=>{clearTimeout(timer);timer=null};
+    cell.addEventListener('pointerdown',e=>{longPressed=false;sx=e.clientX;sy=e.clientY;cancel();timer=setTimeout(()=>{longPressed=true;showPokemonDetail(Number(cell.dataset.offset))},450)});
+    cell.addEventListener('pointermove',e=>{if(timer&&Math.hypot(e.clientX-sx,e.clientY-sy)>8)cancel()});
+    ['pointerup','pointerleave','pointercancel'].forEach(t=>cell.addEventListener(t,cancel));
+    cell.addEventListener('contextmenu',e=>{e.preventDefault();cancel();longPressed=true;showPokemonDetail(Number(cell.dataset.offset))});
+    cell.addEventListener('click',e=>{
+      if(longPressed){longPressed=false;e.preventDefault();return}
+      const cb=listEl.querySelector(`.candidate-check[data-offset="${cell.dataset.offset}"]`);
+      if(!cb)return;
+      cb.checked=!cb.checked;
+      updateSelectionSummary();refreshBoxSelection();
+    });
+  });
+}
+// v59: ポケモンの詳細(長押しで開く)
+const STAT_LABELS=['HP','こうげき','ぼうぎょ','とくこう','とくぼう','すばやさ'];
+function pkStats(b){
+  const iv32=u32(b,0x74),ivRaw=[0,5,10,15,20,25].map(sh=>(iv32>>>sh)&31);   // データの順: HP・攻撃・防御・素早さ・特攻・特防
+  const evRaw=[...b.subarray(0x1E,0x24)];
+  const order=[0,1,2,4,5,3];   // 表示の順: HP・攻撃・防御・特攻・特防・素早さ
+  return {iv:order.map(i=>ivRaw[i]),ev:order.map(i=>evRaw[i])};
+}
+function showPokemonDetail(offset){
+  const hit=(window.__hits||[]).find(h=>h.offset===offset);if(!hit)return;
+  const b=hit.data,sm=pkSummary(hit);
+  const d=surveyDialog();
+  const nick=pkNickname(b),moves=[0,1,2,3].map(i=>u16(b,0x5A+i*2)).filter(m=>m);
+  const nature=typeof PK_NATURE!=='undefined'?PK_NATURE[b[0x1C]]:'';
+  const item=u16(b,0x0A),itemName=item?(PK_ITEM_NAME[item]||`道具(${item})`):'なし';
+  const ver=b[0xDF],verName=typeof PK_VERSION_NAME!=='undefined'?(PK_VERSION_NAME[ver]||''):'';
+  const {iv,ev}=pkStats(b);
+  let rib=0;for(let i=0x30;i<0x37;i++)rib+=popcount8(b[i]);
+  const fav=favoriteRank(hit);
+  const row=(k,v)=>`<tr><th>${k}</th><td>${v}</td></tr>`;
+  d.innerHTML=`<div class="sample-dialog-box survey-box pk-detail">
+    <div class="pk-detail-head">${pkIconHtml(hit,sm.name).replace('class="spr-box"','class="spr-box pk-detail-icon"').replace('class="box-icon"','class="box-icon pk-detail-icon"')}
+      <div><h3 id="surveyTitle">${escapeHtml(nick||sm.name)}${sm.gender?` <span class="pk-g">${sm.gender}\uFE0E</span>`:''}${sm.shiny?' <span title="色違い">✨</span>':''}</h3>
+      <p class="pk-detail-sub">${escapeHtml(sm.name)} / ${sm.isEgg?'タマゴ':sm.level!==null?'Lv.'+sm.level:''}</p></div></div>
+    ${fav?`<p class="pk-fav-reason">⭐ 大切にされていたポケモン: ${escapeHtml(favoriteReasons(hit).join('・'))}</p>`:''}
+    <table class="pk-detail-table">
+      ${row('せいかく',escapeHtml(nature||'-'))}${row('とくせい',escapeHtml(sm.ability))}${row('もちもの',escapeHtml(itemName))}
+      ${row('わざ',moves.length?moves.map(m=>escapeHtml((typeof PK_MOVE!=='undefined'&&PK_MOVE[m])||('わざ'+m))).join('<br>'):'-')}
+      ${row('おや',`${escapeHtml(sm.ot)}(ID ${String(u16(b,0x0C)).padStart(5,'0')})`)}
+      ${row('ボール',escapeHtml(sm.ball))}${row('うまれ',escapeHtml(verName||'-'))}${row('リボン',rib?rib+'個':'なし')}
+    </table>
+    <table class="pk-stat-table"><tr><th></th>${STAT_LABELS.map(l=>`<th>${l}</th>`).join('')}</tr>
+      <tr><th>個体値</th>${iv.map(v=>`<td>${v}</td>`).join('')}</tr>
+      <tr><th>努力値</th>${ev.map(v=>`<td>${v}</td>`).join('')}</tr></table>
+    <div class="sample-dialog-actions"><button type="button" class="button button-secondary pk-detail-close">閉じる</button></div></div>`;
+  d.querySelector('.pk-detail-close').addEventListener('click',()=>d.classList.add('hidden'));
+  d.classList.remove('hidden');
 }
 function renderBoxViewer(){
   const viewer=listEl.querySelector('.box-viewer');
@@ -1290,7 +1394,7 @@ function renderBoxViewer(){
       <button type="button" class="small-button" data-box-action="on"${c.pokemon?'':' disabled'}>このボックスを選択</button>
       <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>このボックスを選択解除</button>
     </div>
-    <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span></div>
+    <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span><span class="lg-hint">長押しで詳細</span></div>
 `;
   const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
   viewer.querySelector('.box-prev').addEventListener('click',()=>go(-1));
@@ -1602,7 +1706,7 @@ download.addEventListener('click',async()=>{
     if(dex)parts.push(`図鑑(捕まえた ${dex.caught}種)`);
     if(trainer)parts.push(`トレーナー ${trainer.name}(ID ${String(trainer.tid).padStart(5,'0')})`);
     if(avatar)parts.push('アバター');
-    let t=`main をダウンロードしました(${parts.join('・')})。そのままゲームで遊べるセーブです(戻し方は下の手順)。`;
+    let t=`main をダウンロードしました(${parts.join('・')})。そのままゲームで遊べるセーブです(戻し方は下の手順)。`+verifyText(verifyMain(new Uint8Array(data)));
     if(r.partyToBox)t+=` 手持ちのうち ${r.partyToBox}匹は戦闘用のデータが壊れていたため、空いているボックスに入れました。`;
     if(r.skipped)t+=` ボックス・手持ち・バトルボックス・育て屋以外の場所で見つかった(または位置が重なる) ${r.skipped}匹は入れていません。`;
     msg(t);
@@ -1735,7 +1839,7 @@ function renderRestoreViewer(){
       saveBlob(data,'main');
       showReturnGuide('full');
       if(window.NERCounter)window.NERCounter.countRescue();
-      msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`,!r.allValid);
+      msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`+verifyText(verifyMain(new Uint8Array(data))),!r.allValid);
     }catch(e){msg('まるごとの復元に失敗しました: '+e.message,true)}
     finally{btn.disabled=false}
   }));
@@ -1790,7 +1894,8 @@ document.addEventListener('click',()=>document.querySelectorAll('.sample-info.op
 // URL に ?noautoload を付けると、一時的に自動読み込みしない。
 // ---------------------------------------------------------------------------
 // v35: XY と ORAS の試験用セーブを切り替えられるように(開発用の帯のチェックボックス)。最初は XY を読み込む。
-const DEV_AUTOLOAD={XY:'test/main',ORAS:'test/main_oras'};
+// v59: 公開版では動かさない。URL に ?dev を付けたときだけ、試験用セーブの帯と自動読み込みを出す。
+const DEV_AUTOLOAD=/[?&]dev\b/.test(location.search)?{XY:'test/main',ORAS:'test/main_oras'}:null;
 async function devLoad(key){
   const path=DEV_AUTOLOAD&&DEV_AUTOLOAD[key];
   if(!path)return;

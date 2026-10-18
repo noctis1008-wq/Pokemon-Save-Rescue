@@ -411,3 +411,26 @@
 .box-cell.is-favorite .fav-wrap{position:absolute;top:9px;bottom:2px;left:6px;right:6px;display:flex;align-items:flex-end;justify-content:center}
 .box-cell.is-favorite .fav-wrap .box-icon{width:100%;height:100%;padding:0;object-fit:contain;object-position:50% 100%}
 .box-cell.is-favorite .fav-wrap .box-name{font-size:inherit}
+/* v59: アイコンを 1 枚の画像から切り出す(コンテナクエリでマスに合わせて拡大) */
+.spr-box{display:flex;align-items:center;justify-content:center;width:100%;height:100%;box-sizing:border-box;padding:6px;container-type:size;pointer-events:none}
+.spr{--s:min(calc(100cqw / var(--w)),calc(100cqh / var(--h)));flex:none;width:calc(var(--w) * var(--s));height:calc(var(--h) * var(--s));background-image:var(--atlas-url);background-repeat:no-repeat;background-size:calc(var(--atlas-w) * var(--s)) auto;background-position:calc(var(--x) * var(--s) * -1) calc(var(--y) * var(--s) * -1);image-rendering:pixelated}
+.box-cell.is-favorite .fav-wrap .spr-box{padding:0;align-items:flex-end}
+/* v59: 長押しで詳細(長押しで文字選択やメニューが出ないように) */
+.box-cell.is-pokemon{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.lg-hint{color:#98a2b3;font-size:12px}
+.pk-detail{width:min(440px,100%)}
+.pk-detail-head{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.pk-detail-icon{width:72px!important;height:60px!important;flex:none;padding:0!important;background:#f2f4f7;border-radius:12px}
+.spr-box.pk-detail-icon{padding:4px!important}
+.pk-detail-head h3{margin:0}
+.pk-g{font-size:15px;color:#667085}
+.pk-detail-sub{margin:2px 0 0!important;font-weight:400!important;font-size:13px;color:#667085}
+.pk-fav-reason{margin:0 0 10px!important;padding:8px 10px;border-radius:10px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;font-size:13px;line-height:1.6}
+.pk-detail-table{width:100%;border-collapse:collapse;font-size:13.5px;margin-bottom:10px}
+.pk-detail-table th{width:6em;text-align:left;color:#667085;font-weight:700;padding:5px 0;vertical-align:top;border-bottom:1px solid #f2f4f7}
+.pk-detail-table td{padding:5px 0;border-bottom:1px solid #f2f4f7;line-height:1.5}
+.pk-stat-table{width:100%;border-collapse:collapse;font-size:12px;text-align:center;margin-bottom:6px}
+.pk-stat-table th,.pk-stat-table td{padding:4px 2px;border:1px solid #eaecf0}
+.pk-stat-table tr:first-child th{background:#f8fafc;font-weight:700;color:#475467;font-size:11px}
+.pk-stat-table tr th:first-child{background:#f8fafc;color:#475467;white-space:nowrap}
+.dup-note{margin:10px 0 0;font-size:12.5px;color:#93370d}
