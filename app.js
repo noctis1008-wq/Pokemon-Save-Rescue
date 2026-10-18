@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "61";
+const APP_VERSION = "62";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -762,7 +762,7 @@ function renderList(hits){
   boxState.pages=buildBoxPages(hits);boxState.__shown=null;
   boxState.unknown=boxState.pages?unknownPages():[];
   window.__favHits=null;   // v50: 大切なポケモンの判定をやり直す
-  boxState.current=firstBoxWithPokemon(boxState.pages);
+  boxState.current=firstBoxWithPokemon(boxState.pages)+(boxState.unknown?boxState.unknown.length:0);   // v62: 場所不明のページが先頭に入るぶんずらす
   renderBoxViewer();
   renderPartyViewer();
   renderItemsViewer(listEl.querySelector('.items-viewer'));
@@ -1328,7 +1328,8 @@ function renderSlotCell(s,slotNo){
     const shinyIcon=sm.shiny?`<img class="box-shiny" src="${SHINY_ICON}" alt="色違い">`:'';
     const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
     const fav=favoriteRank(s.hit);
-    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}${fav?' is-favorite':''}"${fav?` style="--fav-delay:-${(performance.now()%FAVORITE_PERIOD_MS)/1000}s"`:''} data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${fav?`<span class="fav-wrap">${icon}</span>`:icon}${ballIcon}<span class="box-check" aria-hidden="true">✓</span></button>`;
+    const uo=boxState.pages&&isUnknownHit(s.hit)?unknownOrigin(s.hit):null;
+    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}${fav?' is-favorite':''}"${fav?` style="--fav-delay:-${(performance.now()%FAVORITE_PERIOD_MS)/1000}s"`:''} data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${fav?`<span class="fav-wrap">${icon}</span>`:icon}${ballIcon}${uo&&uo.short?`<span class="box-origin">${uo.short}</span>`:''}<span class="box-check" aria-hidden="true">✓</span></button>`;
   }
   // v18: 破損・データなしのマスは利用者には見せず、空きと同じ表示にする(一覧表示と同じ方針)。判定(s.status)は buildSlotMap() に残している。
   return `<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`;
@@ -1384,7 +1385,7 @@ function showPokemonDetail(offset){
       ${row('せいかく',escapeHtml(nature||'-'))}${row('とくせい',escapeHtml(sm.ability))}${row('もちもの',escapeHtml(itemName))}
       ${row('わざ',moves.length?moves.map(m=>escapeHtml((typeof PK_MOVE!=='undefined'&&PK_MOVE[m])||('わざ'+m))).join('<br>'):'-')}
       ${row('おや',`${escapeHtml(sm.ot)}(ID ${String(u16(b,0x0C)).padStart(5,'0')})`)}
-      ${row('ボール',escapeHtml(sm.ball))}${row('うまれ',escapeHtml(verName||'-'))}${row('リボン',rib?rib+'個':'なし')}
+      ${boxState.pages&&isUnknownHit(hit)&&unknownOrigin(hit)?row('見つかった場所',escapeHtml(unknownOrigin(hit).text)):''}${row('ボール',escapeHtml(sm.ball))}${row('うまれ',escapeHtml(verName||'-'))}${row('リボン',rib?rib+'個':'なし')}
     </table>
     <table class="pk-stat-table"><tr><th></th>${STAT_LABELS.map(l=>`<th>${l}</th>`).join('')}</tr>
       <tr><th>個体値</th>${iv.map(v=>`<td>${v}</td>`).join('')}</tr>
@@ -1399,6 +1400,22 @@ function isUnknownHit(h){
   if(!boxState.__shown){boxState.__shown=new Set();(boxState.pages||[]).forEach(p=>p.slots.forEach(x=>{if(x.status==='pokemon')boxState.__shown.add(x.hit.offset)}))}
   return !boxState.__shown.has(h.offset);
 }
+// v62: 場所不明のポケモンが、セーブのどの部分で見つかったか(GTS に預けていたポケモンなど)
+function unknownOrigin(h){
+  const l6=window.__layout6;if(!l6)return null;
+  const o=l6.toOrig(h.offset),bl=l6.blocks.find(b=>o>=(b.at??b.orig)&&o<(b.at??b.orig)+b.len);
+  if(!bl)return {short:'',text:'セーブの使われていない部分(古いデータの残り)'};
+  if(bl.id===28){
+    // GTS の部分: 先頭がポケモン、+0xE8 に預けたときのメッセージ(最大 16 文字)、+0x128 に欲しいポケモン(推定)
+    const at=bl.at??bl.orig;let m='';
+    for(let i=0;i<16;i++){const c=u16(l6.lin,at+0xE8+i*2);if(!c)break;m+=String.fromCharCode(c)}
+    const want=u16(l6.lin,at+0x128),wantName=want>=1&&want<=721?SPECIES[want]:'';
+    const extra=[m?`メッセージ「${m}」`:'',wantName?`欲しいポケモン: ${wantName}`:''].filter(Boolean).join('・');
+    return {short:'GTS',text:(m||wantName?'GTS に預けていたポケモン':'GTS(預けていたポケモンの可能性があります)')+(extra?`(${extra})`:'')};
+  }
+  if(bl.id===BLK.DAYCARE)return {short:'',text:'育て屋(引き取ったあとの古いデータ)'};
+  return {short:'',text:`${blockName(l6.game,bl.id)}(古いデータの残り)`};
+}
 function unknownPages(){
   const list=(window.__hits||[]).filter(isUnknownHit),pages=[];
   for(let i=0;i<list.length;i+=30){
@@ -1411,7 +1428,7 @@ function unknownPages(){
 function renderBoxViewer(){
   const viewer=listEl.querySelector('.box-viewer');
   if(!viewer)return;
-  const pages=boxState.pages?boxState.pages.concat(boxState.unknown||[]):null;   // v61: 最後に「場所不明」
+  const pages=boxState.pages?(boxState.unknown||[]).concat(boxState.pages):null;   // v62: 「場所不明」はボックス１の上
   if(!pages){viewer.innerHTML='<p class="box-empty-note">このセーブではボックスの位置を特定できないため、ボックス表示はできません。</p>';return}
   const boxes=pages.length,b=boxState.current,pg=pages[b];
   const opts=[];
