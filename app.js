@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "60";
+const APP_VERSION = "61";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -513,9 +513,11 @@ async function buildRescueMain(opts){
     const used=new Set();let maxBox=0;
     const party=[],partyToBox=[];
     // --- PC ボックス: 元のボックス・番号へ
+    const unknownSel=[];
     for(const q of selected){
       const sp=getSpecialLocation(q);
       if(sp){q.__sp=sp;continue}
+      if(opts.unknownBox!=null&&isUnknownHit(q)){unknownSel.push(q);continue}   // v61: 場所不明は、あとで選んだボックスへ
       const loc=getLocation(q,window.__game,6);
       if(loc.box===null||!loc.aligned){report.skipped++;continue}
       const slot=(loc.box-1)*30+(loc.slot-1);
@@ -572,6 +574,13 @@ async function buildRescueMain(opts){
       for(let i=0;i<31*30;i++)if(!used.has(i)&&isEmptySlot(out.subarray(pcb.orig+i*232,pcb.orig+i*232+232))){slot=i;break}
       if(slot<0){report.skipped++;continue}
       out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.partyToBox++;maxBox=Math.max(maxBox,Math.floor(slot/30)+1);
+    }
+    // --- v61: 場所不明のポケモンは、選んだボックスの空いているマスから(足りなければ次のボックスへ)
+    for(const q of unknownSel){
+      let slot=-1;
+      for(let k=0;k<31*30;k++){const i=(opts.unknownBox*30+k)%(31*30);if(!used.has(i)&&isEmptySlot(out.subarray(pcb.orig+i*232,pcb.orig+i*232+232))){slot=i;break}}
+      if(slot<0){report.skipped++;continue}
+      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.unknown=(report.unknown||0)+1;maxBox=Math.max(maxBox,Math.floor(slot/30)+1);
     }
     for(const q of selected)delete q.__sp;
     if(used.size)changed.add(pcb.id);
@@ -741,6 +750,7 @@ function renderList(hits){
     <div class="view-panel" data-view="restore"><div class="restore-viewer"></div></div>`;
   setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',()=>{updateSelectionSummary();refreshBoxSelection()}));
+  listEl.querySelectorAll('label.candidate').forEach(row=>{const cb=row.querySelector('.candidate-check');if(cb)bindLongPress(row,Number(cb.dataset.offset))});   // v61: 一覧でも長押しで詳細
   listEl.querySelectorAll('.small-button').forEach(btn=>btn.addEventListener('click',()=>{
     const action=btn.dataset.action;
     listEl.querySelectorAll('.candidate-check').forEach(cb=>{cb.checked=action==='all'});
@@ -749,7 +759,8 @@ function renderList(hits){
   listEl.querySelectorAll('.view-tab').forEach(tab=>tab.addEventListener('click',()=>showView(tab.dataset.view)));
   listEl.querySelectorAll('.method-card').forEach(c=>c.addEventListener('click',()=>showView(c.dataset.method==='full'?'restore':(window.__lastRescueView||'pokemon'))));
   listEl.querySelectorAll('.sub-tab').forEach(tab=>tab.addEventListener('click',()=>showSub(tab.dataset.sub)));
-  boxState.pages=buildBoxPages(hits);
+  boxState.pages=buildBoxPages(hits);boxState.__shown=null;
+  boxState.unknown=boxState.pages?unknownPages():[];
   window.__favHits=null;   // v50: 大切なポケモンの判定をやり直す
   boxState.current=firstBoxWithPokemon(boxState.pages);
   renderBoxViewer();
@@ -761,6 +772,8 @@ function renderList(hits){
   {const a=restoreAnalysis(),em=listEl.querySelector('.method-score');if(a&&em){em.textContent=`信頼度 ${a.score}%`;em.classList.add(a.score>=RESTORE_TAB_MIN_SCORE?'high':a.score>=RESTORE_LOW_SCORE?'mid':'low')}}
   renderPhotoViewer(listEl.querySelector('.photo-viewer'));
   markDuplicates();
+  // v61: 場所不明のポケモンは、すでに逃がしたり交換したりした古いデータのこともあるので、最初は選ばない
+  if(boxState.pages)(window.__hits||[]).forEach(h=>{if(isUnknownHit(h)){const cb=listEl.querySelector(`.candidate-check[data-offset="${h.offset}"]`);if(cb)cb.checked=false}});
   updateSelectionSummary();
   showView(preferRestoreTab()?'restore':'pokemon');showSub('box');   // v32: 読み込み直後はポケモンタブのボックス(ポケモンがいる一番若いボックス)。v45: まるごと復元できそうならそのタブ
   showPurposeSurvey();   // v46: 目的のアンケート(スキップ可)
@@ -1040,11 +1053,13 @@ function renderTrainerViewer(viewer){
   const genderText=g=>g===0?'男の子':g===1?'女の子':'—';
   const id5=n=>String(n).padStart(5,'0');
   const draw=tpl=>{
-    if(!window.__trainerMode)window.__trainerMode=tr?'restore':'none';
+    const cands=otCandidates();
+    if(!window.__trainerMode)window.__trainerMode=tr?'restore':cands.length?'pick':'none';   // v61: 読み取れなければ、一番多い親を選んでおく
     const mode=window.__trainerMode;
     const base=tr||tpl||{name:'',tid:0,sid:0};
     if(!window.__trainerInput)window.__trainerInput={name:base.name,tid:base.tid,sid:base.sid};
-    const v=mode==='restore'?tr:mode==='manual'?window.__trainerInput:(tpl||{name:'',tid:0,sid:0});
+    const pick=cands[window.__trainerPick||0];
+    const v=mode==='restore'?tr:mode==='manual'?window.__trainerInput:mode==='pick'&&pick?pick:(tpl||{name:'',tid:0,sid:0});
     const ro=mode==='manual'?'':' readonly';
     const aon=!!av&&window.__includeAvatar!==false;
     const src=aon?av:tpl;   // 表示する元(復元するなら読み取った値、しないなら空のセーブ)
@@ -1055,11 +1070,13 @@ function renderTrainerViewer(viewer){
       avRows+=`<div class="avatar-sub">着ている服</div>`+(items?(items.length?items.map(([k,n])=>row(k,n)).join(''):row('服','なし')):row('服','—'));
       avRows+=row('持っている服・アクセサリー',aon?(av.owned?'元のセーブのもの':'読み取れませんでした(空のセーブのまま)'):'空のセーブのもの');
     }
-    const note=mode==='restore'?'セーブから読み取った値です。':mode==='manual'?'入力した値が main に入ります。':(tr?'救出用の空のセーブ(試験データ)の値です。':tpl?'セーブから読み取れなかったため、救出用の空のセーブ(試験データ)の値を表示しています。':'セーブから読み取れませんでした。');
+    const note=mode==='restore'?'セーブから読み取った値です。':mode==='manual'?'入力した値が main に入ります。':mode==='pick'?'選んだ親と同じトレーナーになります。この親のポケモンは、ゲームで言うことを聞きます。':(tr?'救出用の空のセーブ(試験データ)の値です。':tpl?'セーブから読み取れなかったため、救出用の空のセーブ(試験データ)の値を表示しています。':'セーブから読み取れませんでした。');
     viewer.innerHTML=`<div class="trainer-modes">
         <label class="items-toggle${tr?'':' is-disabled'}"><input type="checkbox" class="trainer-mode" data-mode="restore"${mode==='restore'?' checked':''}${tr?'':' disabled'}><span>トレーナーの情報を復元する</span></label>
         <label class="items-toggle"><input type="checkbox" class="trainer-mode" data-mode="manual"${mode==='manual'?' checked':''}><span>自分で入力する</span></label>
+        <label class="items-toggle${cands.length?'':' is-disabled'}"><input type="checkbox" class="trainer-mode" data-mode="pick"${mode==='pick'?' checked':''}${cands.length?'':' disabled'}><span>ポケモンの親から選ぶ</span></label>
       </div>
+      ${mode==='pick'&&cands.length?`<select class="trainer-pick" aria-label="親を選ぶ">${cands.map((c,i)=>`<option value="${i}"${i===(window.__trainerPick||0)?' selected':''}>${escapeHtml(c.name)}(ID ${id5(c.tid)} / 裏ID ${id5(c.sid)}・${c.gender?'女の子':'男の子'})— ${c.count}匹</option>`).join('')}</select>`:''}
       <div class="trainer-form${mode==='manual'?'':' is-template'}">
         <label><span>トレーナー名</span><input type="text" class="trainer-name" maxlength="${TRAINER_NAME_MAX}" value="${escapeHtml(v.name)}"${ro}></label>
         <div class="trainer-ids">
@@ -1067,7 +1084,7 @@ function renderTrainerViewer(viewer){
           <label><span>裏ID</span><input type="text" class="trainer-sid" inputmode="numeric" maxlength="5" value="${id5(v.sid)}"${ro}></label>
         </div>
       </div>
-      <p class="photo-note">${note}</p>
+      <p class="photo-note">${note}</p>${mode==='pick'&&pick&&src&&src.gender!==pick.gender?`<p class="photo-note" style="color:#b54708">選んだ親は${pick.gender?'女の子':'男の子'}ですが、アバターは${src.gender?'女の子':'男の子'}です。性別が違うと言うことを聞かないことがあるので、親と同じ性別のアバターにしてください。</p>`:''}
       <h3 class="photo-heading trainer-photo-heading">アバター</h3>
       <label class="items-toggle${av?'':' is-disabled'}"><input type="checkbox" class="include-avatar"${aon?' checked':''}${av?'':' disabled'}><span>アバター情報を復元する</span></label>
       <div class="avatar-info${aon?'':' is-template'}">${avRows}</div>
@@ -1075,11 +1092,13 @@ function renderTrainerViewer(viewer){
     viewer.querySelectorAll('.trainer-mode').forEach(cb=>cb.addEventListener('change',()=>{
       if(cb.checked){
         // 自分で入力に切り替えたら、そのとき表示していた値から書き換えを始める
-        if(cb.dataset.mode==='manual'&&window.__trainerMode!=='manual'){const cur=window.__trainerMode==='restore'?tr:(tpl||base);window.__trainerInput={name:cur.name,tid:cur.tid,sid:cur.sid}}
+        if(cb.dataset.mode==='manual'&&window.__trainerMode!=='manual'){const cur=window.__trainerMode==='restore'?tr:window.__trainerMode==='pick'&&pick?pick:(tpl||base);window.__trainerInput={name:cur.name,tid:cur.tid,sid:cur.sid}}
         window.__trainerMode=cb.dataset.mode;
       }else window.__trainerMode='none';
       updateItemsButton();draw(tpl);
     }));
+    const tp=viewer.querySelector('.trainer-pick');
+    if(tp)tp.addEventListener('change',()=>{window.__trainerPick=Number(tp.value);updateItemsButton();draw(tpl)});
     const ca=viewer.querySelector('.include-avatar');
     ca.addEventListener('change',()=>{window.__includeAvatar=ca.checked;updateItemsButton();draw(tpl)});
     if(mode!=='manual')return;
@@ -1314,17 +1333,21 @@ function renderSlotCell(s,slotNo){
   // v18: 破損・データなしのマスは利用者には見せず、空きと同じ表示にする(一覧表示と同じ方針)。判定(s.status)は buildSlotMap() に残している。
   return `<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`;
 }
+// v59/v61: 長押し(または右クリック)で詳細を開く。開いたあとのクリック(タップ)は無視する
+function bindLongPress(el,offset){
+  let timer=null,sx=0,sy=0;el.__longPressed=false;
+  const cancel=()=>{clearTimeout(timer);timer=null};
+  const open=()=>{el.__longPressed=true;showPokemonDetail(offset)};
+  el.addEventListener('pointerdown',e=>{el.__longPressed=false;sx=e.clientX;sy=e.clientY;cancel();timer=setTimeout(open,450)});
+  el.addEventListener('pointermove',e=>{if(timer&&Math.hypot(e.clientX-sx,e.clientY-sy)>8)cancel()});
+  ['pointerup','pointerleave','pointercancel'].forEach(t=>el.addEventListener(t,cancel));
+  el.addEventListener('contextmenu',e=>{e.preventDefault();cancel();open()});
+  el.addEventListener('click',e=>{if(el.__longPressed){el.__longPressed=false;e.preventDefault();e.stopImmediatePropagation()}},true);
+}
 function bindPokemonCells(root){
   root.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>{
-    // v59: 長押し(または右クリック)で詳細。タップはこれまでどおり救出に含める/外すの切り替え
-    let timer=null,longPressed=false,sx=0,sy=0;
-    const cancel=()=>{clearTimeout(timer);timer=null};
-    cell.addEventListener('pointerdown',e=>{longPressed=false;sx=e.clientX;sy=e.clientY;cancel();timer=setTimeout(()=>{longPressed=true;showPokemonDetail(Number(cell.dataset.offset))},450)});
-    cell.addEventListener('pointermove',e=>{if(timer&&Math.hypot(e.clientX-sx,e.clientY-sy)>8)cancel()});
-    ['pointerup','pointerleave','pointercancel'].forEach(t=>cell.addEventListener(t,cancel));
-    cell.addEventListener('contextmenu',e=>{e.preventDefault();cancel();longPressed=true;showPokemonDetail(Number(cell.dataset.offset))});
+    bindLongPress(cell,Number(cell.dataset.offset));
     cell.addEventListener('click',e=>{
-      if(longPressed){longPressed=false;e.preventDefault();return}
       const cb=listEl.querySelector(`.candidate-check[data-offset="${cell.dataset.offset}"]`);
       if(!cb)return;
       cb.checked=!cb.checked;
@@ -1370,10 +1393,25 @@ function showPokemonDetail(offset){
   d.querySelector('.pk-detail-close').addEventListener('click',()=>d.classList.add('hidden'));
   d.classList.remove('hidden');
 }
+// v61: ボックス・手持ち・バトルボックス・育て屋のどこにも当てはまらない場所で見つかったポケモン(場所不明)
+function isUnknownHit(h){
+  if(getSpecialLocation(h))return false;
+  if(!boxState.__shown){boxState.__shown=new Set();(boxState.pages||[]).forEach(p=>p.slots.forEach(x=>{if(x.status==='pokemon')boxState.__shown.add(x.hit.offset)}))}
+  return !boxState.__shown.has(h.offset);
+}
+function unknownPages(){
+  const list=(window.__hits||[]).filter(isUnknownHit),pages=[];
+  for(let i=0;i<list.length;i+=30){
+    const slots=list.slice(i,i+30).map(hit=>({status:'pokemon',hit}));
+    while(slots.length<30)slots.push({status:'empty'});
+    pages.push({name:list.length>30?`場所不明 ${pages.length+1}`:'場所不明',slots,unknown:true});
+  }
+  return pages;
+}
 function renderBoxViewer(){
   const viewer=listEl.querySelector('.box-viewer');
   if(!viewer)return;
-  const pages=boxState.pages;
+  const pages=boxState.pages?boxState.pages.concat(boxState.unknown||[]):null;   // v61: 最後に「場所不明」
   if(!pages){viewer.innerHTML='<p class="box-empty-note">このセーブではボックスの位置を特定できないため、ボックス表示はできません。</p>';return}
   const boxes=pages.length,b=boxState.current,pg=pages[b];
   const opts=[];
@@ -1613,8 +1651,22 @@ function selectedHits(){
 function itemsIncluded(){return window.__includeItems!==false&&!!window.__bag}
 function moneyIncluded(){return window.__includeMoney!==false&&!!window.__money}
 function dexIncluded(){return window.__includeDex!==false&&!!window.__dex}
+// v61: 救出したポケモンの「親(トレーナー名・ID・裏ID・性別)」の組み合わせを、多い順に並べる。
+// 自分のポケモンと同じ親にしておくと、ゲームで言うことを聞く(よその人のポケモン扱いにならない)
+function otCandidates(){
+  const m=new Map();
+  for(const h of (window.__hits||[])){
+    const b=h.data;if(((u32(b,0x74)>>>30)&1)===1)continue;   // タマゴは除く
+    const name=pkOTName(b);if(!name)continue;
+    const tid=u16(b,0x0C),sid=u16(b,0x0E),gender=(b[0xDD]>>>7)&1;
+    const k=`${name}\t${tid}\t${sid}\t${gender}`;
+    const e=m.get(k)||{name,tid,sid,gender,count:0};e.count++;m.set(k,e);
+  }
+  return [...m.values()].sort((a,b)=>b.count-a.count);
+}
 function trainerValue(){   // v34: main に書くトレーナー情報(なければ null = 空のセーブのまま)
-  const m=window.__trainerMode||(window.__trainer?'restore':'none');
+  const m=window.__trainerMode||(window.__trainer?'restore':(otCandidates().length?'pick':'none'));
+  if(m==='pick'){const c=otCandidates()[window.__trainerPick||0];if(c)return {name:c.name.slice(0,TRAINER_NAME_MAX),tid:c.tid,sid:c.sid}}
   if(m==='restore'&&window.__trainer){const t=window.__trainer;return {name:t.name,tid:t.tid,sid:t.sid}}
   if(m==='manual'&&window.__trainerInput&&window.__trainerInput.name.length){const t=window.__trainerInput;return {name:t.name.slice(0,TRAINER_NAME_MAX),tid:t.tid,sid:t.sid}}
   return null;
@@ -1682,8 +1734,31 @@ function downloadBoxdataBin(selected,reason){
   showReturnGuide('bin');
   msg(`${reason}代わりに boxdata.bin(ボックスのポケモン ${placed} 匹)をダウンロードしました${unknown?`。ボックスの外にいる ${unknown} 匹は boxdata.bin には入りません`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。PKHeX で同じゲームのセーブを開いてから読み込んでください。`);
 }
+// v61: 場所不明のポケモンを選んでいたら、入れるボックスを選んでもらう
+function askUnknownBox(unk,selected){
+  return new Promise(resolve=>{
+    const d=surveyDialog();
+    const names=(boxState.pages||[]).map(p=>p.name);
+    const usedIn=new Array(31).fill(0);
+    for(const q of selected){if(getSpecialLocation(q)||isUnknownHit(q))continue;const loc=getLocation(q,window.__game,6);if(loc.box)usedIn[loc.box-1]++}
+    let first=usedIn.findIndex(n=>30-n>=unk.length);if(first<0)first=usedIn.indexOf(Math.min(...usedIn));   // 全員入る一番若いボックス(なければ一番空いているボックス)
+    d.innerHTML=`<div class="sample-dialog-box survey-box"><h3 id="surveyTitle">場所不明のポケモンを入れるボックスを選択してください</h3>
+      <p class="survey-text">場所不明のポケモン ${unk.length}匹を、選んだボックスの空いているマスに入れます(入りきらなければ次のボックスへ)。</p>
+      <select class="trainer-pick unknown-box">${names.map((n,i)=>`<option value="${i}"${i===(first<0?0:first)?' selected':''}>${escapeHtml(n)}(空き ${30-usedIn[i]})</option>`).join('')}</select>
+      <div class="sample-dialog-actions"><button type="button" class="button ub-ok">このボックスに入れる</button><button type="button" class="button button-secondary ub-skip">入れない</button></div>
+      <div class="sample-dialog-actions survey-sub"><button type="button" class="small-button ub-cancel">やめる</button></div></div>`;
+    const done=v=>{d.classList.add('hidden');d.onclick=null;resolve(v)};
+    d.querySelector('.ub-ok').addEventListener('click',()=>done(Number(d.querySelector('.unknown-box').value)));
+    d.querySelector('.ub-skip').addEventListener('click',()=>done(null));
+    d.querySelector('.ub-cancel').addEventListener('click',()=>done(undefined));
+    d.onclick=e=>{if(e.target===d)done(undefined)};
+    d.classList.remove('hidden');
+  });
+}
 download.addEventListener('click',async()=>{
   const selected=selectedHits(),game=window.__itemsGame,withItems=itemsIncluded(),withMoney=moneyIncluded();
+  let unknownBox=null;
+  {const unk=boxState.pages?selected.filter(isUnknownHit):[];if(unk.length){unknownBox=await askUnknownBox(unk,selected);if(unknownBox===undefined)return}}
   const withDex=dexIncluded(),withTrainer=trainerIncluded(),withAvatar=avatarIncluded();
   if(!selected.length&&!withItems&&!withMoney&&!withDex&&!withTrainer&&!withAvatar)return;
   download.disabled=true;
@@ -1691,7 +1766,7 @@ download.addEventListener('click',async()=>{
     if(!game)throw Object.assign(new Error('このセーブはゲームを判定できないため、main を作れません。'),{noTemplate:true});
     const bag=withItems?window.__bag:null,money=withMoney?window.__money:null,dex=withDex?window.__dex:null;
     const trainer=withTrainer?trainerValue():null,avatar=withAvatar?window.__avatar:null;
-    const {data,report:r}=await buildRescueMain({game,bag,money,selected,input:window.__input,l6:window.__layout6,includeEgg:window.__includeEgg,dex,trainer,avatar});
+    const {data,report:r}=await buildRescueMain({game,bag,money,selected,input:window.__input,l6:window.__layout6,includeEgg:window.__includeEgg,dex,trainer,avatar,unknownBox});
     saveBlob(data,'main');
     showReturnGuide('rescue');
     const placed=r.pc+r.party+r.battle+r.daycare+r.partyToBox;
@@ -1709,7 +1784,8 @@ download.addEventListener('click',async()=>{
     // v60: ダウンロード後の「main をダウンロードしました…」「✅ 確認…」の表示はやめた(戻し方の案内が出るため)。注意が必要なときだけ表示する
     const notes=[];
     if(r.partyToBox)notes.push(`手持ちのうち ${r.partyToBox}匹は戦闘用のデータが壊れていたため、空いているボックスに入れました。`);
-    if(r.skipped)notes.push(`ボックス・手持ち・バトルボックス・育て屋以外の場所で見つかった(または位置が重なる) ${r.skipped}匹は入れていません。`);
+    if(r.unknown)notes.push(`場所不明のポケモン ${r.unknown}匹を、選んだボックスに入れました。`);
+    if(r.skipped)notes.push(`場所不明のポケモンなど ${r.skipped}匹は入れていません。`);
     {const v=verifyMain(new Uint8Array(data));if(!v||v.ok!==v.total)notes.push('作った main を読み直したところ、一部のチェックサムが一致しませんでした。');}
     if(notes.length)msg(notes.join(' '));else clearMsg();
   }catch(e){
