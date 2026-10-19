@@ -303,7 +303,7 @@
 .dev-bar label{display:flex;align-items:center;gap:6px;cursor:pointer}
 .dev-bar input{width:18px;height:18px;margin:0}
 /* v35: トレーナー・図鑑もタブとの間をあける(バッグと同じ) */
-.trainer-viewer,.dex-viewer{margin-top:12px}
+.trainer-viewer,.dex-viewer,.gift-viewer{margin-top:12px}
 .party-sub{white-space:normal;line-height:1.25;word-break:keep-all}
 /* v36: 破損データのサンプル提供 */
 .sample-offer{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;border:1px solid #eaecf0;border-radius:12px;background:#f8fafc;font-size:13px;color:#344054}
@@ -459,7 +459,7 @@ label.candidate,label.candidate *{-webkit-user-select:none;user-select:none}
 .sample-dialog>.sample-dialog-box{margin:auto;flex:none}
 .survey-box{max-height:none;overflow:visible}
 /* v65: ゲームのニックネーム用の記号(顔マークなど。3DS では U+E081〜E0A5)を PokéDings フォント(MIT, msikma)で表示 */
-@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=69") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=70") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}
 :root{font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 
 /* v69: ふしぎなおくりもの */
