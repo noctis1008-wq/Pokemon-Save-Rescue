@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "67";
+const APP_VERSION = "68";
 const APP_VERSION_DATE = "2026-10-19";
 // v67: ブラウザ(とくに iPhone の Brave)が古いページを覚えたままになることがあるので、
 // 開くたびに最新の版番号(version.json)を確かめ、古ければ自動で新しいページを読み込み直す
@@ -1346,7 +1346,7 @@ function renderSlotCell(s,slotNo){
   // v18: 破損・データなしのマスは利用者には見せず、空きと同じ表示にする(一覧表示と同じ方針)。判定(s.status)は buildSlotMap() に残している。
   return `<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`;
 }
-let tapMode=(()=>{try{return localStorage.getItem('nerTapMode')==='detail'?'detail':'select'}catch(e){return 'select'}})();
+let tapMode=(()=>{try{return localStorage.getItem('nerTapMode')==='select'?'select':'detail'}catch(e){return 'detail'}})();   // v68: 最初は「詳細」
 // v59/v61: 長押し(または右クリック)で詳細を開く。開いたあとのクリック(タップ)は無視する
 function bindLongPress(el,offset){
   let timer=null,sx=0,sy=0;el.__longPressed=false;
