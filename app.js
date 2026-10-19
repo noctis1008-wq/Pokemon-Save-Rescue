@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "68";
+const APP_VERSION = "69";
 const APP_VERSION_DATE = "2026-10-19";
 // v67: ブラウザ(とくに iPhone の Brave)が古いページを覚えたままになることがあるので、
 // 開くたびに最新の版番号(version.json)を確かめ、古ければ自動で新しいページを読み込み直す
@@ -303,6 +303,78 @@ function dexCheck(b,species){
   let hit=0;for(const sp of species)if(dexBit(b,8,sp-1))hit++;
   return {caught,ratio:species.size?hit/species.size:0};
 }
+// ---------------------------------------------------------------------------
+// v69: ふしぎなおくりもの(ブロック 41、長さ 0x1A90)。先頭 0x100 バイトが「受け取った」しるし(カード番号ごとに 1 ビット)、
+// 0x100 から 0x108 バイトのカード(WC6)が 24 枚。カードの中身は PKHeX の WC6 と同じ並び:
+//   +0 カード番号 / +2 タイトル(36 文字) / +0x4C 日付(年*10000+月*100+日) / +0x51 種類(0 ポケモン, 1 道具, 2 パワー)
+//   +0x52 bit1 = 配達員から受け取り済み / 道具: +0x68 道具, +0x70 個数 / ポケモン: +0x82 種類, +0xD0 レベル, +0xD1 タマゴ, +0xB6 親の名前
+// ブロックが無事ならブロックごと写す。壊れていれば、ファイル全体からカードらしいもの(番号・日付・タイトル・中身が妥当)を探す。
+// ---------------------------------------------------------------------------
+const GIFT_BLOCK_ID=41,GIFT_LEN=0x1A90,GIFT_CARD=0x108,GIFT_SLOTS=24,GIFT_FLAG_BYTES=0x100;
+function parseGiftCard(c){
+  const id=u16(c,0);if(id<1||id>2048)return null;
+  const type=c[0x51];if(type>2)return null;
+  const raw=u32(c,0x4C),y=Math.floor(raw/10000),m=Math.floor(raw%10000/100),d=raw%100;
+  if(y<2013||y>2035||m<1||m>12||d<1||d>31)return null;
+  let title='',term=false;
+  for(let i=0;i<37;i++){const ch=u16(c,2+i*2);if(ch===0){term=true;break}if(ch<0x20||(ch>=0x7F&&ch<0xA0)||(ch>=0xD800&&ch<0xE000)||ch===0xFFFF)return null;title+=String.fromCharCode(ch)}
+  if(!term||!title.trim())return null;
+  const g={id,type,title,date:{y,m,d},used:(c[0x52]>>1)>0,raw:c.slice(0,GIFT_CARD)};
+  if(type===0){
+    g.species=u16(c,0x82);g.level=c[0xD0];g.egg=c[0xD1]===1;g.ot=pkString(c,0xB6,13);g.form=c[0x84];
+    if(g.species<1||g.species>721||(!g.egg&&(g.level<1||g.level>100)))return null;
+  }else if(type===1){
+    g.item=u16(c,0x68);g.qty=u16(c,0x70);
+    if(g.item<1||g.item>775||g.qty>999)return null;
+  }
+  return g;
+}
+function readGifts(input,l6){
+  if(!l6)return null;
+  const blk=l6.blocks[GIFT_BLOCK_ID];
+  if(blk&&blk.len===GIFT_LEN&&blk.status==='ok'){
+    const b=readBlockBytes(input,l6,blk);
+    if(b){
+      const cards=[];for(let i=0;i<GIFT_SLOTS;i++){const g=parseGiftCard(b.subarray(GIFT_FLAG_BYTES+i*GIFT_CARD,GIFT_FLAG_BYTES+(i+1)*GIFT_CARD));if(g)cards.push(g)}
+      let flags=0;for(let i=0;i<GIFT_FLAG_BYTES;i++)flags+=popcount8(b[i]);
+      return {ok:true,bytes:b,cards,flags};
+    }
+  }
+  // 壊れているとき: ファイル全体からカードを探す(同じ中身は 1 枚に)
+  const cards=[],seen=new Set(),n=input.length;
+  for(let i=0;i+GIFT_CARD<=n;i++){
+    const t=input[i+0x51];if(t>2)continue;
+    const raw=input[i+0x4C]|(input[i+0x4D]<<8)|(input[i+0x4E]<<16)|(input[i+0x4F]<<24);if(raw<20130101||raw>20351231)continue;
+    const g=parseGiftCard(input.subarray(i,i+GIFT_CARD));if(!g)continue;
+    let k='';for(let j=0;j<GIFT_CARD;j++)k+=String.fromCharCode(g.raw[j]);
+    if(seen.has(k))continue;seen.add(k);cards.push(g);i+=GIFT_CARD-1;
+    if(cards.length>=GIFT_SLOTS)break;
+  }
+  return {ok:false,bytes:null,cards,flags:0};
+}
+function giftIncluded(){const g=window.__gift;return window.__includeGift!==false&&!!g&&(g.cards.length>0||(g.ok&&g.flags>0))}
+function giftDate(g){return `${g.date.y}/${String(g.date.m).padStart(2,'0')}/${String(g.date.d).padStart(2,'0')}`}
+function renderGiftViewer(viewer){
+  if(!viewer)return;
+  const g=window.__gift;
+  if(!g){viewer.innerHTML='<p class="photo-note">このセーブからは、ふしぎなおくりものを読み取れませんでした。</p>';return}
+  if(!g.cards.length&&!(g.ok&&g.flags>0)){viewer.innerHTML=`<p class="photo-note">ふしぎなおくりもののカードは見つかりませんでした${g.ok?'(カードアルバムは空でした)':''}。</p>`;return}
+  const kind=t=>t===0?'ポケモン':t===1?'道具':'パワー';
+  const rows=g.cards.map(c=>{
+    let what='';
+    if(c.type===0)what=c.egg?`${escapeHtml(SPECIES[c.species]||('No.'+c.species))} のタマゴ`:`${escapeHtml(SPECIES[c.species]||('No.'+c.species))} Lv.${c.level}`;
+    else if(c.type===1)what=`${escapeHtml(PK_ITEM_NAME[c.item]||('道具('+c.item+')'))}${c.qty>1?' ×'+c.qty:''}`;
+    else what='パワー';
+    const st=c.type===2?'':c.used?'<span class="gift-state used">受け取り済み</span>':'<span class="gift-state new">まだ受け取っていない</span>';
+    return `<li class="gift-card"><div class="gift-top"><span class="gift-kind k${c.type}">${kind(c.type)}</span><b class="gift-title">${escapeHtml(c.title)}</b></div><div class="gift-meta"><span>${what}</span>${st}<span class="gift-date">${giftDate(c)}</span></div></li>`}).join('');
+  const unused=g.cards.filter(c=>c.type!==2&&!c.used).length;
+  viewer.innerHTML=`<label class="items-toggle"><input type="checkbox" class="include-gift"${window.__includeGift!==false?' checked':''}><span>ふしぎなおくりものを復元する</span></label>
+    <div class="dex-summary"><div><span>カード</span><strong>${g.cards.length}枚</strong></div><div><span>未受け取り</span><strong>${unused}枚</strong></div></div>
+    ${g.cards.length?`<ul class="gift-list">${rows}</ul>`:''}
+    <p class="photo-note">${g.ok?'カードアルバムと「受け取ったおくりもの」の記録をそのまま戻します。':'セーブのこの部分は壊れていたため、読み取れたカードだけを戻します。'}${unused?'「まだ受け取っていない」おくりものは、ゲームでポケモンセンターの配達員から受け取れます。':''}</p>`;
+  const cb=viewer.querySelector('.include-gift');
+  cb.addEventListener('change',()=>{window.__includeGift=cb.checked;updateItemsButton()});
+}
 function readDex(input,l6,hits){
   if(!l6)return null;
   const blk=l6.blocks[20],len=DEX_LEN[l6.game];
@@ -501,6 +573,14 @@ async function buildRescueMain(opts){
     const db=blk(20);
     if(db.len!==opts.dex.bytes.length)throw new Error('空のセーブの図鑑の位置が想定と違います。');
     out.set(opts.dex.bytes,db.orig);changed.add(20);
+  }
+  // --- ふしぎなおくりもの(v69): 無事ならブロックごと、壊れていれば読み取れたカードを順に入れ、そのカード番号の「受け取った」しるしを立てる
+  if(opts.gift){
+    const gb=blk(GIFT_BLOCK_ID),g=opts.gift;
+    if(gb.len!==GIFT_LEN)throw new Error('空のセーブのふしぎなおくりものの位置が想定と違います。');
+    if(g.ok&&g.bytes&&g.bytes.length===GIFT_LEN)out.set(g.bytes,gb.orig);
+    else g.cards.slice(0,GIFT_SLOTS).forEach((c,i)=>{out.set(c.raw,gb.orig+GIFT_FLAG_BYTES+i*GIFT_CARD);if(c.id<2048)out[gb.orig+(c.id>>3)]|=1<<(c.id&7)});
+    changed.add(GIFT_BLOCK_ID);
   }
   // --- 道具(v19)。大切なものは空のセーブのまま
   if(bag){
@@ -729,6 +809,7 @@ function renderList(hits){
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="items">バッグ</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="trainer">トレーナー</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="dex">図鑑</button>
+      <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="gift" title="ふしぎなおくりもの">おくりもの</button>
     </div>
     <div class="view-panel" data-view="pokemon">
       <div class="recovery-controls">
@@ -755,6 +836,7 @@ function renderList(hits){
     <div class="view-panel" data-view="items"><div class="items-viewer"></div></div>
     <div class="view-panel" data-view="trainer"><div class="trainer-viewer"></div><h3 class="photo-heading trainer-photo-heading">写真</h3><div class="photo-viewer"></div></div>
     <div class="view-panel" data-view="dex"><div class="dex-viewer"></div></div>
+    <div class="view-panel" data-view="gift"><div class="gift-viewer"></div></div>
     <div class="view-panel" data-view="restore"><div class="restore-viewer"></div></div>`;
   setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',()=>{updateSelectionSummary();refreshBoxSelection()}));
@@ -779,6 +861,7 @@ function renderList(hits){
   renderPartyViewer();
   renderItemsViewer(listEl.querySelector('.items-viewer'));
   renderDexViewer(listEl.querySelector('.dex-viewer'));
+  renderGiftViewer(listEl.querySelector('.gift-viewer'));   // v69
   renderTrainerViewer(listEl.querySelector('.trainer-viewer'));
   renderRestoreViewer();
   {const a=restoreAnalysis(),em=listEl.querySelector('.method-score');if(a&&em){em.textContent=`信頼度 ${a.score}%`;em.classList.add(a.score>=RESTORE_TAB_MIN_SCORE?'high':a.score>=RESTORE_LOW_SCORE?'mid':'low')}}
@@ -1632,6 +1715,7 @@ async function analyze(file){
   window.__allHits=hits;
   hits=visibleHits(hits);
   window.__dex=readDex(input,l6,hits);   // v30
+  window.__gift=readGifts(input,l6);window.__includeGift=true;   // v69
   window.__trainer=readTrainer(input,l6,hits);   // v31
   window.__avatar=readAvatar(input,l6,window.__trainer);   // v33
   window.__includeDex=true;window.__trainerInput=null;window.__trainerMode=null;window.__includeAvatar=!!window.__avatar;
@@ -1709,7 +1793,7 @@ function trainerIncluded(){return !!trainerValue()}
 function avatarIncluded(){return window.__includeAvatar!==false&&!!window.__avatar}
 function updateItemsButton(){   // 名前は v19 以来のまま。救出ボタンの有効・無効を更新する(v36: サンプル提供の欄も)
   showSampleOffer();
-  const any=!!listEl.querySelector('.candidate-check:checked')||(!!window.__itemsGame&&(itemsIncluded()||moneyIncluded()||dexIncluded()||trainerIncluded()||avatarIncluded()));
+  const any=!!listEl.querySelector('.candidate-check:checked')||(!!window.__itemsGame&&(itemsIncluded()||moneyIncluded()||dexIncluded()||giftIncluded()||trainerIncluded()||avatarIncluded()));
   download.disabled=!any;
 }
 // ---------------------------------------------------------------------------
@@ -1793,14 +1877,14 @@ download.addEventListener('click',async()=>{
   const selected=selectedHits(),game=window.__itemsGame,withItems=itemsIncluded(),withMoney=moneyIncluded();
   let unknownBox=null;
   {const unk=boxState.pages?selected.filter(isUnknownHit):[];if(unk.length){unknownBox=await askUnknownBox(unk,selected);if(unknownBox===undefined)return}}
-  const withDex=dexIncluded(),withTrainer=trainerIncluded(),withAvatar=avatarIncluded();
-  if(!selected.length&&!withItems&&!withMoney&&!withDex&&!withTrainer&&!withAvatar)return;
+  const withDex=dexIncluded(),withTrainer=trainerIncluded(),withAvatar=avatarIncluded(),withGift=giftIncluded();
+  if(!selected.length&&!withItems&&!withMoney&&!withDex&&!withGift&&!withTrainer&&!withAvatar)return;
   download.disabled=true;
   try{
     if(!game)throw Object.assign(new Error('このセーブはゲームを判定できないため、main を作れません。'),{noTemplate:true});
     const bag=withItems?window.__bag:null,money=withMoney?window.__money:null,dex=withDex?window.__dex:null;
     const trainer=withTrainer?trainerValue():null,avatar=withAvatar?window.__avatar:null;
-    const {data,report:r}=await buildRescueMain({game,bag,money,selected,input:window.__input,l6:window.__layout6,includeEgg:window.__includeEgg,dex,trainer,avatar,unknownBox});
+    const {data,report:r}=await buildRescueMain({game,bag,money,selected,input:window.__input,l6:window.__layout6,includeEgg:window.__includeEgg,dex,trainer,avatar,unknownBox,gift:withGift?window.__gift:null});
     saveBlob(data,'main');
     showReturnGuide('rescue');
     const placed=r.pc+r.party+r.battle+r.daycare+r.partyToBox;
@@ -1813,6 +1897,7 @@ download.addEventListener('click',async()=>{
     if(bag)parts.push(`道具 ${bag.total}種`);
     if(money)parts.push('お金');
     if(dex)parts.push(`図鑑(捕まえた ${dex.caught}種)`);
+    if(withGift)parts.push(`ふしぎなおくりもの ${window.__gift.cards.length}枚`);
     if(trainer)parts.push(`トレーナー ${trainer.name}(ID ${String(trainer.tid).padStart(5,'0')})`);
     if(avatar)parts.push('アバター');
     // v60: ダウンロード後の「main をダウンロードしました…」「✅ 確認…」の表示はやめた(戻し方の案内が出るため)。注意が必要なときだけ表示する

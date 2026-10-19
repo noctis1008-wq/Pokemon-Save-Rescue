@@ -459,5 +459,22 @@ label.candidate,label.candidate *{-webkit-user-select:none;user-select:none}
 .sample-dialog>.sample-dialog-box{margin:auto;flex:none}
 .survey-box{max-height:none;overflow:visible}
 /* v65: ゲームのニックネーム用の記号(顔マークなど。3DS では U+E081〜E0A5)を PokéDings フォント(MIT, msikma)で表示 */
-@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=68") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=69") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}
 :root{font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+
+/* v69: ふしぎなおくりもの */
+.gift-list{list-style:none;margin:0;padding:0;border:1px solid #eaecf0;border-radius:12px;max-height:520px;overflow-y:auto}
+.gift-card{padding:10px 12px;border-bottom:1px solid #f2f4f7}
+.gift-card:last-child{border-bottom:0}
+.gift-top{display:flex;gap:8px;align-items:center;min-width:0}
+.gift-title{font-size:14px;min-width:0;overflow-wrap:anywhere}
+.gift-kind{flex:none;font-size:11px;font-weight:800;border-radius:999px;padding:3px 8px;background:#eef2ff;color:#3538cd}
+.gift-kind.k1{background:#fef6ee;color:#b93815}
+.gift-kind.k2{background:#f0f9ff;color:#026aa2}
+.gift-meta{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;margin-top:5px;font-size:13px;color:#475467}
+.gift-date{margin-left:auto;color:#98a2b3;font-variant-numeric:tabular-nums}
+.gift-state{font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px}
+.gift-state.new{background:#ecfdf3;color:#027a48}
+.gift-state.used{background:#f2f4f7;color:#667085}
+/* v69: タブが 5 つになったので、スマホでは余白を詰め、入りきらないときは 2 行に折り返す */
+@media(max-width:650px){.view-tab{flex:1 1 auto;min-width:0;padding:7px 4px;font-size:12px;white-space:normal;overflow-wrap:anywhere}}
