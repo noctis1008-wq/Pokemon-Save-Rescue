@@ -7,7 +7,7 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "62";
+const APP_VERSION = "63";
 const APP_VERSION_DATE = "2026-10-16";
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
@@ -729,8 +729,9 @@ function renderList(hits){
         <div class="selection-actions">
           <button type="button" class="small-button" data-action="all">すべて選択</button>
           <button type="button" class="small-button" data-action="none">すべて解除</button>
-          <span id="selectionSummary" class="selection-count">選択中 0 匹</span>
+          <div class="tap-mode" role="group" aria-label="タップしたとき"><button type="button" class="tap-mode-btn" data-tap="select">選択</button><button type="button" class="tap-mode-btn" data-tap="detail">詳細</button></div>
         </div>
+        <div class="selection-count-row"><span id="selectionSummary" class="selection-count">選択中 0 匹</span></div>
       </div>
       <div class="sub-tabs" role="tablist">
         <button type="button" class="sub-tab" role="tab" aria-selected="false" data-sub="list">一覧</button>
@@ -757,6 +758,10 @@ function renderList(hits){
     updateSelectionSummary();refreshBoxSelection();
   }));
   listEl.querySelectorAll('.view-tab').forEach(tab=>tab.addEventListener('click',()=>showView(tab.dataset.view)));
+  // v63: タップしたときの動き(選択 / 詳細)。長押しはどちらでも詳細
+  const setTap=m=>{tapMode=m;try{localStorage.setItem('nerTapMode',m)}catch(e){}listEl.querySelectorAll('.tap-mode-btn').forEach(b=>{const on=b.dataset.tap===m;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on)})};
+  listEl.querySelectorAll('.tap-mode-btn').forEach(b=>b.addEventListener('click',()=>setTap(b.dataset.tap)));
+  setTap(tapMode);
   listEl.querySelectorAll('.method-card').forEach(c=>c.addEventListener('click',()=>showView(c.dataset.method==='full'?'restore':(window.__lastRescueView||'pokemon'))));
   listEl.querySelectorAll('.sub-tab').forEach(tab=>tab.addEventListener('click',()=>showSub(tab.dataset.sub)));
   boxState.pages=buildBoxPages(hits);boxState.__shown=null;
@@ -1334,16 +1339,21 @@ function renderSlotCell(s,slotNo){
   // v18: 破損・データなしのマスは利用者には見せず、空きと同じ表示にする(一覧表示と同じ方針)。判定(s.status)は buildSlotMap() に残している。
   return `<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`;
 }
+let tapMode=(()=>{try{return localStorage.getItem('nerTapMode')==='detail'?'detail':'select'}catch(e){return 'select'}})();
 // v59/v61: 長押し(または右クリック)で詳細を開く。開いたあとのクリック(タップ)は無視する
 function bindLongPress(el,offset){
   let timer=null,sx=0,sy=0;el.__longPressed=false;
   const cancel=()=>{clearTimeout(timer);timer=null};
-  const open=()=>{el.__longPressed=true;showPokemonDetail(offset)};
+  const open=()=>{el.__longPressed=true;showPokemonDetail(offset);try{window.getSelection().removeAllRanges()}catch(e){}};
   el.addEventListener('pointerdown',e=>{el.__longPressed=false;sx=e.clientX;sy=e.clientY;cancel();timer=setTimeout(open,450)});
   el.addEventListener('pointermove',e=>{if(timer&&Math.hypot(e.clientX-sx,e.clientY-sy)>8)cancel()});
   ['pointerup','pointerleave','pointercancel'].forEach(t=>el.addEventListener(t,cancel));
   el.addEventListener('contextmenu',e=>{e.preventDefault();cancel();open()});
-  el.addEventListener('click',e=>{if(el.__longPressed){el.__longPressed=false;e.preventDefault();e.stopImmediatePropagation()}},true);
+  el.addEventListener('click',e=>{
+    if(el.__longPressed){el.__longPressed=false;e.preventDefault();e.stopImmediatePropagation();return}
+    // v63: 「詳細」モードなら、タップで詳細を開く(選択は変えない)
+    if(tapMode==='detail'){e.preventDefault();e.stopImmediatePropagation();showPokemonDetail(offset)}
+  },true);
 }
 function bindPokemonCells(root){
   root.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>{

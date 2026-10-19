@@ -438,3 +438,18 @@
 .trainer-pick{width:100%;margin:8px 0 4px;padding:10px;border:1px solid #d0d5dd;border-radius:10px;font:inherit;font-size:14px;background:#fff}
 label.candidate{-webkit-touch-callout:none}
 .box-origin{position:absolute;left:2px;bottom:2px;z-index:1;font-size:9px;font-weight:900;line-height:1;padding:2px 3px;border-radius:4px;background:#2e90fa;color:#fff}
+/* v63: タップの動きの切り替え(選択 / 詳細) */
+.tap-mode{display:flex;align-items:center;margin-left:auto}
+.tap-mode-btn{border:1px solid #d0d5dd;background:#fff;color:#475467;padding:6px 16px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.tap-mode-btn:first-of-type{border-radius:9px 0 0 9px}
+.tap-mode-btn+.tap-mode-btn{border-left:0;border-radius:0 9px 9px 0}
+.tap-mode-btn.active{background:#17202a;color:#fff;border-color:#17202a}
+/* v63: 長押しで詳細を開いたとき、指の下の文字が選択されないように */
+.pk-detail,.pk-detail *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+label.candidate,label.candidate *{-webkit-user-select:none;user-select:none}
+.selection-count-row{display:flex;justify-content:flex-end;margin-top:8px}
+.selection-count-row .selection-count{font-size:15px;font-weight:800;color:#17202a}
+.tap-mode-btn{padding:8px 14px}
+.recovery-controls .selection-actions{flex-wrap:nowrap;gap:6px}
+@media(max-width:650px){.recovery-controls .selection-actions .small-button{padding:8px 9px;font-size:13px;white-space:nowrap}.tap-mode-btn{padding:8px 10px;font-size:13px}}
+@media(max-width:340px){.recovery-controls .selection-actions .small-button{padding:7px 6px;font-size:12px}.tap-mode-btn{padding:7px 7px;font-size:12px}}
