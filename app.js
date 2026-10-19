@@ -7,8 +7,11 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "64";
-const APP_VERSION_DATE = "2026-10-16";
+const APP_VERSION = "65";
+const APP_VERSION_DATE = "2026-10-19";
+// v65: ダイアログの高さ用。iPhone のブラウザによっては 100vh/100dvh が実際に見えている高さと合わないので、測った値を使う
+(function(){const set=()=>{const h=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;if(h)document.documentElement.style.setProperty('--appvh',Math.round(h)+'px')};
+  set();window.addEventListener('resize',set);if(window.visualViewport)window.visualViewport.addEventListener('resize',set);window.addEventListener('orientationchange',()=>setTimeout(set,300))})();
 
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
 const SAVE={XY:0x65600,ORAS:0x76000};   // v19: 第7世代は対象外にした

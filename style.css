@@ -453,9 +453,11 @@ label.candidate,label.candidate *{-webkit-user-select:none;user-select:none}
 .recovery-controls .selection-actions{flex-wrap:nowrap;gap:6px}
 @media(max-width:650px){.recovery-controls .selection-actions .small-button{padding:8px 9px;font-size:13px;white-space:nowrap}.tap-mode-btn{padding:8px 10px;font-size:13px}}
 @media(max-width:340px){.recovery-controls .selection-actions .small-button{padding:7px 6px;font-size:12px}.tap-mode-btn{padding:7px 7px;font-size:12px}}
-/* v64: iPhone で長いダイアログの下が切れる問題 */
-.sample-dialog{top:0;left:0;right:0;bottom:auto;height:100vh;height:100dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
-.survey-box{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+/* v64→v65: iPhone で長いダイアログの下が切れる問題。dvh はブラウザによって小さすぎる値になるため、JS で測った高さ(--appvh)を使う */
+.sample-dialog{inset:0;height:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.survey-box{max-height:calc(100vh - 32px);max-height:calc(var(--appvh,100vh) - 32px);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .pk-detail{padding-bottom:0}
 .pk-detail>.sample-dialog-actions{position:sticky;bottom:0;background:#fff;margin:4px -20px 0;padding:12px 20px 16px;border-top:1px solid #f2f4f7}
-body:has(.sample-dialog:not(.hidden)){overflow:hidden}
+/* v65: ゲームのニックネーム用の記号(顔マークなど。3DS では U+E081〜E0A5)を PokéDings フォント(MIT, msikma)で表示 */
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=65") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}
+:root{font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
