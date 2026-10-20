@@ -7,8 +7,8 @@
 // 各タグ末尾にある ?v= の 5 つを必ず一致させること。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
 // ===========================================================================
-const APP_VERSION = "70";
-const APP_VERSION_DATE = "2026-10-19";
+const APP_VERSION = "71";
+const APP_VERSION_DATE = "2026-10-20";
 // v67: ブラウザ(とくに iPhone の Brave)が古いページを覚えたままになることがあるので、
 // 開くたびに最新の版番号(version.json)を確かめ、古ければ自動で新しいページを読み込み直す
 (function(){if(location.protocol==='file:')return;
@@ -1709,6 +1709,7 @@ async function analyze(file){
   window.__money=readMoney(input,l6);
   window.__itemsGame=l6?l6.game:null;window.__includeItems=true;window.__includeMoney=true;window.__includeEgg=null;
   window.__input=input;window.__hits=[];window.__inputName=file.name;window.__sampleSent=false;
+  window.__inputFile=file;window.__lastOutput=null;renderRepairHelp();   // v71: 修復依頼に渡す元のファイル(relocateBlocks で書き換える前のもの)
   updateItemsButton();
   window.__photo=readPhoto(input,l6);
   // 表示・出力の対象は完全復元のみ(振り分け結果は window.__allHits に残す)
@@ -1840,6 +1841,7 @@ function showReturnGuide(kind){
   box.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function saveBlob(data,name){
+  window.__lastOutput={name,data:new Uint8Array(data instanceof ArrayBuffer?data:(data.buffer?data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength):data)).slice()};renderRepairHelp();   // v71
   const url=URL.createObjectURL(new Blob([data],{type:'application/octet-stream'})),a=document.createElement('a');
   a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
@@ -2125,4 +2127,49 @@ function devBarSet(key){document.querySelectorAll('.dev-bar input').forEach(cb=>
   span.className="app-version";
   span.textContent=" · v"+APP_VERSION+" ("+APP_VERSION_DATE+")";
   footer.appendChild(span);
+})();
+
+// ---------------------------------------------------------------------------
+// v71: 思うように救出できなかった方へ。
+// 「修復をリクエストする」で、壊れたセーブ(読み込んだファイルそのまま)と最後に作ったデータ(main / boxdata.bin)を
+// 同じサイト(noctis1008-wq.github.io)の IndexedDB「nerRepairHandoff」に置き、修復依頼ページを開く。
+// 修復依頼ページは ?from=recovery のときにそこから 2 つのファイルを読み込み、送信が終わったら消す。
+// ---------------------------------------------------------------------------
+const REPAIR_PAGE_URL='../repair-request/?from=recovery';
+function renderRepairHelp(){
+  const b=document.getElementById('repairBroken'),r=document.getElementById('repairRescued'),btn=document.getElementById('repairButton'),note=document.getElementById('repairNote');
+  if(!b||!btn)return;
+  const f=window.__inputFile,o=window.__lastOutput;
+  b.textContent=f?f.name:'—';b.classList.toggle('missing',!f);
+  r.textContent=o?o.name:'まだありません';r.classList.toggle('missing',!o);
+  btn.disabled=!(f&&o);
+  note.className='repair-note';
+  note.textContent=!f?'':!o?'先に「ポケモンを救出する」(または「まるごと復元」)で、救出したデータを作ってください。':'押すと修復依頼ページが開き、2 つのデータが添付された状態になります。';
+}
+function handoffPut(rec){
+  return new Promise((ok,ng)=>{
+    let req;try{req=indexedDB.open('nerRepairHandoff',1)}catch(e){ng(e);return}
+    req.onupgradeneeded=()=>req.result.createObjectStore('files');
+    req.onerror=()=>ng(req.error);
+    req.onsuccess=()=>{const db=req.result,tx=db.transaction('files','readwrite');tx.objectStore('files').put(rec,'latest');tx.oncomplete=()=>{db.close();ok()};tx.onerror=tx.onabort=()=>{db.close();ng(tx.error)}};
+  });
+}
+(function(){
+  const btn=document.getElementById('repairButton');
+  if(!btn)return;
+  btn.addEventListener('click',async()=>{
+    const f=window.__inputFile,o=window.__lastOutput,note=document.getElementById('repairNote');
+    if(!f||!o)return;
+    btn.disabled=true;
+    try{
+      await handoffPut({at:Date.now(),version:APP_VERSION,game:window.__itemsGame||'',
+        broken:{name:f.name,data:await f.arrayBuffer()},
+        rescued:{name:o.name,data:o.data.buffer.slice(0)}});
+      location.href=REPAIR_PAGE_URL;
+    }catch(e){
+      note.className='repair-note error';
+      note.innerHTML='データを渡せませんでした。<a href="../repair-request/">修復依頼ページ</a>を開いて、2 つのファイルを選んでください。';
+      btn.disabled=false;
+    }
+  });
 })();

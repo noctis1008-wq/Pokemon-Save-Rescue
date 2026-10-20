@@ -478,3 +478,21 @@ label.candidate,label.candidate *{-webkit-user-select:none;user-select:none}
 .gift-state.used{background:#f2f4f7;color:#667085}
 /* v69: タブが 5 つになったので、スマホでは余白を詰め、入りきらないときは 2 行に折り返す */
 @media(max-width:650px){.view-tab{flex:1 1 auto;min-width:0;padding:7px 4px;font-size:12px;white-space:normal;overflow-wrap:anywhere}}
+/* v71: 思うように救出できなかった方へ(修復依頼ページへデータを渡す) */
+.repair-help{margin-top:14px;border:1px solid #eaecf0;border-radius:14px;background:#f8fafc}
+.repair-help summary{cursor:pointer;list-style:none;padding:13px 16px;font-weight:800;font-size:14.5px;display:flex;align-items:center;gap:8px}
+.repair-help summary::-webkit-details-marker{display:none}
+.repair-help summary::before{content:"?";flex:none;width:22px;height:22px;border-radius:50%;background:#111827;color:#fff;display:grid;place-items:center;font-size:13px}
+.repair-help summary::after{content:"▼";margin-left:auto;font-size:11px;color:#98a2b3;transition:transform .2s}
+.repair-help[open] summary::after{transform:rotate(180deg)}
+.repair-help-body{padding:0 16px 16px;font-size:13.5px;line-height:1.75;color:#344054}
+.repair-help-body p{margin:0 0 8px}
+.repair-files{list-style:none;margin:10px 0 0;padding:0;border:1px solid #eaecf0;border-radius:10px;background:#fff}
+.repair-files li{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid #f2f4f7}
+.repair-files li:last-child{border-bottom:0}
+.repair-files span{color:#667085;flex:none}
+.repair-files b{text-align:right;word-break:break-all}
+.repair-files b.missing{color:#98a2b3;font-weight:600}
+.repair-help .button{margin-top:12px}
+.repair-note{margin:8px 0 0!important;font-size:12.5px;color:#667085}
+.repair-note.error{color:#b42318}

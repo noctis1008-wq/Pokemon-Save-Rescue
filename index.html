@@ -7,7 +7,7 @@
 <title>ポケモン破損セーブ救出 | NER Pokémon Recovery</title>
 <!-- 末尾の ?v= はブラウザのキャッシュ対策。app.js の APP_VERSION を上げたら、
      index.html と privacy.html のこの数字も同じ値に揃えること。 -->
-<link rel="stylesheet" href="style.css?v=70">
+<link rel="stylesheet" href="style.css?v=71">
 </head>
 <body>
 <div class="social-fixed">
@@ -17,7 +17,7 @@
 <main class="wrap">
 <section class="hero">
 <p class="eyebrow">POKÉMON SAVE RECOVERY</p>
-<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=70" type="image/webp"><img src="img/logo.png?v=70" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
+<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=71" type="image/webp"><img src="img/logo.png?v=71" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
 <p class="lead">破損したポケモンのセーブデータをブラウザ内で解析し、内部に残っているポケモンや道具を取り出して、そのままゲームで遊べるセーブ(<code>main</code>)にします。壊れた部分が少なければ、セーブをまるごと復元することもできます。</p>
 </section>
 <section class="card">
@@ -42,6 +42,19 @@
 <button type="button" id="sampleButton" class="small-button sample-button">提供する</button>
 </div>
 <div id="returnGuide" class="return-guide hidden" aria-live="polite"></div>
+<details id="repairHelp" class="repair-help">
+<summary>思うように救出できなかった方へ</summary>
+<div class="repair-help-body">
+<p>このツールで救出できなかったポケモンや道具も、管理者(ネル)が手作業で調べれば、取り戻せる可能性があります。</p>
+<p>修復依頼ページに、<b>壊れたセーブデータ</b>と、このツールで<b>救出したデータ</b>の両方を送っていただければ、こちらで修復を行います。</p>
+<ul class="repair-files">
+<li><span>壊れたセーブデータ</span><b id="repairBroken">—</b></li>
+<li><span>救出したデータ</span><b id="repairRescued">まだありません</b></li>
+</ul>
+<button type="button" id="repairButton" class="button" disabled>修復をリクエストする</button>
+<p class="repair-note" id="repairNote"></p>
+</div>
+</details>
 <div id="sampleDialog" class="sample-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="sampleDialogText">
 <div class="sample-dialog-box">
 <p id="sampleDialogText">破損データをサンプルとして管理者に提供しますか？</p>
@@ -57,13 +70,13 @@
 <p class="note">これは「セーブを修復して元に戻す」ツールではなく、<strong>残存しているポケモン個体データを救出するためのツール</strong>です。検出結果には、チェックサムなどの内部構造がすべて一致した「完全な状態の個体」だけを表示します。復元に含める個体はユーザー自身がチェックボックスで選択できます。</p>
 <p class="note">検出されたデータは、内部構造・チェックサムなどを検証したうえで出力します。ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。</p>
 </section>
-<footer><a href="../">NER Converter</a> · <a href="privacy.html">プライバシーポリシー</a> · <a href="https://github.com/kwsch/PKHeX" target="_blank" rel="noopener">PKHeX reference</a> · アイコン: <a href="https://msikma.github.io/pokesprite/" target="_blank" rel="noopener">PokeSprite</a>(画像 © Nintendo/Creatures Inc./GAME FREAK Inc.) · 記号フォント: <a href="https://github.com/msikma/PokeDings" target="_blank" rel="noopener">PokéDings</a></footer>
+<footer><a href="../converter/">NER Converter</a> · <a href="privacy.html">プライバシーポリシー</a> · <a href="https://github.com/kwsch/PKHeX" target="_blank" rel="noopener">PKHeX reference</a> · アイコン: <a href="https://msikma.github.io/pokesprite/" target="_blank" rel="noopener">PokeSprite</a>(画像 © Nintendo/Creatures Inc./GAME FREAK Inc.) · 記号フォント: <a href="https://github.com/msikma/PokeDings" target="_blank" rel="noopener">PokéDings</a></footer>
 </main>
-<script src="pkdata.js?v=70"></script>
-<script src="pk_fashion.js?v=70"></script>
-<script src="pk_icons.js?v=70"></script>
-<script src="pk_atlas.js?v=70"></script>
-<script src="pk_detail.js?v=70"></script>
-<script src="app.js?v=70"></script>
-<script src="counter.js?v=70"></script>
+<script src="pkdata.js?v=71"></script>
+<script src="pk_fashion.js?v=71"></script>
+<script src="pk_icons.js?v=71"></script>
+<script src="pk_atlas.js?v=71"></script>
+<script src="pk_detail.js?v=71"></script>
+<script src="app.js?v=71"></script>
+<script src="counter.js?v=71"></script>
 </body></html>
