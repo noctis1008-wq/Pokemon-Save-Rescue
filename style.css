@@ -4,7 +4,7 @@
    6×5 のボックス・下から出る詳細シート・下に固定したダウンロード・パソコンでは 2 列)。
    色: ブランドの青(--blue)を主ボタンと選択中に使う。小さい文字も 13〜14px 以上、文字色は #475467 以上の濃さ(AA)。
    =========================================================================== */
-@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=74") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=75") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
 *{box-sizing:border-box}
 :root{--bg:#f4f6f8;--card:#fff;--ink:#17202a;--sub:#475467;--mute:#5d6b82;--line:#e4e7ec;--line2:#d0d5dd;--blue:#2563eb;--blue2:#1d4ed8;--blue-soft:#eaf1ff;--ok:#067647;--ok-soft:#e7f8ef;--warn:#b54708;--warn-soft:#fff4e5;--ng:#b42318;--ng-soft:#fef3f2;--r:18px;
   font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
@@ -25,16 +25,18 @@ svg{flex:none}
 .brand img{height:30px;width:auto;display:block}
 .brand span{overflow:hidden;text-overflow:ellipsis}
 .topbar-links{display:flex;align-items:center;gap:8px;flex:none}
-.social-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;text-decoration:none;transition:transform .15s ease}
-.social-icon:hover{transform:translateY(-1px)}
+.social-icon{position:relative;width:42px;height:42px;display:grid;place-items:center;border-radius:50%;text-decoration:none;box-shadow:0 3px 12px rgba(0,0,0,.22);transition:transform .15s ease,opacity .15s ease}
+/* v75: 見た目は v73 と同じ大きさ(42px、スマホ 38px)。押せる範囲は透明な ::after で 44px にする */
+.social-icon::after,.portal-badge::after{content:"";position:absolute;inset:-1px}
+.social-icon:hover{transform:translateY(-2px) scale(1.05);opacity:.88}
 .youtube-icon{background:#ff0000}
 .youtube-play{width:0;height:0;margin-left:3px;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:11px solid #fff}
 .x-icon{background:#000;color:#fff}
 .x-icon svg{width:18px;height:18px}
-.portal-badge{height:44px;display:inline-flex;align-items:center;gap:7px;padding:0 14px 0 6px;border-radius:999px;text-decoration:none;color:#fff;background:linear-gradient(120deg,#1ec8d8 0%,#2563eb 50%,#7c3aed 100%);font:800 14px/1 system-ui,-apple-system,"Hiragino Sans",sans-serif;letter-spacing:.04em;white-space:nowrap}
-.portal-badge svg{width:32px;height:32px;border-radius:50%;background:#fff}
-.portal-badge:hover{opacity:.92}
-@media(max-width:600px){.brand img{height:34px}.brand>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.topbar-links{gap:6px}.social-icon{width:44px;height:44px}.portal-badge{padding:0 11px 0 5px;font-size:14px}.portal-site{display:none}}
+.portal-badge{position:relative;height:42px;display:inline-flex;align-items:center;gap:7px;padding:0 14px 0 6px;border-radius:999px;text-decoration:none;color:#fff;background:linear-gradient(120deg,#1ec8d8 0%,#2563eb 50%,#7c3aed 100%);font:800 14px/1 system-ui,-apple-system,"Hiragino Sans",sans-serif;letter-spacing:.04em;white-space:nowrap;transition:transform .15s ease,opacity .15s ease;box-shadow:0 3px 12px rgba(0,0,0,.22)}
+.portal-badge svg{width:30px;height:30px;flex:none;border-radius:50%;background:rgba(255,255,255,.14)}
+.portal-badge:hover{transform:translateY(-2px) scale(1.03);opacity:.92}
+@media(max-width:600px){.brand img{height:34px}.brand>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.topbar-links{gap:6px}.social-icon{width:38px;height:38px}.portal-badge{height:38px;padding:0 12px 0 5px;gap:6px;font-size:12px}.social-icon::after,.portal-badge::after{inset:-3px}.portal-badge svg{width:28px;height:28px}}
 @media(max-width:360px){.brand img{height:28px}.portal-badge>span{display:none}.portal-badge{padding:0 6px}}
 
 /* ---- 手順 ---- */
@@ -125,6 +127,16 @@ svg{flex:none}
 .how li::before{content:counter(s);flex:none;display:grid;place-items:center;width:24px;height:24px;margin-top:1px;border-radius:7px;background:var(--blue-soft);color:var(--blue2);font-weight:800;font-size:14px}
 .how code{word-break:break-all}
 .help-note{margin:6px 0 0;color:var(--sub);font-size:14px;line-height:1.7}
+.help-lead{margin:10px 0 0;font-size:14.5px;line-height:1.7}
+.help-step{margin:16px 0 4px;font-size:15.5px;font-weight:900}
+.help-text{margin:6px 0 0;font-size:14.5px;line-height:1.75}
+.help-video{display:flex;align-items:center;gap:12px;min-height:44px;margin:10px 0 0;padding:8px;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--ink);background:#f8fafc}
+.help-video:hover{background:#f2f4f7}
+.help-video-thumb{flex:none;display:grid;place-items:center;width:96px;aspect-ratio:16/9;border-radius:8px;background:#111}
+.help-video-thumb svg{width:36px;height:36px}
+.help-video>span:last-child{display:flex;flex-direction:column;gap:3px;font-size:14.5px}
+.help-video small{color:#b42318;font-weight:800;font-size:14px}
+.help-warn{margin:14px 0 0;padding:10px 12px;border-radius:12px;background:var(--warn-soft);border:1px solid #fedf89;color:#7a2e0e;font-size:14px;line-height:1.7}
 
 /* ---- 結果: 結果が出たら最初の画面の説明は隠す ---- */
 .has-result .hero,.has-result .help-card,.has-result .drop,.has-result #trustNote{display:none}
@@ -228,7 +240,7 @@ svg{flex:none}
 .return-guide{margin-top:12px;padding:14px;border:2px solid var(--blue);border-radius:14px;background:#f5f8ff}
 .guide-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .guide-head strong{font-size:16px}
-.guide-close{width:44px;height:44px;border:0;background:transparent;font-size:24px;line-height:1;color:var(--sub);cursor:pointer}
+.guide-close{width:44px;height:44px;border:0;background:transparent;font-size:22px;line-height:1;color:var(--sub);cursor:pointer}
 .guide-intro{margin:6px 0 10px;font-size:14px;line-height:1.7;color:#344054}
 .guide-sec{border-top:1px solid #d1e0ff;padding:4px 0}
 .guide-sec summary{display:flex;align-items:center;min-height:44px;cursor:pointer;font-weight:800;font-size:14.5px;color:var(--blue2)}
@@ -358,7 +370,7 @@ svg{flex:none}
 .box-cell.is-favorite .fav-wrap{position:absolute;top:9px;bottom:2px;left:6px;right:6px;display:flex;align-items:flex-end;justify-content:center;will-change:transform;animation:fav-hop .5s steps(1,end) infinite;animation-delay:var(--fav-delay,0s);transform-origin:50% 100%}
 .box-cell.is-favorite .fav-wrap .box-icon{width:100%;height:100%;padding:0;object-fit:contain;object-position:50% 100%}
 .box-cell.is-favorite .fav-wrap .spr-box{padding:0;align-items:flex-end}
-@media(prefers-reduced-motion:reduce){.box-cell.is-favorite .fav-wrap{animation:none}}
+/* v75: v73 までと同じく、端末の「動きを減らす」設定に関係なく跳ねる(v74 で止まっていたのを戻した) */
 /* v59: アイコンは 1 枚の画像から切り出す(コンテナクエリでマスに合わせて拡大) */
 .spr-box{display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:5px;container-type:size;pointer-events:none}
 .spr{--s:min(calc(100cqw / var(--w)),calc(100cqh / var(--h)));flex:none;width:calc(var(--w) * var(--s));height:calc(var(--h) * var(--s));background-image:var(--atlas-url);background-repeat:no-repeat;background-size:calc(var(--atlas-w) * var(--s)) auto;background-position:calc(var(--x) * var(--s) * -1) calc(var(--y) * var(--s) * -1);image-rendering:pixelated}
@@ -497,7 +509,9 @@ svg{flex:none}
 .more-card{margin-top:12px;padding:12px}
 .sample-offer{position:relative;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#f8fafc;font-size:14px;color:#344054;margin-bottom:10px}
 .sample-text{flex:1;min-width:0}
-.sample-info{flex:none;width:44px;height:44px;border-radius:50%;border:1.5px solid var(--sub);color:var(--sub);display:grid;place-items:center;font:italic 700 14px/1 Georgia,serif;cursor:pointer;user-select:none}
+/* v75: 見た目は v73 と同じ直径 20px の丸。押せる範囲だけ 44×44px(丸は背景で描き、外側の余白は透明)。外側は負のマージンで、まわりの並びは変えない */
+.sample-info{flex:none;box-sizing:border-box;width:44px;height:44px;margin:-12px -8px;border-radius:50%;color:#667085;background:radial-gradient(circle closest-side,transparent 8.5px,#667085 8.5px,#667085 10px,transparent 10.5px);display:grid;place-items:center;font:italic 700 12px/1 Georgia,serif;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.sample-info:focus-visible{outline-offset:-10px}
 .sample-tip{display:none;position:absolute;left:0;right:0;bottom:calc(100% + 6px);padding:10px 12px;border-radius:10px;background:var(--ink);color:#fff;font:400 13.5px/1.65 system-ui,-apple-system,sans-serif;font-style:normal;text-align:left;box-shadow:0 8px 24px rgba(16,24,40,.25);z-index:20}
 .sample-info:hover .sample-tip,.sample-info:focus .sample-tip,.sample-info.open .sample-tip{display:block}
 .sample-button{flex:none}
@@ -585,3 +599,31 @@ footer a{color:#344054}
 .hero .lead{margin:10px auto 0;max-width:640px;color:var(--sub);font-size:15px;line-height:1.75}
 .info.policy{background:var(--card);border-radius:var(--r);box-shadow:0 1px 2px rgba(16,24,40,.06),0 4px 16px rgba(16,24,40,.05)}
 .policy p{font-size:15px;line-height:1.8}
+/* v75: ④ 書き出す(ダウンロードしたあとの結果の画面) */
+body.is-done #modeSwitch,body.is-done #modeHint,body.is-done #exportPanel,body.is-done #restorePanel,body.is-done #dock,body.is-done .content{display:none!important}
+body.is-done.has-result .wrap{padding-bottom:24px}
+.done-panel[hidden]{display:none}
+body.is-done .summary-card{scroll-margin-top:88px}
+.done-head{display:flex;gap:12px;align-items:flex-start}
+.done-icon{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:var(--ok-soft);color:var(--ok)}
+.done-icon svg{width:24px;height:24px}
+.done-head h3{margin:2px 0 2px;font-size:18px;font-weight:900;outline:none}
+.done-head p{margin:0;color:var(--sub);font-size:14.5px;line-height:1.6}
+.done-kv{margin:14px 0 0;padding:10px 12px;border-radius:12px;background:#f8fafc}
+.done-kv div{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.done-kv dt{color:var(--sub);font-weight:700;font-size:14px}
+.done-kv dd{margin:0;font-weight:800}
+.done-h{margin:16px 0 4px;font-size:15px;font-weight:900}
+.done-list{list-style:none;margin:0;padding:0}
+.done-list li{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:1px solid #eef0f3;font-size:14.5px;line-height:1.6}
+.done-list li:first-child{border-top:0}
+.done-list svg{flex:none;width:18px;height:18px;margin-top:3px;color:var(--ok)}
+.done-actions{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 4px}
+.done-actions .button{flex:1 1 200px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px}
+.done-actions svg{width:20px;height:20px}
+.done-panel .return-guide{margin-top:14px}
+@media(min-width:960px){
+  body.is-done .result-grid{grid-template-columns:minmax(0,1fr);max-width:760px;margin:0 auto}
+  body.is-done .summary-card{grid-column:1;grid-row:1}
+  body.is-done .side-panel{grid-column:1;grid-row:2;position:static;max-height:none;overflow:visible}
+}

@@ -234,7 +234,9 @@ function restoreAnalysis(){
     if(b.status!=='ok'&&!isPc)lost.push(b);
     if(b.moved)moved.push(b);
   }
-  const score=wSum?Math.round(wGot/wSum*100):0;
+  // v75: 壊れた部分が 1 つでもあれば 100% にはしない(PC ボックスの読めないマスが少ないと、四捨五入で 100% になっていた)
+  const broken=l6.blocks.some(b=>b.status!=='ok');
+  const score=wSum?(broken?Math.min(99,Math.round(wGot/wSum*100)):Math.round(wGot/wSum*100)):0;
   const story=[19,4,10].filter(id=>l6.blocks[id]&&l6.blocks[id].status!=='ok');
   return {l6,score,lost,moved,pc,pcOk:pc&&pc.status==='ok',pcInfo,story,total:l6.blocks.length,ok:l6.okCount};
 }
