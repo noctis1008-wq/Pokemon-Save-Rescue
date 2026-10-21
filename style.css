@@ -4,7 +4,7 @@
    6×5 のボックス・下から出る詳細シート・下に固定したダウンロード・パソコンでは 2 列)。
    色: ブランドの青(--blue)を主ボタンと選択中に使う。小さい文字も 13〜14px 以上、文字色は #475467 以上の濃さ(AA)。
    =========================================================================== */
-@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=79") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=80") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
 *{box-sizing:border-box}
 :root{--bg:#f4f6f8;--card:#fff;--ink:#17202a;--sub:#475467;--mute:#5d6b82;--line:#e4e7ec;--line2:#d0d5dd;--blue:#2563eb;--blue2:#1d4ed8;--blue-soft:#eaf1ff;--ok:#067647;--ok-soft:#e7f8ef;--warn:#b54708;--warn-soft:#fff4e5;--ng:#b42318;--ng-soft:#fef3f2;--r:18px;
   font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
@@ -249,15 +249,24 @@ svg{flex:none}
 .guide-note{margin:6px 0 0;font-size:14px;line-height:1.7;color:var(--sub)}
 
 /* ---- 入れるもののタブ ---- */
-.view-tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding:4px;background:#e9edf3;border-radius:14px;margin-bottom:12px}
+/* v80: 下線のタブ。幅いっぱいに並べ、入りきらないときは横にスクロール */
+.view-tabs{display:flex;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line2);margin-bottom:12px}
 .view-tabs::-webkit-scrollbar{display:none}
-.view-tab{flex:1 0 auto;min-height:44px;border:0;border-radius:10px;background:transparent;color:var(--sub);font:inherit;font-size:15px;font-weight:800;padding:6px 12px;cursor:pointer;white-space:nowrap}
-.view-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(16,24,40,.14)}
+.view-tab{flex:1 0 auto;min-width:44px;min-height:44px;border:0;border-bottom:3px solid transparent;margin-bottom:-1px;border-radius:0;background:transparent;color:var(--sub);font:inherit;font-size:15px;font-weight:800;padding:6px 6px 3px;cursor:pointer;white-space:nowrap;transition:color .15s,border-color .15s}
+.view-tab:hover{color:var(--ink)}
+.view-tab.active{color:var(--blue2);border-bottom-color:var(--blue)}
 .view-panel{display:none}.view-panel.active{display:block}
 .sub-panel{display:none}.sub-panel.active{display:block}
 .view-panel>.items-viewer,.view-panel>.trainer-viewer,.view-panel>.dex-viewer,.view-panel>.gift-viewer{background:#fff;border:1px solid #e9edf2;border-radius:var(--r);padding:14px}
 .view-panel[data-view="trainer"]>.photo-heading,.view-panel[data-view="trainer"]>.photo-viewer{padding:0 4px}
-.sub-tabs{margin-bottom:12px}
+/* v80: 一覧 / ボックス / 手持ち・育て屋 は丸い切り替えスイッチ。白い部分(.seg-thumb)が選んだ方へ動く */
+.sub-tabs{position:relative;margin-bottom:12px;border-radius:999px}
+.sub-tabs .seg-thumb{position:absolute;top:4px;bottom:4px;left:4px;width:0;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.18);pointer-events:none}
+.sub-tabs.is-ready .seg-thumb{transition:transform .22s ease,width .22s ease}
+.sub-tabs .seg-btn{position:relative;z-index:1;border-radius:999px}
+.sub-tabs:not(.is-ready) .seg-thumb{visibility:hidden}
+.sub-tabs.is-ready .seg-btn.active{background:transparent;box-shadow:none}   /* 白い部分の位置が決まるまではボタン自体を白くしておく */
+@media(prefers-reduced-motion:reduce){.sub-tabs.is-ready .seg-thumb,.view-tab{transition:none}}
 .recovery-controls{margin-bottom:10px}
 .selection-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .selection-title h3{margin:0;font-size:17px;font-weight:900;display:flex;align-items:center;gap:8px}

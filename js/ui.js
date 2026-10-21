@@ -136,10 +136,11 @@ function renderList(hits){
     </div>
     <p class="restore-banner" hidden>${ICON.info}<span>まるごと復元では、ポケモンを選ぶ必要はありません。セーブに残っている部分がそのまま戻ります(下は確認用の表示です)。</span></p>
     <div class="view-panel" data-view="pokemon">
-      <div class="seg sub-tabs" role="tablist" aria-label="ポケモンの表示">
-        <button type="button" class="seg-btn sub-tab" role="tab" aria-selected="false" data-sub="list">一覧</button>
-        <button type="button" class="seg-btn sub-tab" role="tab" aria-selected="false" data-sub="box">ボックス</button>
-        <button type="button" class="seg-btn sub-tab" role="tab" aria-selected="false" data-sub="party">手持ち・育て屋</button>
+      <div class="seg sub-tabs" role="radiogroup" aria-label="ポケモンの表示">
+        <span class="seg-thumb" aria-hidden="true"></span>
+        <button type="button" class="seg-btn sub-tab" role="radio" aria-checked="false" data-sub="list">一覧</button>
+        <button type="button" class="seg-btn sub-tab" role="radio" aria-checked="false" data-sub="box">ボックス</button>
+        <button type="button" class="seg-btn sub-tab" role="radio" aria-checked="false" data-sub="party">手持ち・育て屋</button>
       </div>
       <div class="recovery-controls">
         <div class="selection-title"><h3>救出するポケモン</h3><span id="selectionSummary" class="selection-count" aria-live="polite"></span></div>
@@ -175,6 +176,10 @@ function renderList(hits){
   listEl.querySelectorAll('.tap-mode-btn').forEach(b=>b.addEventListener('click',()=>setTap(b.dataset.tap)));
   setTap(tapMode);
   listEl.querySelectorAll('.sub-tab').forEach(tab=>tab.addEventListener('click',()=>showSub(tab.dataset.sub)));
+  // v80: 上の「入れるもの」はタブ、「一覧 / ボックス / 手持ち・育て屋」は切り替えスイッチ。どちらも左右の矢印キーで移れる
+  bindArrowKeys(listEl.querySelector('.view-tabs'),'.view-tab',t=>showView(t.dataset.view));
+  bindArrowKeys(listEl.querySelector('.sub-tabs'),'.sub-tab',t=>showSub(t.dataset.sub));
+  {const seg=listEl.querySelector('.sub-tabs');if(seg&&window.ResizeObserver)new ResizeObserver(()=>moveSegThumb(seg)).observe(seg)}
   listEl.querySelectorAll('.chip-btn[data-filter]').forEach(b=>b.addEventListener('click',()=>applyLocFilter(b.dataset.filter)));
   boxState.current=firstBoxWithPokemon(boxState.pages)+(boxState.unknown?boxState.unknown.length:0);   // v62: 場所不明のページが先頭に入るぶんずらす
   renderBoxViewer();
@@ -284,14 +289,34 @@ function showView(view){
   if(currentMode!=='rescue')setMode('rescue');else activateView(view);
 }
 function activateView(view){
-  listEl.querySelectorAll('.view-tab').forEach(t=>{const on=t.dataset.view===view;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false')});
+  listEl.querySelectorAll('.view-tab').forEach(t=>{const on=t.dataset.view===view;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false');t.tabIndex=on?0:-1;if(on&&t.parentElement.scrollWidth>t.parentElement.clientWidth)t.scrollIntoView({block:'nearest',inline:'nearest'})});
   listEl.querySelectorAll('.view-panel').forEach(p=>p.classList.toggle('active',p.dataset.view===view));
   if(view==='pokemon')refreshBoxSelection();
 }
 function showSub(sub){
-  listEl.querySelectorAll('.sub-tab').forEach(t=>{const on=t.dataset.sub===sub;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false')});
+  listEl.querySelectorAll('.sub-tab').forEach(t=>{const on=t.dataset.sub===sub;t.classList.toggle('active',on);t.setAttribute('aria-checked',on?'true':'false');t.tabIndex=on?0:-1});
+  const seg=listEl.querySelector('.sub-tabs');if(seg)moveSegThumb(seg);
   listEl.querySelectorAll('.sub-panel').forEach(p=>p.classList.toggle('active',p.dataset.sub===sub));
   refreshBoxSelection();
+}
+// v80: 切り替えスイッチの白い部分(.seg-thumb)を、選ばれているボタンの位置と幅に合わせる。
+// 表示されていない(幅 0)ときは何もせず、表示されたときに ResizeObserver から呼ばれる
+function moveSegThumb(seg){
+  const on=seg.querySelector('.sub-tab.active'),th=seg.querySelector('.seg-thumb');
+  if(!on||!th||!on.offsetWidth)return;
+  th.style.width=on.offsetWidth+'px';th.style.transform=`translateX(${on.offsetLeft-th.offsetLeft}px)`;
+  if(!seg.classList.contains('is-ready'))requestAnimationFrame(()=>seg.classList.add('is-ready'));   // 最初の位置合わせでは動かさない
+}
+// v80: タブ・切り替えスイッチを左右の矢印キー(と Home / End)で移る
+function bindArrowKeys(group,sel,go){
+  if(!group)return;
+  group.addEventListener('keydown',e=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+    const list=[...group.querySelectorAll(sel)].filter(x=>!x.disabled&&!x.hidden);if(!list.length)return;
+    const i=list.indexOf(document.activeElement);
+    const n=e.key==='Home'?0:e.key==='End'?list.length-1:(Math.max(i,0)+(e.key==='ArrowRight'?1:-1)+list.length)%list.length;
+    e.preventDefault();go(list[n]);list[n].focus();
+  });
 }
 // ---------------------------------------------------------------------------
 // v74: 書き出す内容のパネル。各タブのチェックと同じ値(window.__include* など)を切り替え、タブの表示も描き直す。
