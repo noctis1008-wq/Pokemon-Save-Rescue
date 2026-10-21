@@ -1144,8 +1144,8 @@ function renderRestoreViewer(){
 
 // ---------------------------------------------------------------------------
 // 破損データのサンプル提供(v36)。「提供する」→ 確認(はい / いいえ)→「はい」のときだけ、読み込んだセーブを送る。
-// 送り先 SAMPLE_UPLOAD_URL は保存先(Google ドライブ または Cloudflare)が決まってから設定する。
-// 未設定のあいだは、開発用の自動読み込み(DEV_AUTOLOAD)があるときだけ欄を出し、「はい」でも送らずに未設定と表示する。
+// 送り先 SAMPLE_UPLOAD_URL は運営者の Google Apps Script(v37 から設定済み。受け取り側は sample_receiver.gs で、運営者の Google ドライブに保存)。
+// 空にした場合は、開発用の自動読み込み(?dev の DEV_AUTOLOAD)のときだけ欄を出し、「はい」でも送らずに未設定と表示する。
 // 送る内容: ファイル名・大きさ・推定ソフト・ツールの版・セーブ本体(base64)。同じファイルは 1 回だけ送る。
 // ---------------------------------------------------------------------------
 const SAMPLE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbyaUk8UsW6ScHiWK_Vx4y8cTyXyuLipKPQlx2Cr9F-jVrqWk-1OuZLDQexib-w-VMcl/exec';   // v37: 管理者の Google Apps Script(受け取り側は sample_receiver.gs)
@@ -1154,7 +1154,7 @@ function showSampleOffer(){
   if(!sampleOffer)return;
   const enabled=!!SAMPLE_UPLOAD_URL||!!DEV_AUTOLOAD;
   sampleOffer.classList.toggle('hidden',!enabled||!window.__input);
-  if(sampleButton){sampleButton.disabled=!!window.__sampleSent;sampleButton.textContent=window.__sampleSent?'提供済み':'提供する'}
+  if(sampleButton){sampleButton.disabled=!!window.__sampleSent;sampleButton.textContent=window.__sampleSent?'送信済み':'提供する'}
 }
 async function sendSample(){
   const input=window.__input;
@@ -1163,10 +1163,11 @@ async function sendSample(){
   sampleButton.disabled=true;sampleButton.textContent='送信中…';
   try{
     const body=JSON.stringify({name:window.__inputName||'',size:input.length,game:window.__itemsGame||'',version:APP_VERSION,data:toBase64(input)});
-    // Google Apps Script は応答を読めない(CORS)ため no-cors で送る。送信できたかどうかだけ分かる
+    // Google Apps Script は応答を読めない(CORS)ため no-cors で送る。分かるのは通信が終わったかどうかだけで、
+    // 受け取り側で保存できたか(サイズ違い・上限などで断られていないか)は分からない。v73 から表示もそれに合わせた
     await fetch(SAMPLE_UPLOAD_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body});
     window.__sampleSent=true;
-    msg('破損データのサンプルを提供しました。ご協力ありがとうございました。');
+    msg('破損データのサンプルを送信しました(受け取り側で保存できたかどうかは、このページからは確認できません)。ご協力ありがとうございました。');
   }catch(e){msg('サンプルを送信できませんでした。時間をおいて、もう一度お試しください。',true)}
   finally{showSampleOffer()}
 }
