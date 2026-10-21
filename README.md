@@ -1,11 +1,36 @@
 # NER Pokémon Recovery
 
-**バージョン: v41**(2026-10-16 / 変更履歴は `CHANGELOG.md`)
+**バージョン: v73**(2026-10-21 / 変更履歴は `CHANGELOG.md`)
 
 破損した第6世代ポケモンのセーブデータをブラウザ内で解析し、残存している
 個体データ(PK6)を抽出して、PKHeX で読み込める `boxdata.bin` として
 出力するツールです。解析と出力はすべてブラウザ内で行います。セーブデータが送信されるのは、利用者が「破損データのサンプル提供」で同意したときと、
 修復依頼ページから送信したときだけです(広告の Google AdSense と、集計の CountAPI はセーブデータを含まない通信をします。詳しくは `privacy.html`)。
+
+## ファイル構成(v73〜)
+
+ビルドは不要です(GitHub Pages にそのまま置けます)。v72 までの `app.js` は役割ごとに `js/` に分けました(以下の説明で `app.js` とあるものは `js/` のいずれか)。
+
+| ファイル | 内容 |
+| --- | --- |
+| `js/version.js` | 版番号 `APP_VERSION`(`tools/set-version.js` が書き換える) |
+| `js/core.js` | セーブのバイナリ処理: PK6 の暗号化・復号、ブロック表、チェックサム、位置合わせ、個体の走査(DOM を使わない) |
+| `js/scan-worker.js` | 走査を画面を止めずに行う Web Worker(`core.js` を読み込む) |
+| `js/parse.js` | 道具・お金・図鑑・ふしぎなおくりもの・トレーナー・手持ちなどの読み取り |
+| `js/export.js` | 救出した `main`・`boxdata.bin`・まるごと復元の作成 |
+| `js/ui.js` | 画面(一覧・タブ・ダイアログ・ダウンロード・サンプル提供・修復依頼) |
+| `pkdata.js` ほか `pk_*.js` | 名前・アイコンなどのデータ |
+| `counter.js` | 訪問者数・救出回数・いいね(CountAPI) |
+
+`index.html` は データ → `version` → `core` → `parse` → `export` → `ui` → `counter` の順に読み込みます(通常のスクリプト。上から順に読み込む前提)。
+
+## 版番号(v73〜)
+
+版番号の元は `version.json` の 1 か所です。上げるときは `node tools/set-version.js 74` を実行すると、`version.json`・`js/version.js`・`index.html`/`privacy.html`/`style.css` の `?v=` がすべて同じ値になります。あとは `CHANGELOG.md` に見出しを足してください(そろっているかはテストで確認できます)。
+
+## テスト(v73〜)
+
+`node --test tests/` で実行します(node 18 以上、依存パッケージなし)。`templates/` と `test/` のセーブ(と、テスト中に作る回転・ずれ・破損・末尾欠けの変形)を解析し、結果が `tests/expected.json`(個数とハッシュのみ)と同じかを確かめます。解析・出力の結果を意図して変えたときは `node tests/update-expected.js` で作り直し、差分を確認してからコミットしてください。
 
 ## 対応
 
@@ -37,7 +62,7 @@ Checkpoint で取り出したボックスが空の `main` をそのまま置き�
 ## 破損データのサンプル提供(v36〜)
 
 「ポケモンを救出する」の下の「提供する」→ 確認で「はい」のときだけ、読み込んだセーブを運営者の Google ドライブへ送ります。
-送り先は `app.js` の `SAMPLE_UPLOAD_URL`(Google Apps Script のウェブアプリ)。受け取り側のプログラムは `sample_receiver.gs`。
+送り先は `js/ui.js` の `SAMPLE_UPLOAD_URL`(Google Apps Script のウェブアプリ)。受け取り側のプログラムは `sample_receiver.gs`。
 
 ## セーブデータのまるごと復元(v38〜)
 

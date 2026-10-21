@@ -3,9 +3,9 @@
 //
 // バージョンは連番。更新のたびに 1 つ増やす。
 // 旧 ZIP の v1 … v5 の続きとして v6 から開始している。
-// この値・配布 ZIP のファイル名・CHANGELOG.md、そして index.html / privacy.html の
-// 各タグ末尾にある ?v= の 5 つを必ず一致させること。
-// ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない。
+// v73 から、版番号の元は version.json。この値と index.html / privacy.html / style.css の ?v= は
+// node tools/set-version.js <番号> でまとめて書き換える(手で直さない)。配布 ZIP のファイル名と CHANGELOG.md の見出しも同じ値に。
+// ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない(node --test tests/ で確かめられる)。
 // ===========================================================================
-const APP_VERSION = "71";
-const APP_VERSION_DATE = "2026-10-20";
+const APP_VERSION = "73";
+const APP_VERSION_DATE = "2026-10-21";
