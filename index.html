@@ -1,49 +1,124 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache"><meta http-equiv="Pragma" content="no-cache"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache"><meta http-equiv="Pragma" content="no-cache"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f6f8">
 <meta name="google-adsense-account" content="ca-pub-9139206140818266">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9139206140818266" crossorigin="anonymous"></script>
 <title>ポケモン破損セーブ救出 | NER Pokémon Recovery</title>
 <!-- 末尾の ?v= はブラウザのキャッシュ対策。版番号の元は version.json。
      上げるときは node tools/set-version.js <番号> で、この数字と js/version.js などをまとめてそろえる。 -->
-<link rel="stylesheet" href="style.css?v=73">
+<link rel="stylesheet" href="style.css?v=74">
 </head>
 <body>
-<div class="social-fixed">
-<a class="social-icon youtube-icon" href="https://www.youtube.com/@%E3%83%8D%E3%83%AB2048" target="_blank" rel="noopener noreferrer" aria-label="YouTube" title="YouTube"><span class="youtube-play" aria-hidden="true"></span></a>
-<a class="social-icon x-icon" href="https://x.com/ner2048" target="_blank" rel="noopener noreferrer" aria-label="X" title="X"><span aria-hidden="true">𝕏</span></a>
-<a class="portal-badge" href="https://noctis1008-wq.github.io/" aria-label="NER PORTAL SITE" title="NER PORTAL SITE"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="pbG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe14d"/><stop offset=".45" stop-color="#ff8a5c"/><stop offset=".75" stop-color="#ff4fd8"/><stop offset="1" stop-color="#9fd0ff"/></linearGradient></defs><path d="M8.5 25V13a7.5 7.5 0 0 1 15 0v12z" fill="none" stroke="url(#pbG)" stroke-width="2.4" stroke-linejoin="round"/><path d="M12 25V14.2a4 4 0 0 1 8 0V25" fill="none" stroke="url(#pbG)" stroke-width="2" stroke-linejoin="round"/><path d="M16 15.2l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" fill="#fff"/></svg><span>NER PORTAL SITE</span></a>
-
-</div>
-<main class="wrap">
+<a class="skip-link" href="#main">本文へ移動</a>
+<!-- v74: 上部のバー。YouTube・X・NER PORTAL はここに入れ、画面に重ならないようにした -->
+<header class="topbar">
+<a class="brand" href="./" aria-label="NER Pokémon Recovery トップ"><picture><source srcset="img/logo.webp?v=74" type="image/webp"><img src="img/logo.png?v=74" width="1300" height="437" alt="" decoding="async"></picture><span>NER Pokémon Recovery</span></a>
+<nav class="topbar-links" aria-label="外部リンク">
+<a class="social-icon youtube-icon" href="https://www.youtube.com/@%E3%83%8D%E3%83%AB2048" target="_blank" rel="noopener noreferrer" aria-label="YouTube(新しいタブ)" title="YouTube"><span class="youtube-play" aria-hidden="true"></span></a>
+<a class="social-icon x-icon" href="https://x.com/ner2048" target="_blank" rel="noopener noreferrer" aria-label="X(新しいタブ)" title="X"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.8 3h3.1l-6.8 7.7L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.2-8.3L1.9 3h6.4l4.4 5.8zm-1.1 16.2h1.7L7.4 4.7H5.6z"/></svg></a>
+<a class="portal-badge" href="https://noctis1008-wq.github.io/" title="NER PORTAL SITE"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="pbG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe14d"/><stop offset=".45" stop-color="#ff8a5c"/><stop offset=".75" stop-color="#ff4fd8"/><stop offset="1" stop-color="#9fd0ff"/></linearGradient></defs><path d="M8.5 25V13a7.5 7.5 0 0 1 15 0v12z" fill="none" stroke="url(#pbG)" stroke-width="2.4" stroke-linejoin="round"/><path d="M12 25V14.2a4 4 0 0 1 8 0V25" fill="none" stroke="url(#pbG)" stroke-width="2" stroke-linejoin="round"/><path d="M16 15.2l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" fill="#2563eb"/></svg><span>NER PORTAL<span class="portal-site"> SITE</span></span></a>
+</nav>
+</header>
+<!-- v74: 手順の表示(1 選ぶ → 2 解析 → 3 選択 → 4 書き出す)。ui.js の setStep() で切り替える -->
+<ol class="steps" id="steps" aria-label="手順">
+<li class="step now" data-step="1" aria-current="step"><i class="bar"></i><span><b>1</b>選ぶ</span></li>
+<li class="step" data-step="2"><i class="bar"></i><span><b>2</b>解析</span></li>
+<li class="step" data-step="3"><i class="bar"></i><span><b>3</b>選択</span></li>
+<li class="step" data-step="4"><i class="bar"></i><span><b>4</b>書き出す</span></li>
+</ol>
+<main class="wrap" id="main">
 <section class="hero">
-<p class="eyebrow">POKÉMON SAVE RECOVERY</p>
-<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=73" type="image/webp"><img src="img/logo.png?v=73" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
-<p class="lead">破損したポケモンのセーブデータをブラウザ内で解析し、内部に残っているポケモンや道具を取り出して、そのままゲームで遊べるセーブ(<code>main</code>)にします。壊れた部分が少なければ、セーブをまるごと復元することもできます。</p>
+<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=74" type="image/webp"><img src="img/logo.png?v=74" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
+<p class="hero-title">壊れたセーブから、<br>ポケモンと道具を救い出す</p>
+<p class="hero-games"><span>X・Y</span><span>オメガルビー・アルファサファイア</span></p>
 </section>
-<section class="card">
-<label class="drop" id="drop">
-<input id="file" type="file">
-<div class="drop-icon">PK</div>
-<span class="drop-title">破損セーブを選択</span>
-<span class="drop-sub">.main / .sav / .bin / .dat をドラッグ＆ドロップ</span>
-</label>
+<div class="start-grid">
+<section class="card upload-card" aria-labelledby="dropTitle">
+<input id="file" type="file" class="visually-hidden" aria-label="壊れたセーブファイルを選ぶ">
+<div class="drop" id="drop">
+<div class="drop-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15V4m0 0l-4.5 4.5M12 4l4.5 4.5M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+<h2 class="drop-title" id="dropTitle">壊れたセーブファイルを選ぶ</h2>
+<p class="drop-sub">パソコンでは、ここへドラッグ＆ドロップ</p>
+<label for="file" class="button drop-button" id="dropButton">ファイルを選ぶ</label>
+<p class="drop-fmt">ふつうは拡張子なしの <code>main</code>(<code>.sav</code>・<code>.bin</code>・<code>.dat</code> も可)</p>
+</div>
+<div class="file-bar hidden" id="fileBar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span class="file-name" id="fileName"></span><label for="file" class="small-button">別のファイルを選ぶ</label></div>
+<div class="trust" id="trustNote"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.4-3 8.1-7 9.5-4-1.4-7-5.1-7-9.5V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><p><b>セーブはこの端末の中だけで解析します</b>元のファイルは書き換えません。セーブデータを外部へ送るのは、「サンプル提供」と「修復依頼」を自分で選んだときだけです(<a href="privacy.html">プライバシーポリシー</a>)。</p></div>
 <div id="status" class="status hidden" role="status" aria-live="polite"></div>
+</section>
+<!-- v74: セーブファイルの場所の案内。手順はアプリやエミュレータの版で変わることがあるので、言い切らない書き方にしている -->
+<section class="card help-card" id="helpCard" aria-labelledby="helpTitle">
+<h2 class="help-title" id="helpTitle"><span aria-hidden="true">?</span>セーブファイルはどこにある？</h2>
+<div class="seg help-tabs" role="tablist" aria-label="セーブを取り出す方法">
+<button type="button" class="seg-btn active" role="tab" id="helpTab-cp" aria-controls="help-cp" aria-selected="true" data-help="cp">Checkpoint</button>
+<button type="button" class="seg-btn" role="tab" id="helpTab-jksm" aria-controls="help-jksm" aria-selected="false" data-help="jksm" tabindex="-1">JKSM</button>
+<button type="button" class="seg-btn" role="tab" id="helpTab-other" aria-controls="help-other" aria-selected="false" data-help="other" tabindex="-1">その他</button>
+</div>
+<div class="help-panel" role="tabpanel" id="help-cp" aria-labelledby="helpTab-cp">
+<ol class="how">
+<li><span>3DS で Checkpoint を開き、ゲームを選んで <b>Backup</b> します。</span></li>
+<li><span>SD カードをパソコンやスマホにつなぎ、<code>/3ds/Checkpoint/saves/</code> の中にできたバックアップのフォルダを開きます。</span></li>
+<li><span>その中の <code>main</code> を、このページで選びます。</span></li>
+</ol>
+</div>
+<div class="help-panel" role="tabpanel" id="help-jksm" aria-labelledby="helpTab-jksm" hidden>
+<ol class="how">
+<li><span>3DS で JKSM を開き、ゲームを選んでセーブをエクスポート(バックアップ)します。</span></li>
+<li><span>SD カードをパソコンやスマホにつなぎ、JKSM がバックアップを保存したフォルダ(ゲームごとに分かれています)を開きます。</span></li>
+<li><span>その中の <code>main</code> を、このページで選びます。</span></li>
+</ol>
+<p class="help-note">保存先のフォルダの名前は JKSM の版によって違います。JKSM の画面に表示される保存先を確かめてください。</p>
+</div>
+<div class="help-panel" role="tabpanel" id="help-other" aria-labelledby="helpTab-other" hidden>
+<ol class="how">
+<li><span>エミュレータでは、ゲーム一覧でゲームを右クリックし、「セーブデータの場所を開く」などからセーブのフォルダを開きます。</span></li>
+<li><span>そこにある <code>main</code> を、このページで選びます。</span></li>
+<li><span>SD カードなどからセーブ全体を吸い出したファイル(<code>.sav</code>・<code>.bin</code>・<code>.dat</code>)も読み込めます。</span></li>
+</ol>
+</div>
+<p class="help-note">メニューの名前やフォルダの場所は、アプリやエミュレータの版によって違うことがあります。ゲームに戻すときは、必ず元のセーブのバックアップを取っておいてください。</p>
+</section>
+</div>
 <div id="result" class="hidden">
-<div class="summary">
-<div><span>推定ソフト</span><strong id="game"></strong></div>
+<div class="result-grid">
+<section class="card summary-card" aria-labelledby="summaryTitle">
+<div class="summary-head">
+<span class="summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+<div class="summary-text"><h2 id="summaryTitle"></h2><p id="summarySub" class="summary-sub"><span id="game"></span><span id="summaryBits"></span></p></div>
+<button type="button" class="small-button diag-toggle" id="diagToggle" aria-expanded="false" aria-controls="diagPanel">診断</button>
 </div>
+<div id="diagPanel" class="diag-panel" hidden></div>
+</section>
+<aside class="side-panel" id="sidePanel" aria-label="書き出し">
+<div class="card side-card">
+<div class="seg mode-switch" role="radiogroup" aria-label="復元の方法" id="modeSwitch">
+<button type="button" class="seg-btn active" role="radio" aria-checked="true" data-mode="rescue">ポケモンを救出</button>
+<button type="button" class="seg-btn" role="radio" aria-checked="false" data-mode="full">まるごと復元<em class="mode-score" hidden></em></button>
+</div>
+<p class="mode-hint" id="modeHint"></p>
+<div class="export-panel" id="exportPanel"></div>
+<div class="restore-panel" id="restorePanel" hidden><div class="restore-viewer"></div></div>
+<div class="dock" id="dock">
+<p class="dock-summary" id="dockSummary"></p>
+<button id="download" class="button dl-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>セーブデータをダウンロード</button>
+</div>
+<p class="dl-note" id="dlNote"></p>
+<div class="trust trust-small"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5.5 11h13v9h-13z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><p>解析と書き出しはこの端末の中だけで行います。</p></div>
+<div id="returnGuide" class="return-guide hidden" aria-live="polite"></div>
+</div>
+</aside>
+<div class="content" id="content">
 <div id="list" class="pokemon-list"></div>
-<div class="action-buttons">
-<button id="download" class="button">ポケモンを救出する</button>
 </div>
+</div>
+<section class="card more-card" aria-label="そのほか">
 <div id="sampleOffer" class="sample-offer hidden">
 <span class="sample-text">破損データのサンプル提供にご協力ください。</span>
 <span class="sample-info" tabindex="0" role="button" aria-label="サンプル提供について" aria-describedby="sampleTip">i<span id="sampleTip" class="sample-tip" role="tooltip">より多くの破損データの修復を可能にするために、引き続きアプリケーションの改善が必要です。サンプルデータを提供していただければ、更なる改善が期待できます。提供したセーブデータは運営者の Google ドライブに保存されます。ポケモンを掠取するなどの私的利用は行わないと約束します。運営者以外がセーブデータを閲覧することはありません。</span></span>
 <button type="button" id="sampleButton" class="small-button sample-button">提供する</button>
 </div>
-<div id="returnGuide" class="return-guide hidden" aria-live="polite"></div>
 <details id="repairHelp" class="repair-help">
 <summary>思うように救出できなかった方へ</summary>
 <div class="repair-help-body">
@@ -57,6 +132,7 @@
 <p class="repair-note" id="repairNote"></p>
 </div>
 </details>
+</section>
 <div id="sampleDialog" class="sample-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="sampleDialogText">
 <div class="sample-dialog-box">
 <p id="sampleDialogText">破損データをサンプルとして管理者に提供しますか？</p>
@@ -64,8 +140,9 @@
 </div>
 </div>
 </div>
-</section>
-<section class="info">
+<section class="card info">
+<h2>このツールについて</h2>
+<p class="info-lead">破損したポケモンのセーブデータをブラウザ内で解析し、内部に残っているポケモンや道具を取り出して、そのままゲームで遊べるセーブ(<code>main</code>)にします。壊れた部分が少なければ、セーブをまるごと復元することもできます。</p>
 <h2>対応予定・現在の対応</h2>
 <ul><li><strong>第6世代：X / Y / オメガルビー / アルファサファイア</strong>（ゲームでそのまま開ける main）</li><li><strong>救出の出力</strong>：選んだポケモン（ボックス・手持ち・バトルボックス・育て屋）と、残っていたお金・バッグの道具・技マシン・薬・木の実をまとめて入れた <code>main</code> を出力します（お金と道具はバッグタブで入れるかどうかを切り替え。大切なものは対象外）。図鑑の登録状況とトレーナー名・ID も、読み取れれば入れます(それぞれのタブで選択)。</li><li>正常なセーブだけでなく、セーブ全体のチェックサムが壊れている場合でも内部をスキャンします。</li><li>セーブデータの解析と救出したデータの作成は、すべてブラウザ内で行います。セーブデータが送信されるのは、「破損データのサンプル提供」で「はい」を選んだときと、「修復をリクエストする」で開いた修復依頼ページから送信したときだけです。なお、このページは広告（Google AdSense）と訪問者数などの集計（CountAPI）のために外部と通信します（セーブデータは含みません）。詳しくは<a href="privacy.html">プライバシーポリシー</a>をご覧ください。</li></ul>
 <h2>重要</h2>
@@ -74,15 +151,16 @@
 </section>
 <footer><a href="../converter/">NER Converter</a> · <a href="privacy.html">プライバシーポリシー</a> · <a href="https://github.com/kwsch/PKHeX" target="_blank" rel="noopener">PKHeX reference</a> · アイコン: <a href="https://msikma.github.io/pokesprite/" target="_blank" rel="noopener">PokeSprite</a>(画像 © Nintendo/Creatures Inc./GAME FREAK Inc.) · 記号フォント: <a href="https://github.com/msikma/PokeDings" target="_blank" rel="noopener">PokéDings</a></footer>
 </main>
-<script src="pkdata.js?v=73"></script>
-<script src="pk_fashion.js?v=73"></script>
-<script src="pk_icons.js?v=73"></script>
-<script src="pk_atlas.js?v=73"></script>
-<script src="pk_detail.js?v=73"></script>
-<script src="js/version.js?v=73"></script>
-<script src="js/core.js?v=73"></script>
-<script src="js/parse.js?v=73"></script>
-<script src="js/export.js?v=73"></script>
-<script src="js/ui.js?v=73"></script>
-<script src="counter.js?v=73"></script>
+<div id="sheet" class="sheet-backdrop hidden"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" tabindex="-1"></div></div>
+<script src="pkdata.js?v=74"></script>
+<script src="pk_fashion.js?v=74"></script>
+<script src="pk_icons.js?v=74"></script>
+<script src="pk_atlas.js?v=74"></script>
+<script src="pk_detail.js?v=74"></script>
+<script src="js/version.js?v=74"></script>
+<script src="js/core.js?v=74"></script>
+<script src="js/parse.js?v=74"></script>
+<script src="js/export.js?v=74"></script>
+<script src="js/ui.js?v=74"></script>
+<script src="counter.js?v=74"></script>
 </body></html>

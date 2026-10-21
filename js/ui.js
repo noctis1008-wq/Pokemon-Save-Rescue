@@ -11,6 +11,28 @@
     const u=new URL(location.href);u.searchParams.set('_v',j.version);location.replace(u.toString());
   }).catch(()=>{})})();
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
+// v74: 新しい画面(手順表示・結果の要約・右側の書き出しパネル・下に固定したダウンロード)
+const uploadCard=document.querySelector('.upload-card'),sidePanel=document.getElementById('sidePanel'),sideCard=document.querySelector('.side-card'),exportPanel=document.getElementById('exportPanel'),restorePanel=document.getElementById('restorePanel'),modeSwitch=document.getElementById('modeSwitch'),modeHint=document.getElementById('modeHint'),dockSummary=document.getElementById('dockSummary');
+// v74: 絵文字の代わりに使う小さなアイコン(SVG)
+const ICON={
+  check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.3" fill="currentColor"/></svg>',
+  info:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/></svg>',
+  star:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z" fill="currentColor"/></svg>',
+  prev:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  next:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  close:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  party:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 12h5.5m6 0h5.5" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  celebrate:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.5-12 7.5 7.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 4v2m5 3h-2m.5-4.5L16 6M13 9l3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+};
+// v74: 手順の表示(1 選ぶ → 2 解析 → 3 選択 → 4 書き出す)
+function setStep(n){
+  document.querySelectorAll('#steps .step').forEach(li=>{
+    const k=Number(li.dataset.step);
+    li.classList.toggle('done',k<n);li.classList.toggle('now',k===n);
+    if(k===n)li.setAttribute('aria-current','step');else li.removeAttribute('aria-current');
+  });
+}
 function giftIncluded(){const g=window.__gift;return window.__includeGift!==false&&!!g&&(g.cards.length>0||(g.ok&&g.flags>0))}
 function renderGiftViewer(viewer){
   if(!viewer)return;
@@ -71,63 +93,63 @@ function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','
 function confidenceLabel(c){return c==='complete'?'完全復元':c==='partial'?'一部破損':'低信頼候補'}
 function confidenceClass(c){return c==='complete'?'complete':c==='partial'?'partial':'low'}
 // ---------------------------------------------------------------------------
-// 一覧の縦幅(v14〜)。初期値は 700px(v15 で v14 の 2080px の約 1/3 に変更)、ただし中身より高くはしない。
-// 一覧の下のつまみをドラッグ(マウス・タッチ共通の Pointer Events)するか、
-// つまみにフォーカスして上下キーで変更できる。CSS の resize はタッチ端末で使えないため自前で実装。
+// 結果の画面(v74 で作り直し)。
+//   上: 救出に入れるもののタブ(ポケモン / バッグ / トレーナー / 図鑑 / おくりもの)
+//   ポケモンタブの中で 一覧 / ボックス / 手持ち・育て屋 を切り替える。一覧は場所で絞り込める。
+//   「ポケモンを救出」と「まるごと復元」の切り替えは右側(スマホでは上)のパネル(#modeSwitch)。
+// 選択の状態はこれまでどおり一覧のチェックボックス(.candidate-check)が持つ。ボックスのマスや詳細シートはそれを書き換えるだけ。
+// 一覧は入れ子のスクロールをやめ、ページごとスクロールする(v14〜v73 の縦幅つまみは廃止)。
 // ---------------------------------------------------------------------------
-const LIST_DEFAULT_HEIGHT=700,LIST_MIN_HEIGHT=160,LIST_KEY_STEP=80;
-function setupListResizer(list,handle){
-  if(!list||!handle)return;
-  // 中身より高くならないよう CSS で max-height: max-content を指定している。
-  // 描画直後は結果欄が非表示で scrollHeight が 0 のことがあるため、上限は表示中にだけ JS でも当てる。
-  const maxH=()=>list.scrollHeight>0?Math.max(LIST_MIN_HEIGHT,list.scrollHeight):Infinity;
-  const setH=h=>{list.style.height=Math.round(Math.min(maxH(),Math.max(LIST_MIN_HEIGHT,h)))+'px'};
-  setH(LIST_DEFAULT_HEIGHT);
-  let startY=0,startH=0,dragging=false;
-  handle.addEventListener('pointerdown',e=>{dragging=true;startY=e.clientY;startH=list.getBoundingClientRect().height;try{handle.setPointerCapture(e.pointerId)}catch(_){}handle.classList.add('dragging');e.preventDefault()});
-  handle.addEventListener('pointermove',e=>{if(dragging)setH(startH+e.clientY-startY)});
-  const end=e=>{if(!dragging)return;dragging=false;handle.classList.remove('dragging');try{handle.releasePointerCapture(e.pointerId)}catch(_){}}
-  handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);
-  handle.addEventListener('keydown',e=>{
-    const h=list.getBoundingClientRect().height;
-    if(e.key==='ArrowDown'){setH(h+LIST_KEY_STEP);e.preventDefault()}
-    else if(e.key==='ArrowUp'){setH(h-LIST_KEY_STEP);e.preventDefault()}
-  });
+const LOC_LABEL={box:'ボックス',party:'手持ち',battle:'バトルボックス',daycare:'育て屋',unknown:'場所不明'};
+function hitLocKind(h){
+  const sp=getSpecialLocation(h);if(sp)return sp.kind;
+  if(boxState.pages)return isUnknownHit(h)?'unknown':'box';
+  const loc=getLocation(h,window.__game,window.__gen);
+  return loc.box!==null&&loc.aligned?'box':'unknown';
+}
+function hitLocText(h){
+  const sp=getSpecialLocation(h);
+  if(sp)return sp.kind==='daycare'?'育て屋':`${sp.label} ${sp.index+1}番目`;
+  if(boxState.pages&&isUnknownHit(h)){const o=unknownOrigin(h);return o&&o.short?`場所不明(${o.short})`:'場所不明'}
+  const loc=getLocation(h,window.__game,window.__gen);
+  if(loc.box===null||!loc.aligned)return '場所不明';
+  return `${boxName(loc.box-1)}・${Math.ceil(loc.slot/6)}段目 ${(loc.slot-1)%6+1}列`;
 }
 function renderList(hits){
-  // v32: タブは ポケモン / バッグ / 図鑑 / トレーナー。ポケモンタブの中で 一覧 / 手持ち等 / ボックス を切り替える。写真はトレーナータブの中。
-  const ra0=restoreAnalysis();
+  // ボックスのページは先に作る(場所の絞り込みで「場所不明」を判定するため)
+  boxState.pages=buildBoxPages(hits);boxState.__shown=null;
+  boxState.unknown=boxState.pages?unknownPages():[];
+  window.__favHits=null;   // v50: 大切なポケモンの判定をやり直す
+  const kinds=hits.map(hitLocKind),counts={};
+  kinds.forEach(k=>{counts[k]=(counts[k]||0)+1});
+  const filters=['all','box','party','battle','daycare','unknown'].filter(k=>k==='all'||counts[k])
+    .map(k=>`<button type="button" class="chip-btn${k==='all'?' active':''}" data-filter="${k}" aria-pressed="${k==='all'}">${k==='all'?'すべて':LOC_LABEL[k]}<b>${k==='all'?hits.length:counts[k]}</b></button>`).join('');
   listEl.innerHTML=`
-    <div class="method-switch" role="tablist" aria-label="復元の方法">
-      <button type="button" class="method-card" role="tab" data-method="rescue"><span class="method-icon" aria-hidden="true">🎒</span><b>ポケモンを救出</b><span class="method-desc">ポケモンや道具などを選んで、正常なセーブデータに連れていきます</span></button>
-      <button type="button" class="method-card" role="tab" data-method="full"${ra0?'':' disabled'}><span class="method-icon" aria-hidden="true">💾</span><b>まるごと復元</b><span class="method-desc">${ra0?'残っている全ての情報を保持したまま、元のセーブを作り直します':'このセーブではできません'}</span>${ra0?'<em class="method-score"></em>':''}</button>
-    </div>
-    <p class="method-caption">救出に入れるものを、タブごとに選んでください</p>
-    <div class="view-tabs" role="tablist">
+    <div class="view-tabs" role="tablist" aria-label="救出に入れるもの">
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="pokemon">ポケモン</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="items">バッグ</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="trainer">トレーナー</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="dex">図鑑</button>
       <button type="button" class="view-tab" role="tab" aria-selected="false" data-view="gift" title="ふしぎなおくりもの">おくりもの</button>
     </div>
+    <p class="restore-banner" hidden>${ICON.info}<span>まるごと復元では、ポケモンを選ぶ必要はありません。セーブに残っている部分がそのまま戻ります(下は確認用の表示です)。</span></p>
     <div class="view-panel" data-view="pokemon">
-      <div class="recovery-controls">
-        <div class="selection-title"><strong>復元する個体を選択してください</strong></div>
-        <div class="selection-actions">
-          <button type="button" class="small-button" data-action="all">すべて選択</button>
-          <button type="button" class="small-button" data-action="none">すべて解除</button>
-          <div class="tap-mode" role="group" aria-label="タップしたとき"><button type="button" class="tap-mode-btn" data-tap="select">選択</button><button type="button" class="tap-mode-btn" data-tap="detail">詳細</button></div>
-        </div>
-        <div class="selection-count-row"><span id="selectionSummary" class="selection-count">選択中 0 匹</span></div>
+      <div class="seg sub-tabs" role="tablist" aria-label="ポケモンの表示">
+        <button type="button" class="seg-btn sub-tab" role="tab" aria-selected="false" data-sub="list">一覧</button>
+        <button type="button" class="seg-btn sub-tab" role="tab" aria-selected="false" data-sub="box">ボックス</button>
+        <button type="button" class="seg-btn sub-tab" role="tab" aria-selected="false" data-sub="party">手持ち・育て屋</button>
       </div>
-      <div class="sub-tabs" role="tablist">
-        <button type="button" class="sub-tab" role="tab" aria-selected="false" data-sub="list">一覧</button>
-        <button type="button" class="sub-tab" role="tab" aria-selected="false" data-sub="party">手持ち等</button>
-        <button type="button" class="sub-tab" role="tab" aria-selected="false" data-sub="box">ボックス</button>
+      <div class="recovery-controls">
+        <div class="selection-title"><h3>救出するポケモン</h3><span id="selectionSummary" class="selection-count" aria-live="polite"></span></div>
+        <div class="selection-actions">
+          <button type="button" class="small-button" data-action="all">すべて選ぶ</button>
+          <button type="button" class="small-button" data-action="none">すべて外す</button>
+          <div class="tap-mode" role="group" aria-label="ポケモンをタップしたとき"><span class="tap-mode-label" aria-hidden="true">タップで</span><button type="button" class="tap-mode-btn" data-tap="select">選択</button><button type="button" class="tap-mode-btn" data-tap="detail">詳細</button></div>
+        </div>
       </div>
       <div class="sub-panel" data-sub="list">
-        <div class="candidate-list${BALL_IMAGE_DIR?' ball-images':''}">${renderHeader()}${hits.map(p=>renderCandidate(p)).join('')}</div>
-        <div class="list-resizer" role="separator" aria-orientation="horizontal" aria-label="一覧の縦幅を変更(ドラッグ、または上下キー)" tabindex="0"><span></span></div>
+        <div class="loc-filters" role="group" aria-label="場所で絞り込む">${filters}</div>
+        <div class="candidate-list">${hits.map((p,i)=>renderCandidate(p,kinds[i])).join('')}</div>
       </div>
       <div class="sub-panel" data-sub="party"><div class="party-viewer"></div></div>
       <div class="sub-panel" data-sub="box"><div class="box-viewer"></div></div>
@@ -135,26 +157,23 @@ function renderList(hits){
     <div class="view-panel" data-view="items"><div class="items-viewer"></div></div>
     <div class="view-panel" data-view="trainer"><div class="trainer-viewer"></div><h3 class="photo-heading trainer-photo-heading">写真</h3><div class="photo-viewer"></div></div>
     <div class="view-panel" data-view="dex"><div class="dex-viewer"></div></div>
-    <div class="view-panel" data-view="gift"><div class="gift-viewer"></div></div>
-    <div class="view-panel" data-view="restore"><div class="restore-viewer"></div></div>`;
-  setupListResizer(listEl.querySelector('.candidate-list'),listEl.querySelector('.list-resizer'));
+    <div class="view-panel" data-view="gift"><div class="gift-viewer"></div></div>`;
   listEl.querySelectorAll('.candidate-check').forEach(cb=>cb.addEventListener('change',()=>{updateSelectionSummary();refreshBoxSelection()}));
   listEl.querySelectorAll('label.candidate').forEach(row=>{const cb=row.querySelector('.candidate-check');if(cb)bindLongPress(row,Number(cb.dataset.offset))});   // v61: 一覧でも長押しで詳細
-  listEl.querySelectorAll('.small-button').forEach(btn=>btn.addEventListener('click',()=>{
-    const action=btn.dataset.action;
-    listEl.querySelectorAll('.candidate-check').forEach(cb=>{cb.checked=action==='all'});
+  listEl.querySelectorAll('.pk-info').forEach(b=>b.addEventListener('click',()=>showPokemonDetail(Number(b.dataset.offset),b)));   // v74: 長押しができない人向けの「詳細」ボタン
+  listEl.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('click',()=>{
+    // v74: 一覧で場所を絞り込んでいるときは、表示中のポケモンだけ
+    const on=btn.dataset.action==='all',listShown=listEl.querySelector('.sub-panel[data-sub="list"]').classList.contains('active');
+    listEl.querySelectorAll('.candidate-wrap').forEach(row=>{if(listShown&&row.hidden)return;const cb=row.querySelector('.candidate-check');if(cb)cb.checked=on});
     updateSelectionSummary();refreshBoxSelection();
   }));
   listEl.querySelectorAll('.view-tab').forEach(tab=>tab.addEventListener('click',()=>showView(tab.dataset.view)));
   // v63: タップしたときの動き(選択 / 詳細)。長押しはどちらでも詳細
-  const setTap=m=>{tapMode=m;try{localStorage.setItem('nerTapMode',m)}catch(e){}listEl.querySelectorAll('.tap-mode-btn').forEach(b=>{const on=b.dataset.tap===m;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on)})};
+  const setTap=m=>{tapMode=m;try{localStorage.setItem('nerTapMode',m)}catch(e){}listEl.querySelectorAll('.tap-mode-btn').forEach(b=>{const on=b.dataset.tap===m;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on)});refreshBoxSelection()};
   listEl.querySelectorAll('.tap-mode-btn').forEach(b=>b.addEventListener('click',()=>setTap(b.dataset.tap)));
   setTap(tapMode);
-  listEl.querySelectorAll('.method-card').forEach(c=>c.addEventListener('click',()=>showView(c.dataset.method==='full'?'restore':(window.__lastRescueView||'pokemon'))));
   listEl.querySelectorAll('.sub-tab').forEach(tab=>tab.addEventListener('click',()=>showSub(tab.dataset.sub)));
-  boxState.pages=buildBoxPages(hits);boxState.__shown=null;
-  boxState.unknown=boxState.pages?unknownPages():[];
-  window.__favHits=null;   // v50: 大切なポケモンの判定をやり直す
+  listEl.querySelectorAll('.chip-btn[data-filter]').forEach(b=>b.addEventListener('click',()=>applyLocFilter(b.dataset.filter)));
   boxState.current=firstBoxWithPokemon(boxState.pages)+(boxState.unknown?boxState.unknown.length:0);   // v62: 場所不明のページが先頭に入るぶんずらす
   renderBoxViewer();
   renderPartyViewer();
@@ -163,23 +182,25 @@ function renderList(hits){
   renderGiftViewer(listEl.querySelector('.gift-viewer'));   // v69
   renderTrainerViewer(listEl.querySelector('.trainer-viewer'));
   renderRestoreViewer();
-  {const a=restoreAnalysis(),em=listEl.querySelector('.method-score');if(a&&em){em.textContent=`信頼度 ${a.score}%`;em.classList.add(a.score>=RESTORE_TAB_MIN_SCORE?'high':a.score>=RESTORE_LOW_SCORE?'mid':'low')}}
+  {const a=restoreAnalysis(),em=modeSwitch.querySelector('.mode-score'),fb=modeSwitch.querySelector('[data-mode="full"]');
+    em.className='mode-score';em.hidden=!a;fb.disabled=!a;fb.title=a?'':'このセーブではできません';
+    if(a){em.textContent=`${a.score}%`;em.classList.add(a.score>=RESTORE_TAB_MIN_SCORE?'high':a.score>=RESTORE_LOW_SCORE?'mid':'low')}}
   renderPhotoViewer(listEl.querySelector('.photo-viewer'));
   markDuplicates();
   // v61: 場所不明のポケモンは、すでに逃がしたり交換したりした古いデータのこともあるので、最初は選ばない
   if(boxState.pages)(window.__hits||[]).forEach(h=>{if(isUnknownHit(h)){const cb=listEl.querySelector(`.candidate-check[data-offset="${h.offset}"]`);if(cb)cb.checked=false}});
+  modeSwitch.hidden=false;
+  renderExportPanel();
   updateSelectionSummary();
-  showView(preferRestoreTab()?'restore':'pokemon');showSub('box');   // v32: 読み込み直後はポケモンタブのボックス(ポケモンがいる一番若いボックス)。v45: まるごと復元できそうならそのタブ
-  showPurposeSurvey();   // v46: 目的のアンケート(スキップ可)
+  window.__lastRescueView='pokemon';
+  setMode(preferRestoreTab()?'full':'rescue');showSub('box');   // v32: 読み込み直後はポケモンタブのボックス。v45: まるごと復元できそうならそちら
+  // v74: 読み込み直後の目的アンケート(v46)はやめ、上の切り替えとその下の一言に置き換えた
 }
-
-// ---------------------------------------------------------------------------
-// v46: 読み込み後の目的アンケート。答えに応じておすすめの操作を出し、「この設定にする」で反映する。
-// 「次から表示しない」はこの端末のブラウザに覚える(localStorage の nerSurveyOff)。
-// ---------------------------------------------------------------------------
-function surveyOff(){try{return localStorage.getItem('nerSurveyOff')==='1'}catch(e){return false}}
-function setSurveyOff(v){try{v?localStorage.setItem('nerSurveyOff','1'):localStorage.removeItem('nerSurveyOff')}catch(e){}}
-// v46: 信頼度がこの値未満を「低い」とする(まるごと復元タブの表示と同じ区切り)
+function applyLocFilter(k){
+  listEl.querySelectorAll('.chip-btn[data-filter]').forEach(b=>{const on=b.dataset.filter===k;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on)});
+  listEl.querySelectorAll('.candidate-list .candidate-wrap').forEach(row=>{row.hidden=k!=='all'&&row.dataset.loc!==k});
+}
+// v46: 信頼度がこの値未満を「低い」とする(まるごと復元の表示と同じ区切り)
 const RESTORE_LOW_SCORE=70;
 // まるごと復元では戻らないポケモンの数。手持ち・バトルボックス・育て屋の部分が壊れていると、
 // まるごと復元ではその部分が空のセーブの内容になるが、救出ならそこで見つかった個体を入れられる。
@@ -190,7 +211,7 @@ function fullRestoreMissing(){
 }
 function missingNote(){const n=fullRestoreMissing();return n?`${n}体のポケモンが戻ってきません。「ポケモンの救出」をおすすめします。`:''}
 function goRescueAll(){listEl.querySelectorAll('.candidate-check').forEach(cb=>{cb.checked=true});updateSelectionSummary();refreshBoxSelection();showView('pokemon');showSub('box')}
-// 共通の小さな確認画面(アンケートと同じ見た目)。buttons: [{label, primary, onClick}]
+// 共通の小さな確認画面。buttons: [{label, primary, onClick}]
 function surveyDialog(){
   let d=document.getElementById('purposeSurvey');
   if(!d){d=document.createElement('div');d.id='purposeSurvey';d.className='sample-dialog survey-dialog';d.setAttribute('role','dialog');d.setAttribute('aria-modal','true');d.setAttribute('aria-labelledby','surveyTitle');document.body.appendChild(d)}
@@ -198,7 +219,7 @@ function surveyDialog(){
   return d;
 }
 function lowScoreText(sc){return `復元信頼度が${sc}%しかありません。ポケモンだけの救出をおすすめします。このまま続けますか？`}
-// まるごと復元のボタンを押したときも、信頼度が低ければ確かめる
+// まるごと復元のダウンロードを押したときも、信頼度が低ければ確かめる
 function confirmLowRestore(onContinue){
   const a=restoreAnalysis();
   if(!a||a.score>=RESTORE_LOW_SCORE){onContinue();return}
@@ -209,64 +230,119 @@ function confirmLowRestore(onContinue){
   d.querySelector('.survey-go').addEventListener('click',()=>{d.classList.add('hidden');onContinue()});
   d.querySelector('.survey-rescue').addEventListener('click',()=>{d.classList.add('hidden');goRescueAll()});
   d.classList.remove('hidden');
-}
-function showPurposeSurvey(){
-  if(surveyOff()||!listEl.querySelector('.view-tabs'))return;
-  const d=surveyDialog();
-  const close=()=>d.classList.add('hidden');
-  const offBox=`<label class="survey-off"><input type="checkbox" class="survey-off-check"${surveyOff()?' checked':''}> 次から表示しない</label>`;
-  const bindOff=()=>{const c=d.querySelector('.survey-off-check');if(c)c.addEventListener('change',()=>setSurveyOff(c.checked))};
-  const show=html=>{d.innerHTML=`<div class="sample-dialog-box survey-box">${html}${offBox}</div>`;bindOff();d.classList.remove('hidden')};
-  const done=(fn)=>{fn();close();const t=listEl.querySelector('.view-tabs');if(t)t.scrollIntoView({behavior:'smooth',block:'start'})};
-  const a=restoreAnalysis(),note=missingNote();
-  const ask=()=>{
-    show(`<h3 id="surveyTitle">何を取り戻したいですか？</h3>
-      <p class="survey-lead">ご希望に合わせて、おすすめの使い方をご案内します（スキップ可）。</p>
-      <button type="button" class="survey-choice" data-c="rescue"><b>ポケモンだけ救出したい</b><span>救出したポケモンを、正常なセーブデータに連れていきます。道具等も復元できることがあります。</span></button>
-      <button type="button" class="survey-choice" data-c="full"><b>できる限りすべてのデータを復元したい</b><span>ポケモンや道具等に加え、トレーナーの詳細情報や殿堂入りなど、残っている全ての情報を保持したまま復元を試みます。</span></button>
-      <div class="sample-dialog-actions"><button type="button" class="button button-secondary survey-skip">スキップ</button></div>`);
-    d.querySelector('.survey-skip').addEventListener('click',close);
-    d.querySelectorAll('.survey-choice').forEach(btn=>btn.addEventListener('click',()=>btn.dataset.c==='rescue'?rescue():full()));
-  };
-  const result=(title,paras,applyLabel,apply,extra='')=>{
-    show(`<h3 id="surveyTitle">おすすめ: ${escapeHtml(title)}</h3>${extra}${paras.filter(Boolean).map(t=>`<p class="survey-text">${escapeHtml(t)}</p>`).join('')}
-      <div class="sample-dialog-actions"><button type="button" class="button survey-apply">この設定にする</button><button type="button" class="button button-secondary survey-back">戻る</button></div>
-      <p class="survey-apply-note">「この設定にする」で${escapeHtml(applyLabel)}</p>`);
-    d.querySelector('.survey-apply').addEventListener('click',()=>done(apply));
-    d.querySelector('.survey-back').addEventListener('click',ask);
-  };
-  const rescue=()=>result('ポケモンを救出する',['ポケモンタブで選んで「ポケモンを救出する」を押すと、そのままゲームで遊べるセーブデータをダウンロードできます。'],'「ポケモンを救出」に切り替えて、ポケモンをすべて選ぶ',goRescueAll);
-  const full=()=>{
-    if(!a){result('ポケモンを救出する',['このセーブはまるごとの復元ができません(セーブの部品の一覧が見つからないため)。','ポケモンは救出で取り出せます。'],'「ポケモンを救出」に切り替えて、ポケモンをすべて選ぶ',goRescueAll);return}
-    if(a.score<RESTORE_LOW_SCORE){
-      show(`<h3 id="surveyTitle">まるごと復元の確認</h3><p class="survey-warn">${escapeHtml(lowScoreText(a.score))}</p>${note?`<p class="survey-text">${escapeHtml(note)}</p>`:''}
-        <div class="sample-dialog-actions"><button type="button" class="button survey-go">続ける</button><button type="button" class="button button-secondary survey-rescue">救出だけにする</button></div>
-        <div class="sample-dialog-actions survey-sub"><button type="button" class="small-button survey-back">戻る</button></div>`);
-      d.querySelector('.survey-go').addEventListener('click',()=>done(()=>showView('restore')));
-      d.querySelector('.survey-rescue').addEventListener('click',()=>done(goRescueAll));
-      d.querySelector('.survey-back').addEventListener('click',ask);
-      return;
-    }
-    result('まるごと復元',[`復元信頼度は ${a.score}% です。${a.score>=RESTORE_TAB_MIN_SCORE?'ほとんどの部分が残っています。':'一部の部分は空のセーブ(始めたばかりの状態)の内容で補われます。'}`,note,'ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。'],'「まるごと復元」に切り替える',()=>showView('restore'));
-  };
-  ask();
+  d.querySelector('.survey-go').focus();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const d=document.getElementById('purposeSurvey');if(d)d.classList.add('hidden')}});
+// ---------------------------------------------------------------------------
+// v74: 「ポケモンを救出」と「まるごと復元」の切り替え。
+// まるごと復元のときは、入れるもののタブを隠し、ポケモンの表示を薄くして(確認用)操作できなくする。
+// ダウンロードボタン(#download)は 1 つで、今の方法に合わせたものを書き出す。
+// ---------------------------------------------------------------------------
+let currentMode='rescue';
+function setMode(m){
+  const full=m==='full'&&!!restoreAnalysis()&&!!listEl.querySelector('.view-tabs');
+  currentMode=full?'full':'rescue';
+  modeSwitch.querySelectorAll('[data-mode]').forEach(b=>{const on=(b.dataset.mode==='full')===full;b.classList.toggle('active',on);b.setAttribute('aria-checked',on?'true':'false')});
+  exportPanel.hidden=full;restorePanel.hidden=!full;
+  const tabs=listEl.querySelector('.view-tabs'),banner=listEl.querySelector('.restore-banner');
+  if(tabs)tabs.hidden=full;if(banner)banner.hidden=!full;
+  document.getElementById('content').classList.toggle('is-restore',full);
+  if(listEl.querySelector('.view-panel'))activateView(full?'pokemon':(window.__lastRescueView||'pokemon'));
+  applyRestoreInert();renderModeHint();updateItemsButton();
+}
+// まるごと復元のときは、選択を変える部分を操作できなくする(inert)。表示の切り替えとボックスの移動はできる
+function applyRestoreInert(){
+  const full=currentMode==='full';
+  listEl.querySelectorAll('.recovery-controls,.candidate-list,.box-grid,.box-actions,.party-layout,.loc-filters').forEach(el=>{if(full)el.setAttribute('inert','');else el.removeAttribute('inert')});
+}
+function renderModeHint(){
+  if(!modeHint)return;
+  const a=restoreAnalysis(),parts=[];
+  if(!listEl.querySelector('.view-tabs')){modeHint.innerHTML='';return}
+  if(!a)parts.push('このセーブは、まるごと復元はできません(セーブの部品の一覧が見つからないため)。');
+  else if(currentMode==='rescue'&&a.score>=RESTORE_TAB_MIN_SCORE)parts.push('セーブの壊れが少ないため、「まるごと復元」もおすすめです。');
+  else if(currentMode==='full'&&a.score<RESTORE_LOW_SCORE)parts.push(`復元信頼度が${a.score}%しかありません。ポケモンだけの救出をおすすめします。`);
+  if(a&&currentMode==='full'){const n=missingNote();if(n)parts.push(n)}
+  modeHint.innerHTML=`${parts.length?`<p>${parts.map(escapeHtml).join(' ')}</p>`:''}<details class="mode-help"><summary>違いは？</summary><dl>
+      <dt>ポケモンを救出</dt><dd>ポケモンや道具などを選んで、正常なセーブデータ(救出用の空のセーブ)に連れていきます。</dd>
+      <dt>まるごと復元</dt><dd>残っている全ての情報を保持したまま、元のセーブを作り直します。</dd></dl></details>`;
+}
+modeSwitch.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)setMode(b.dataset.mode)}));
+// 切り替えスイッチは左右の矢印キーでも切り替えられる(ラジオボタンと同じ操作)
+modeSwitch.addEventListener('keydown',e=>{
+  if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
+  const btns=[...modeSwitch.querySelectorAll('[data-mode]')].filter(x=>!x.disabled);if(btns.length<2)return;
+  e.preventDefault();const i=btns.findIndex(x=>x.dataset.mode===currentMode),d=(e.key==='ArrowRight'||e.key==='ArrowDown')?1:-1;
+  const n=btns[(i+d+btns.length)%btns.length];setMode(n.dataset.mode);n.focus();
+});
 function showView(view){
-  // v48: 「ポケモンを救出」と「まるごと復元」を上の 2 枚のカードで切り替える。救出のときだけ、入れるもののタブ(ポケモン・バッグ・トレーナー・図鑑)を出す
-  const full=view==='restore';
-  if(!full)window.__lastRescueView=view;
-  listEl.querySelectorAll('.method-card').forEach(c=>{const on=(c.dataset.method==='full')===full;c.classList.toggle('active',on);c.setAttribute('aria-selected',on?'true':'false')});
-  listEl.querySelectorAll('.view-tabs,.method-caption').forEach(e=>{e.style.display=full?'none':''});
+  if(view==='restore'){setMode('full');return}
+  window.__lastRescueView=view;
+  if(currentMode!=='rescue')setMode('rescue');else activateView(view);
+}
+function activateView(view){
   listEl.querySelectorAll('.view-tab').forEach(t=>{const on=t.dataset.view===view;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false')});
   listEl.querySelectorAll('.view-panel').forEach(p=>p.classList.toggle('active',p.dataset.view===view));
-  {const dl=document.getElementById('download');if(dl)dl.closest('.action-buttons').style.display=view==='restore'?'none':''}   // v48: まるごと復元の画面では「ポケモンを救出する」を出さない
   if(view==='pokemon')refreshBoxSelection();
 }
 function showSub(sub){
   listEl.querySelectorAll('.sub-tab').forEach(t=>{const on=t.dataset.sub===sub;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false')});
   listEl.querySelectorAll('.sub-panel').forEach(p=>p.classList.toggle('active',p.dataset.sub===sub));
   refreshBoxSelection();
+}
+// ---------------------------------------------------------------------------
+// v74: 書き出す内容のパネル。各タブのチェックと同じ値(window.__include* など)を切り替え、タブの表示も描き直す。
+// ---------------------------------------------------------------------------
+const EXPORT_TOGGLES=[
+  {key:'items',label:'道具',has:()=>!!window.__bag,on:()=>itemsIncluded(),set:v=>{window.__includeItems=v},redraw:()=>renderItemsViewer(listEl.querySelector('.items-viewer')),extra:()=>window.__bag?`${window.__bag.total}種`:''},
+  {key:'money',label:'お金',has:()=>!!window.__money,on:()=>moneyIncluded(),set:v=>{window.__includeMoney=v},redraw:()=>renderItemsViewer(listEl.querySelector('.items-viewer')),extra:()=>window.__money?'¥'+window.__money.money.toLocaleString('ja-JP'):''},
+  {key:'dex',label:'図鑑',has:()=>!!window.__dex,on:()=>dexIncluded(),set:v=>{window.__includeDex=v},redraw:()=>renderDexViewer(listEl.querySelector('.dex-viewer')),extra:()=>window.__dex?`捕まえた ${dexStatus(window.__dex.bytes).caught}`:''},
+  {key:'avatar',label:'アバター',has:()=>!!window.__avatar,on:()=>avatarIncluded(),set:v=>{window.__includeAvatar=v},redraw:()=>renderTrainerViewer(listEl.querySelector('.trainer-viewer')),extra:()=>''},
+  {key:'gift',label:'ふしぎなおくりもの',has:()=>{const g=window.__gift;return !!g&&(g.cards.length>0||(g.ok&&g.flags>0))},on:()=>giftIncluded(),set:v=>{window.__includeGift=v},redraw:()=>renderGiftViewer(listEl.querySelector('.gift-viewer')),extra:()=>window.__gift?`${window.__gift.cards.length}枚`:''}
+];
+function renderExportPanel(){
+  if(!exportPanel)return;
+  const wide=window.matchMedia&&window.matchMedia('(min-width:960px)').matches;
+  const hasList=!!listEl.querySelector('.view-tabs');
+  const rows=EXPORT_TOGGLES.map(t=>{
+    const has=t.has();
+    if(!has)return '';   // 読み取れなかったものは出さない(各タブに説明がある)
+    return `<li><label class="ex-row${has?'':' is-disabled'}"><span class="ex-k">${t.label}${has&&t.extra()?`<small>${escapeHtml(t.extra())}</small>`:''}${has?'':'<small>読み取れませんでした</small>'}</span><input type="checkbox" class="switch" role="switch" data-inc="${t.key}"${has?'':' disabled'}></label></li>`;
+  }).join('');
+  exportPanel.innerHTML=`<details class="export-details" id="exportDetails"${wide?' open':''}><summary><span>書き出す内容</span><span class="export-sum"></span></summary>
+    <ul class="export-list">
+      ${hasList?`<li><span class="ex-k">ポケモン</span><button type="button" class="ex-link" data-goto="pokemon"><b class="ex-pk"></b>${ICON.next}</button></li>`:''}
+      ${rows}
+      ${hasList?`<li><span class="ex-k">トレーナー</span><button type="button" class="ex-link" data-goto="trainer"><span class="ex-tr"></span>${ICON.next}</button></li>`:''}
+    </ul></details>`;
+  exportPanel.querySelectorAll('[data-inc]').forEach(cb=>cb.addEventListener('change',()=>{
+    const t=EXPORT_TOGGLES.find(x=>x.key===cb.dataset.inc);t.set(cb.checked);t.redraw();updateItemsButton();
+  }));
+  exportPanel.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>{
+    showView(b.dataset.goto);
+    const t=listEl.querySelector('.view-tabs');if(t)t.scrollIntoView({behavior:'smooth',block:'start'});
+  }));
+  syncExportPanel();
+}
+function exportParts(){
+  const p=[];
+  if(itemsIncluded())p.push('道具');if(moneyIncluded())p.push('お金');if(dexIncluded())p.push('図鑑');
+  if(trainerIncluded())p.push('トレーナー');if(avatarIncluded())p.push('アバター');if(giftIncluded())p.push('おくりもの');
+  return p;
+}
+function syncExportPanel(){
+  if(!exportPanel)return;
+  EXPORT_TOGGLES.forEach(t=>{const cb=exportPanel.querySelector(`[data-inc="${t.key}"]`);if(cb)cb.checked=t.has()&&t.on()});
+  const checks=listEl.querySelectorAll('.candidate-check'),sel=listEl.querySelectorAll('.candidate-check:checked').length;
+  const pk=exportPanel.querySelector('.ex-pk');if(pk)pk.textContent=`${sel} / ${checks.length}匹`;
+  const tr=exportPanel.querySelector('.ex-tr');if(tr){const v=trainerValue();tr.textContent=v?v.name:'空のセーブのまま'}
+  const sum=exportPanel.querySelector('.export-sum');if(sum)sum.textContent=(checks.length?`ポケモン ${sel}匹`:'')+(exportParts().length?(checks.length?' ＋ ':'')+exportParts().join('・'):'');
+  if(dockSummary){
+    if(currentMode==='full'){const a=restoreAnalysis();dockSummary.innerHTML=`<span class="dock-text">まるごと復元${a?`(復元信頼度 <b>${a.score}%</b>)`:''}</span>`}
+    else dockSummary.innerHTML=`<span class="dock-text">${checks.length?`ポケモン <b>${sel}匹</b>`:''}${exportParts().length?`${checks.length?' ＋ ':''}${escapeHtml(exportParts().join('・'))}`:''}</span><button type="button" class="dock-edit">内容を変更${ICON.next}</button>`;
+    const ed=dockSummary.querySelector('.dock-edit');
+    if(ed)ed.addEventListener('click',()=>{const d=document.getElementById('exportDetails');if(d){d.open=true;d.scrollIntoView({behavior:'smooth',block:'center'});const s=d.querySelector('summary');if(s)s.focus({preventScroll:true})}});
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -333,7 +409,7 @@ function renderItemsViewer(viewer){
     return `<ul class="item-panel${p===first?' active':''}" role="tabpanel" data-pouch="${p.key}">${rows}</ul>`;
   }).join('');
   viewer.innerHTML=`<div class="bag-toggles">${moneyToggle}${itemsToggle}</div>`+moneyHtml+`<div class="item-tabs" role="tablist">${tabs}</div><div class="item-panels">${panels}</div>
-    <p class="photo-note">大切なものは復元の対象外です。チェックがオンのものが、「ポケモンを救出する」で作る main に入ります。</p>`;
+    <p class="photo-note">大切なものは復元の対象外です。チェックがオンのものが、「セーブデータをダウンロード」で作る main に入ります。</p>`;
   bindToggle();
   viewer.querySelectorAll('.item-tab').forEach(t=>t.addEventListener('click',()=>{
     viewer.querySelectorAll('.item-tab').forEach(x=>{const on=x===t;x.classList.toggle('active',on);x.setAttribute('aria-selected',on?'true':'false')});
@@ -538,7 +614,7 @@ function renderPartyViewer(){
       return renderSlotCell(occupied?slot(base+8):{status:'empty'},s+1);
     }).join('');
     const egg=eggs[c]&&eggs[c].egg
-      ?`<button type="button" class="box-cell is-egg${window.__includeEgg[c]?' selected':''}" data-couple="${c}" aria-pressed="${window.__includeEgg[c]}" title="育て屋で見つかったタマゴ(受け取り前)">${POKEMON_ICON_DIR?`<img class="box-icon" src="${POKEMON_ICON_DIR}egg.png?v=${APP_VERSION}" alt="タマゴ">`:'<span class="box-name">タマゴ</span>'}<span class="box-check" aria-hidden="true">✓</span></button>`
+      ?`<button type="button" class="box-cell is-egg${window.__includeEgg[c]?' selected':''}" data-couple="${c}" aria-pressed="${window.__includeEgg[c]}" title="育て屋で見つかったタマゴ(受け取り前)">${POKEMON_ICON_DIR?`<img class="box-icon" src="${POKEMON_ICON_DIR}egg.png?v=${APP_VERSION}" alt="タマゴ">`:'<span class="box-name">タマゴ</span>'}<span class="box-check" aria-hidden="true">${ICON.check}</span></button>`
       :`<div class="box-cell is-empty" aria-label="タマゴなし"></div>`;
     daycare+=`${dcNames[c]?`<div class="party-sub">${dcNames[c]}</div>`:''}<div class="party-grid daycare">${cells}${egg}</div>`;
   }
@@ -547,9 +623,9 @@ function renderPartyViewer(){
       <section class="party-col"><h4>バトルボックス</h4>${grid('two',six(B[BLK.BATTLE],232))}</section>
       <section class="party-col"><h4>育て屋</h4>${daycare}</section>
     </div>
-    <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span><span class="lg-hint">長押しで詳細</span></div>
+    <div class="box-legend"><span><i class="lg lg-on">${ICON.check}</i>救出する</span><span><i class="lg lg-off"></i>選ばない</span><span class="lg-hint">長押しで詳細</span></div>
     <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。タマゴは、育て屋に「タマゴが見つかった」状態を引き継ぐかどうかです(預けている 2 匹も救出するときだけ引き継がれます)。</p>`;
-  bindPokemonCells(viewer);
+  bindPokemonCells(viewer);applyRestoreInert();
   viewer.querySelectorAll('.box-cell.is-egg').forEach(cell=>cell.addEventListener('click',()=>{
     const c=Number(cell.dataset.couple);window.__includeEgg[c]=!window.__includeEgg[c];
     cell.classList.toggle('selected',window.__includeEgg[c]);cell.setAttribute('aria-pressed',String(window.__includeEgg[c]));
@@ -629,7 +705,7 @@ function favoriteRank(hit){
   }
   return window.__favMap.get(hit.offset)||0;
 }
-// 1 マス分の HTML(v29: ボックスと「手持ち等」タブで共通)
+// 1 マス分の HTML(v29: ボックスと「手持ち・育て屋」で共通)
 // v45: ボックスの表示を「アイコン」と「ポケモン名」で切り替える(この端末のブラウザに覚えておく)
 let boxLabelMode='icon';   // v51: 切り替えスイッチは削除し、常にアイコン
 function setBoxLabelMode(m){boxLabelMode=m;try{localStorage.setItem('nerBoxLabel',m)}catch(e){}renderBoxViewer();renderPartyViewer()}
@@ -643,26 +719,31 @@ function renderSlotCell(s,slotNo){
     const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
     const fav=favoriteRank(s.hit);
     const uo=boxState.pages&&isUnknownHit(s.hit)?unknownOrigin(s.hit):null;
-    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}${fav?' is-favorite':''}"${fav?` style="--fav-delay:-${(performance.now()%FAVORITE_PERIOD_MS)/1000}s"`:''} data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${fav?`<span class="fav-wrap">${icon}</span>`:icon}${ballIcon}${uo&&uo.short?`<span class="box-origin">${uo.short}</span>`:''}<span class="box-check" aria-hidden="true">✓</span></button>`;
+    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}${fav?' is-favorite':''}"${fav?` style="--fav-delay:-${(performance.now()%FAVORITE_PERIOD_MS)/1000}s"`:''} data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${fav?`<span class="fav-wrap">${icon}</span>`:icon}${ballIcon}${uo&&uo.short?`<span class="box-origin">${uo.short}</span>`:''}<span class="box-check" aria-hidden="true">${ICON.check}</span></button>`;
   }
-  // v18: 破損・データなしのマスは利用者には見せず、空きと同じ表示にする(一覧表示と同じ方針)。判定(s.status)は buildSlotMap() に残している。
+  // v74: 読めないマス(空きでもポケモンでもないデータ)と、ファイルにない部分のマスを、空きと見分けられるようにした(v18〜v73 は空きと同じ表示)
+  if(s.status==='damaged')return `<div class="box-cell is-damaged" role="img" title="${slotNo}番 読めないデータ(壊れている可能性があります)" aria-label="${slotNo}番 読めないデータ">${ICON.warn}<span class="box-damaged" aria-hidden="true">読めない</span></div>`;
+  if(s.status==='missing')return `<div class="box-cell is-missing" role="img" title="${slotNo}番 ファイルにこの部分がありません" aria-label="${slotNo}番 データなし"></div>`;
   return `<div class="box-cell is-empty" data-status="${s.status}" title="${slotNo}番" aria-label="${slotNo}番 空き"></div>`;
 }
-let tapMode=(()=>{try{return localStorage.getItem('nerTapMode')==='select'?'select':'detail'}catch(e){return 'detail'}})();   // v68: 最初は「詳細」
-// v59/v61: 長押し(または右クリック)で詳細を開く。開いたあとのクリック(タップ)は無視する
+let tapMode=(()=>{try{return localStorage.getItem('nerTapMode')==='detail'?'detail':'select'}catch(e){return 'select'}})();   // v74: 最初は「選択」(v68〜v73 は「詳細」)。長押しで詳細
+// v59/v61: 長押し(または右クリック・コンテキストメニューキー)で詳細を開く。開いたあとのクリック(タップ)は無視する
 function bindLongPress(el,offset){
   let timer=null,sx=0,sy=0;el.__longPressed=false;
   const cancel=()=>{clearTimeout(timer);timer=null};
-  const open=()=>{el.__longPressed=true;showPokemonDetail(offset);try{window.getSelection().removeAllRanges()}catch(e){}};
-  el.addEventListener('pointerdown',e=>{el.__longPressed=false;sx=e.clientX;sy=e.clientY;cancel();timer=setTimeout(open,450)});
+  const open=()=>{el.__longPressed=true;showPokemonDetail(offset,el);try{window.getSelection().removeAllRanges()}catch(e){}};
+  el.addEventListener('pointerdown',e=>{el.__longPressed=false;if(e.button>0)return;sx=e.clientX;sy=e.clientY;cancel();timer=setTimeout(open,450)});
   el.addEventListener('pointermove',e=>{if(timer&&Math.hypot(e.clientX-sx,e.clientY-sy)>8)cancel()});
   ['pointerup','pointerleave','pointercancel'].forEach(t=>el.addEventListener(t,cancel));
-  el.addEventListener('contextmenu',e=>{e.preventDefault();cancel();open()});
+  el.addEventListener('contextmenu',e=>{e.preventDefault();cancel();el.__longPressed=false;showPokemonDetail(offset,el)});
   el.addEventListener('click',e=>{
     if(el.__longPressed){el.__longPressed=false;e.preventDefault();e.stopImmediatePropagation();return}
     // v63: 「詳細」モードなら、タップで詳細を開く(選択は変えない)
-    if(tapMode==='detail'){e.preventDefault();e.stopImmediatePropagation();showPokemonDetail(offset)}
+    if(tapMode==='detail'){e.preventDefault();e.stopImmediatePropagation();showPokemonDetail(offset,el)}
   },true);
+  // v74: キーボードでは i キーでも詳細を開ける
+  el.setAttribute('aria-keyshortcuts','i');
+  el.addEventListener('keydown',e=>{if(e.key==='i'||e.key==='I'){e.preventDefault();showPokemonDetail(offset,el)}});
 }
 function bindPokemonCells(root){
   root.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>{
@@ -675,7 +756,10 @@ function bindPokemonCells(root){
     });
   });
 }
-// v59: ポケモンの詳細(長押しで開く)
+// ---------------------------------------------------------------------------
+// v59: ポケモンの詳細。v74 からスマホでは下から出るシート、パソコンでは中央の画面(#sheet)。
+// 「救出に入れる」のスイッチは一覧のチェックボックスと同じもの。
+// ---------------------------------------------------------------------------
 const STAT_LABELS=['HP','こうげき','ぼうぎょ','とくこう','とくぼう','すばやさ'];
 function pkStats(b){
   const iv32=u32(b,0x74),ivRaw=[0,5,10,15,20,25].map(sh=>(iv32>>>sh)&31);   // データの順: HP・攻撃・防御・素早さ・特攻・特防
@@ -683,10 +767,28 @@ function pkStats(b){
   const order=[0,1,2,4,5,3];   // 表示の順: HP・攻撃・防御・特攻・特防・素早さ
   return {iv:order.map(i=>ivRaw[i]),ev:order.map(i=>evRaw[i])};
 }
-function showPokemonDetail(offset){
-  const hit=(window.__hits||[]).find(h=>h.offset===offset);if(!hit)return;
-  const b=hit.data,sm=pkSummary(hit);
-  const d=surveyDialog();
+const sheetEl=document.getElementById('sheet');
+let sheetOpener=null;
+function closeSheet(){
+  if(!sheetEl||sheetEl.classList.contains('hidden'))return;
+  sheetEl.classList.add('hidden');document.body.classList.remove('sheet-open');
+  if(sheetOpener&&document.contains(sheetOpener))try{sheetOpener.focus({preventScroll:true})}catch(e){}
+  sheetOpener=null;
+}
+if(sheetEl){
+  sheetEl.addEventListener('click',e=>{if(e.target===sheetEl)closeSheet()});
+  sheetEl.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();closeSheet();return}
+    if(e.key!=='Tab')return;   // シートの中だけでフォーカスを回す
+    const f=[...sheetEl.querySelectorAll('button,input,select,a[href],[tabindex]:not([tabindex="-1"])')].filter(x=>!x.disabled&&x.offsetParent!==null);
+    if(!f.length)return;
+    if(e.shiftKey&&document.activeElement===f[0]){e.preventDefault();f[f.length-1].focus()}
+    else if(!e.shiftKey&&document.activeElement===f[f.length-1]){e.preventDefault();f[0].focus()}
+  });
+}
+function showPokemonDetail(offset,opener){
+  const hit=(window.__hits||[]).find(h=>h.offset===offset);if(!hit||!sheetEl)return;
+  const b=hit.data,sm=pkSummary(hit),box=sheetEl.querySelector('.sheet');
   const nick=pkNickname(b),moves=[0,1,2,3].map(i=>u16(b,0x5A+i*2)).filter(m=>m);
   const nature=typeof PK_NATURE!=='undefined'?PK_NATURE[b[0x1C]]:'';
   const item=u16(b,0x0A),itemName=item?(PK_ITEM_NAME[item]||`道具(${item})`):'なし';
@@ -694,24 +796,36 @@ function showPokemonDetail(offset){
   const {iv,ev}=pkStats(b);
   let rib=0;for(let i=0x30;i<0x37;i++)rib+=popcount8(b[i]);
   const fav=favoriteRank(hit);
-  const row=(k,v)=>`<tr><th>${k}</th><td>${v}</td></tr>`;
-  d.innerHTML=`<div class="sample-dialog-box survey-box pk-detail">
+  const cb=listEl.querySelector(`.candidate-check[data-offset="${offset}"]`);
+  const uo=boxState.pages&&isUnknownHit(hit)?unknownOrigin(hit):null;
+  const fact=(k,v,sub='')=>`<div class="pk-fact"><dt>${k}</dt><dd>${v}${sub?`<small>${sub}</small>`:''}</dd></div>`;
+  const ball=BALL_IMAGE_DIR&&sm.ballId>0?`<img src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="" width="20" height="20">`:'';
+  const gcls=sm.gender==='♂'?'male':sm.gender==='♀'?'female':'';
+  const evAll0=ev.every(v=>v===0);
+  box.innerHTML=`<div class="sheet-grip" aria-hidden="true"></div>
+    <button type="button" class="sheet-close" aria-label="閉じる">${ICON.close}</button>
     <div class="pk-detail-head">${pkIconHtml(hit,sm.name).replace('class="spr-box"','class="spr-box pk-detail-icon"').replace('class="box-icon"','class="box-icon pk-detail-icon"')}
-      <div><h3 id="surveyTitle">${escapeHtml(nick||sm.name)}${sm.gender?` <span class="pk-g">${sm.gender}\uFE0E</span>`:''}${sm.shiny?' <span title="色違い">✨</span>':''}</h3>
-      <p class="pk-detail-sub">${escapeHtml(sm.name)} / ${sm.isEgg?'タマゴ':sm.level!==null?'Lv.'+sm.level:''}</p></div></div>
-    ${fav?`<p class="pk-fav-reason">⭐ 大切にされていたポケモン: ${escapeHtml(favoriteReasons(hit).join('・'))}</p>`:''}
-    <table class="pk-detail-table">
-      ${row('せいかく',escapeHtml(nature||'-'))}${row('とくせい',escapeHtml(sm.ability))}${row('もちもの',escapeHtml(itemName))}
-      ${row('わざ',moves.length?moves.map(m=>escapeHtml((typeof PK_MOVE!=='undefined'&&PK_MOVE[m])||('わざ'+m))).join('<br>'):'-')}
-      ${row('おや',`${escapeHtml(sm.ot)}(ID ${String(u16(b,0x0C)).padStart(5,'0')})`)}
-      ${boxState.pages&&isUnknownHit(hit)&&unknownOrigin(hit)?row('見つかった場所',escapeHtml(unknownOrigin(hit).text)):''}${row('ボール',escapeHtml(sm.ball))}${row('うまれ',escapeHtml(verName||'-'))}${row('リボン',rib?rib+'個':'なし')}
-    </table>
-    <table class="pk-stat-table"><tr><th></th>${STAT_LABELS.map(l=>`<th>${l}</th>`).join('')}</tr>
-      <tr><th>個体値</th>${iv.map(v=>`<td>${v}</td>`).join('')}</tr>
-      <tr><th>努力値</th>${ev.map(v=>`<td>${v}</td>`).join('')}</tr></table>
-    <div class="sample-dialog-actions"><button type="button" class="button button-secondary pk-detail-close">閉じる</button></div></div>`;
-  d.querySelector('.pk-detail-close').addEventListener('click',()=>d.classList.add('hidden'));
-  d.classList.remove('hidden');
+      <div class="pk-detail-titles"><h3 id="sheetTitle">${escapeHtml(nick||sm.name)}${sm.gender?` <span class="pk-g ${gcls}">${sm.gender}\uFE0E</span>`:''}${sm.shiny?` <img class="pk-shiny-mark" src="${SHINY_ICON}" alt="色違い" title="色違い" width="18" height="18">`:''}</h3>
+      <p class="pk-detail-sub">${escapeHtml(sm.name)} ・ ${sm.isEgg?'タマゴ':sm.level!==null?'Lv.'+sm.level:''}</p>
+      <p class="pk-chips"><span class="chip">${ball}${escapeHtml(sm.ball)}</span><span class="chip">${escapeHtml(hitLocText(hit))}</span></p></div></div>
+    ${fav?`<p class="pk-fav-reason">${ICON.star}<span>大切にされていたポケモン: ${escapeHtml(favoriteReasons(hit).join('・'))}</span></p>`:''}
+    ${cb&&currentMode==='rescue'?`<label class="sheet-toggle"><span><b>救出に入れる</b><small>このポケモンを書き出すセーブに入れます</small></span><input type="checkbox" class="switch sheet-include" role="switch"${cb.checked?' checked':''}></label>`:''}
+    <dl class="pk-facts">
+      ${fact('おや',escapeHtml(sm.ot)||'-',`ID ${String(u16(b,0x0C)).padStart(5,'0')}`)}${fact('もちもの',escapeHtml(itemName))}${fact('せいかく',escapeHtml(nature||'-'))}
+      ${fact('とくせい',escapeHtml(sm.ability))}${fact('うまれ',escapeHtml(verName||'-'))}${fact('リボン',rib?rib+'個':'なし')}
+      ${uo?`<div class="pk-fact wide"><dt>見つかった場所</dt><dd>${escapeHtml(uo.text)}</dd></div>`:''}
+    </dl>
+    <div class="pk-moves"><span class="pk-moves-k">わざ</span>${moves.length?moves.map(m=>`<span class="chip">${escapeHtml((typeof PK_MOVE!=='undefined'&&PK_MOVE[m])||('わざ'+m))}</span>`).join(''):'<span>-</span>'}</div>
+    <table class="pk-stat-table"><caption>個体値・努力値${evAll0?'<small>(努力値はすべて 0)</small>':''}</caption>
+      <thead><tr><th scope="col">能力</th><th scope="col">個体値</th><th scope="col">努力値</th></tr></thead>
+      <tbody>${STAT_LABELS.map((l,i)=>`<tr><th scope="row">${l}</th><td><span class="iv-bar" aria-hidden="true"><i style="width:${Math.round(iv[i]/31*100)}%"></i></span><b>${iv[i]}</b></td><td>${ev[i]}</td></tr>`).join('')}</tbody></table>`;
+  box.querySelector('.sheet-close').addEventListener('click',closeSheet);
+  const inc=box.querySelector('.sheet-include');
+  if(inc)inc.addEventListener('change',()=>{const c=listEl.querySelector(`.candidate-check[data-offset="${offset}"]`);if(c){c.checked=inc.checked;updateSelectionSummary();refreshBoxSelection()}});
+  sheetOpener=opener||document.activeElement;
+  sheetEl.classList.remove('hidden');document.body.classList.add('sheet-open');
+  box.scrollTop=0;
+  box.querySelector('.sheet-close').focus({preventScroll:true});
 }
 // v61: ボックス・手持ち・バトルボックス・育て屋のどこにも当てはまらない場所で見つかったポケモン(場所不明)
 function isUnknownHit(h){
@@ -744,36 +858,51 @@ function unknownPages(){
   }
   return pages;
 }
+// v74: ボックス表示。上にポケモンがいるボックスの一覧(パソコンでは左の列)、その下に 前へ / ボックス名と匹数 / 次へ、6×5 のマス。
+// 左右にスワイプしても前後のボックスへ移れる。ボックスの選択欄(select)は全ボックスへ移るために残している。
 function renderBoxViewer(){
   const viewer=listEl.querySelector('.box-viewer');
   if(!viewer)return;
   const pages=boxState.pages?(boxState.unknown||[]).concat(boxState.pages):null;   // v62: 「場所不明」はボックス１の上
   if(!pages){viewer.innerHTML='<p class="box-empty-note">このセーブではボックスの位置を特定できないため、ボックス表示はできません。</p>';return}
   const boxes=pages.length,b=boxState.current,pg=pages[b];
-  const opts=[];
-  const favBox=i=>pages[i].slots.some(x=>x.status==='pokemon'&&favoriteRank(x.hit));   // v51: 跳ねるポケモンがいるボックスに ⭐
-  for(let i=0;i<boxes;i++){const c=boxCounts(pages[i]);opts.push(`<option value="${i}"${i===b?' selected':''}>${escapeHtml(pages[i].name)}${c.pokemon?`(${c.pokemon}匹)`:''}${favBox(i)?' ⭐':''}</option>`)}
+  const favBox=i=>pages[i].slots.some(x=>x.status==='pokemon'&&favoriteRank(x.hit));   // v51: 跳ねるポケモンがいるボックスに ★
+  const opts=[],chips=[];
+  for(let i=0;i<boxes;i++){
+    const c=boxCounts(pages[i]);
+    opts.push(`<option value="${i}"${i===b?' selected':''}>${escapeHtml(pages[i].name)}${c.pokemon?`(${c.pokemon}匹)`:''}${favBox(i)?' ★':''}</option>`);
+    if(c.pokemon)chips.push(`<button type="button" class="box-chip${i===b?' active':''}" data-page="${i}"${i===b?' aria-current="true"':''}><span class="box-chip-name">${escapeHtml(pages[i].name)}${favBox(i)?`<span class="box-chip-fav" title="大切にされていたポケモンがいます">${ICON.star}</span>`:''}</span><b>${c.pokemon}</b></button>`);
+  }
   const cells=pg.slots.map((s,i)=>renderSlotCell(s,i+1));
   const c=boxCounts(pg);
-  const inBox=new Set();pages.forEach(p=>p.slots.forEach(s=>{if(s.status==='pokemon')inBox.add(s.hit.offset)}));
-  const outside=(window.__hits||[]).filter(h=>!inBox.has(h.offset)&&!getSpecialLocation(h)).length;
   viewer.innerHTML=`
-    <div class="box-nav">
-      <button type="button" class="box-prev small-button" aria-label="前のボックス">◀</button>
-      <select class="box-select" aria-label="ボックスを選ぶ">${opts.join('')}</select>
-      <button type="button" class="box-next small-button" aria-label="次のボックス">▶</button>
-    </div>
-    <div class="box-grid${POKEMON_ICON_DIR&&boxLabelMode==='icon'?' with-icons':''}">${cells.join('')}</div>
-    <div class="box-actions">
-      <button type="button" class="small-button" data-box-action="on"${c.pokemon?'':' disabled'}>このボックスを選択</button>
-      <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>このボックスを選択解除</button>
-    </div>
-    <div class="box-legend"><span><i class="lg lg-on"><b>✓</b></i>復元する</span><span><i class="lg lg-off"></i>復元しない</span><span class="lg-hint">長押しで詳細</span></div>
-`;
+    ${chips.length?`<nav class="box-chips" aria-label="ポケモンがいるボックス">${chips.join('')}</nav>`:''}
+    <div class="box-main">
+      <div class="box-nav">
+        <button type="button" class="box-prev icon-button" aria-label="前のボックス">${ICON.prev}</button>
+        <div class="box-title">
+          <select class="box-select" aria-label="ボックスを選ぶ">${opts.join('')}</select>
+          <span class="box-meta">${b+1} / ${boxes} ・ ${c.pokemon}匹${c.damaged?` ・ 読めない ${c.damaged}`:''} ・ <span class="box-meta-sel"></span></span>
+        </div>
+        <button type="button" class="box-next icon-button" aria-label="次のボックス">${ICON.next}</button>
+      </div>
+      <div class="box-grid${POKEMON_ICON_DIR&&boxLabelMode==='icon'?' with-icons':''}">${cells.join('')}</div>
+      <div class="box-actions">
+        <button type="button" class="small-button box-all" data-box-action="on"${c.pokemon?'':' disabled'}>このボックスを全部選ぶ</button>
+        <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>全部外す</button>
+      </div>
+      <div class="box-legend"><span><i class="lg lg-on">${ICON.check}</i>救出する</span><span><i class="lg lg-off"></i>選ばない</span><span><i class="lg lg-dmg"></i>読めない</span><span class="lg-hint">タップで${tapMode==='detail'?'詳細':'選択'}・長押しで詳細</span></div>
+    </div>`;
   const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
-  viewer.querySelector('.box-prev').addEventListener('click',()=>go(-1));
-  viewer.querySelector('.box-next').addEventListener('click',()=>go(1));
-  viewer.querySelector('.box-select').addEventListener('change',e=>{boxState.current=Number(e.target.value);renderBoxViewer()});
+  viewer.querySelector('.box-prev').addEventListener('click',()=>{go(-1);listEl.querySelector('.box-prev').focus()});
+  viewer.querySelector('.box-next').addEventListener('click',()=>{go(1);listEl.querySelector('.box-next').focus()});
+  viewer.querySelector('.box-select').addEventListener('change',e=>{boxState.current=Number(e.target.value);renderBoxViewer();listEl.querySelector('.box-select').focus()});
+  viewer.querySelectorAll('.box-chip').forEach(ch=>ch.addEventListener('click',()=>{boxState.current=Number(ch.dataset.page);renderBoxViewer();const a=listEl.querySelector('.box-chip.active');if(a)a.focus()}));
+  {const a=viewer.querySelector('.box-chip.active');if(a&&a.scrollIntoView){const n=a.parentNode;n.scrollLeft=a.offsetLeft-n.clientWidth/2+a.clientWidth/2}}
+  // 左右のスワイプで前後のボックスへ
+  const grid=viewer.querySelector('.box-grid');let tx=null,ty=0;
+  grid.addEventListener('touchstart',e=>{if(e.touches.length===1){tx=e.touches[0].clientX;ty=e.touches[0].clientY}else tx=null},{passive:true});
+  grid.addEventListener('touchend',e=>{if(tx===null)return;const t=e.changedTouches[0],dx=t.clientX-tx,dy=t.clientY-ty;tx=null;if(Math.abs(dx)>60&&Math.abs(dy)<40)go(dx<0?1:-1)},{passive:true});
   // このボックスの個体をまとめて選択/選択解除(v23)
   viewer.querySelectorAll('[data-box-action]').forEach(btn=>btn.addEventListener('click',()=>{
     const on=btn.dataset.boxAction==='on';
@@ -784,6 +913,7 @@ function renderBoxViewer(){
     updateSelectionSummary();refreshBoxSelection();
   }));
   bindPokemonCells(viewer);
+  refreshBoxSelection();applyRestoreInert();
 }
 function refreshBoxSelection(){
   listEl.querySelectorAll('.box-cell.is-pokemon').forEach(cell=>{
@@ -791,7 +921,9 @@ function refreshBoxSelection(){
     const on=!!(cb&&cb.checked);
     cell.classList.toggle('selected',on);cell.setAttribute('aria-pressed',on?'true':'false');
   });
-  // ボックス選択欄の匹数表示は変わらない(救出可能数)ので再描画不要
+  const ms=listEl.querySelector('.box-meta-sel');
+  if(ms)ms.textContent=`選択中 ${listEl.querySelectorAll('.box-viewer .box-cell.is-pokemon.selected').length}`;
+  listEl.querySelectorAll('.box-legend .lg-hint').forEach(lh=>{lh.textContent=`タップで${tapMode==='detail'?'詳細':'選択'}・長押しで詳細`});
 }
 // ボール画像(v12〜)。img/ball/<ボール番号>.png(1〜26)を表示し、読めない番号はボール名に戻る。
 // 画像はサイト運営者が用意したもの(アイテム番号→ボール番号に付け替え済み。対応表は CHANGELOG v12)。
@@ -818,48 +950,33 @@ function pkSummary(p){
     isEgg
   };
 }
-function renderBall(s){
-  const label=escapeHtml(s.ball);
-  if(BALL_IMAGE_DIR&&s.ballId>0)
-    return `<span class="pk-ball has-img" title="${label}"><img src="${BALL_IMAGE_DIR}${s.ballId}.png" alt="${label}" width="28" height="28" loading="lazy" onerror="this.parentNode.classList.remove('has-img');this.replaceWith(document.createTextNode(this.alt))"></span>`;
-  // スマホ幅では末尾の「ボール」を省く(CSS で .ball-suffix を非表示)
-  const text=s.ball.endsWith('ボール')?`${escapeHtml(s.ball.slice(0,-3))}<span class="ball-suffix">ボール</span>`:label;
-  return `<span class="pk-ball" title="${label}">${text}</span>`;
-}
-// 見出し行(v13)。一覧の先頭に固定表示(CSS の position:sticky)。列の定義は個体の行と共通。
-function renderHeader(){
-  return `<div class="pk-row pk-head" aria-hidden="true"><span class="pk-h-chk"></span><span class="pk-ball">ボール</span>`+
-    `<span class="pk-name"><span class="pk-shiny"></span><span class="pk-name-text">ポケモン名</span></span>`+
-    `<span class="pk-gender">性別</span><span class="pk-level">Lv.</span><span class="pk-ot">親名</span><span class="pk-ability">特性</span></div>`;
-}
-// 1 行 = [チェック][ボール][名前][♂♀][Lv.][親名][特性]。各列の幅を固定して、
-// 情報の種類ごとに開始位置がそろうようにしている(CSS の .pk-row の grid)。
-function renderCandidate(p){
+// v74: 一覧は 1 匹 1 枚のカード。[チェック][アイコン][ボール・名前・色違い・性別・大切][Lv.・特性][親名・場所][詳細]
+// ボールは名前のすぐ左。カード全体(label)を押すとチェックが切り替わる(「詳細」モードのときは詳細が開く)。
+function renderCandidate(p,kind){
   const s=pkSummary(p);
-  // 色違いアイコンの枠は全行に置く(色違いでなければ空)。名前の開始位置がずれないようにするため
-  const shinyMark=`<span class="pk-shiny">${s.shiny?`<img src="${SHINY_ICON}" alt="色違い" title="色違い" width="16" height="16">`:''}</span>`;
+  const ball=BALL_IMAGE_DIR&&s.ballId>0?`<img class="pk-ball-img" src="${BALL_IMAGE_DIR}${s.ballId}.png" alt="${escapeHtml(s.ball)}" title="${escapeHtml(s.ball)}" width="20" height="20" loading="lazy" onerror="this.replaceWith(document.createTextNode(this.alt))">`:`<span class="pk-ball-text">${escapeHtml(s.ball)}</span>`;
+  const shiny=s.shiny?`<img class="pk-shiny-mark" src="${SHINY_ICON}" alt="色違い" title="色違い" width="16" height="16">`:'';
   const genderCls=s.gender==='♂'?'male':s.gender==='♀'?'female':'';
-  return `<label class="candidate pk-row"><input class="candidate-check" type="checkbox" data-offset="${p.offset}" data-ec="${p.ec}" checked>`+
-    renderBall(s)+
-    `<span class="pk-name">${shinyMark}<span class="pk-name-text">${escapeHtml(s.name)}</span></span>`+
-    `<span class="pk-gender ${genderCls}">${s.gender?s.gender+'\uFE0E':''}</span>`+
-    `<span class="pk-level">${s.isEgg?'タマゴ':s.level!==null?'Lv.'+s.level:''}</span>`+
-    `<span class="pk-sub"><span class="pk-ot" title="${escapeHtml(s.ot)}"><span class="pk-lbl">親名：</span>${escapeHtml(s.ot)}</span>`+
-    `<span class="pk-ability"><span class="pk-lbl">特性：</span>${escapeHtml(s.ability)}</span></span></label>`;
+  const fav=favoriteRank(p)?`<span class="pk-fav" title="大切にされていたポケモン(レベル・努力値・リボンなどからの推定)">${ICON.star}大切</span>`:'';
+  return `<div class="candidate-wrap" data-loc="${kind||'box'}"><label class="candidate pk-card"><input class="candidate-check" type="checkbox" data-offset="${p.offset}" data-ec="${p.ec}" checked><span class="pk-check" aria-hidden="true">${ICON.check}</span>`+
+    `<span class="pk-sprite" aria-hidden="true">${pkIconHtml(p,'').replace(' role="img" aria-label=""','')}</span>`+
+    `<span class="pk-text"><span class="pk-name">${ball}<span class="pk-name-text">${escapeHtml(s.name)}</span>${shiny}${s.gender?`<span class="pk-gender ${genderCls}">${s.gender}\uFE0E</span>`:''}${fav}</span>`+
+    `<span class="pk-meta">${s.isEgg?'タマゴ':s.level!==null?'Lv.'+s.level:''} ・ ${escapeHtml(s.ability)}</span>`+
+    `<span class="pk-sub">親 ${escapeHtml(s.ot)} ・ ${escapeHtml(hitLocText(p))}</span></span></label>`+
+    `<button type="button" class="pk-info icon-button" data-offset="${p.offset}" aria-label="${escapeHtml(s.name)}の詳細">${ICON.info}</button></div>`;
 }
 function updateSelectionSummary(){
   const checks=[...listEl.querySelectorAll('.candidate-check')];
   const selected=checks.filter(x=>x.checked).length;
   if(countEl)countEl.textContent=`${selected} / ${checks.length} 匹`;   // v22: 画面からは削除(要素がなければ何もしない)
   const summary=document.getElementById('selectionSummary');
-  if(summary)summary.textContent=`選択中 ${selected} 匹`;
+  if(summary)summary.innerHTML=`選択中 <b>${selected}</b> / ${checks.length}匹`;
   updateItemsButton();
 }
 // セーブ構造の診断。ブロック表が見つかれば、ゲーム・ずれ・ブロックごとの生存状況を出す。
+// v74: 結果の要約の「診断」ボタンで開く欄(#diagPanel)に表示する
 function showStructureReport(l6,size,hits){
-  // v22: 診断は「項目 | 状態」の表で表示する
-  const old=document.getElementById('structureReport');if(old)old.remove();
-  const box=document.createElement('div');box.id='structureReport';box.className='structure-report';
+  const panel=document.getElementById('diagPanel');
   const badge=(t,kind)=>`<span class="diag-badge ${kind}">${t}</span>`;
   const rows=[];
   if(!l6){
@@ -877,13 +994,39 @@ function showStructureReport(l6,size,hits){
   let tail='';
   if(!hits.length)tail='<p class="diag-note">どのブロックにもポケモンの個体データは残っていません。このファイルからの救出はできません。'+
     'セーブを保存していた SD カードなどに書き込まずに全体を吸い出し、そのイメージを読み込ませると、元のデータが見つかる可能性があります。</p>';
-  // v34: 最初は折りたたみ。「セーブデータの診断結果を表示」をクリックで開く
-  box.innerHTML=`<details class="diag-details"><summary>セーブデータの診断結果を表示</summary><table class="diag-table"><tbody>${rows.map(([k,v])=>`<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>${tail}</details>`;
-  const list=document.getElementById('list');list.parentNode.insertBefore(box,list);
+  panel.innerHTML=`<div id="structureReport" class="structure-report"><h3>セーブデータの診断結果</h3><table class="diag-table"><tbody>${rows.map(([k,v])=>`<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>${tail}</div>`;
+  setDiagOpen(false);
+  // 要約の 2 行目(ゲーム・ブロック・道具)
+  const bits=[];
+  const gname=l6?(l6.game==='XY'?'X・Y':'オメガルビー・アルファサファイア'):(gameEl&&gameEl.textContent)||'';
+  if(gname)bits.push(`<span>${escapeHtml(gname)}</span>`);
+  if(l6)bits.push(l6.okCount===l6.blocks.length?`<span>${l6.okCount}/${l6.blocks.length} ブロック正常</span>`:`<span class="chip warn">壊れた部分 ${l6.blocks.length-l6.okCount} / ${l6.blocks.length}</span>`);
+  if(window.__bag)bits.push(`<span>道具 ${window.__bag.total}種</span>`);
+  // 要約のアイコン: ブロック表が見つからない・壊れた部分やずれがあるときは注意の印にする
+  {const healthy=!!l6&&size===l6.saveSize&&l6.okCount===l6.blocks.length;const card=document.querySelector('.summary-card'),ic=card&&card.querySelector('.summary-icon');
+   if(card){card.classList.toggle('is-warn',!healthy);if(ic)ic.innerHTML=healthy?ICON.check:ICON.warn}}
+  document.getElementById('summaryBits').innerHTML=bits.map(b=>'<span class="bit">'+b+'</span>').join('');
+}
+function setDiagOpen(open){
+  const p=document.getElementById('diagPanel'),t=document.getElementById('diagToggle');
+  if(!p||!t)return;
+  p.hidden=!open;t.setAttribute('aria-expanded',open?'true':'false');
+  t.innerHTML=`${open?'診断を閉じる':'診断'}${ICON.next}`;
+}
+document.getElementById('diagToggle').addEventListener('click',()=>{const p=document.getElementById('diagPanel');setDiagOpen(p.hidden)});
+// v74: 解析中・結果の表示に合わせて、画面全体の状態を切り替える
+function setResultState(on,fileName){
+  document.body.classList.toggle('has-result',on);
+  const bar=document.getElementById('fileBar'),nm=document.getElementById('fileName');
+  if(bar){bar.classList.toggle('hidden',!fileName);if(nm)nm.textContent=fileName||''}
+  // メッセージ欄: 結果の表示中は右のパネル(スマホでは要約の下)に移す。ダウンロード後の注意が目に入るように
+  if(on){const note=document.getElementById('dlNote');if(note&&statusEl.parentNode!==sideCard)note.after(statusEl)}
+  else if(statusEl.parentNode!==uploadCard)uploadCard.appendChild(statusEl);
 }
 async function analyze(file){
   const seq=++analyzeSeq;
-  result.classList.add('hidden');listEl.innerHTML='';msg('セーブデータを解析しています…');
+  result.classList.add('hidden');listEl.innerHTML='';setResultState(false,file.name);setStep(2);msg('セーブデータを解析しています…');
+  closeSheet();
   {const g=document.getElementById('returnGuide');if(g)g.classList.add('hidden')}   // v40: 別のファイルを読み込んだら手順を閉じる
   devBarSet(null);   // v35: 読み込むたびに開発用のチェックを外す(試験用セーブなら読み込み後に付け直す)
   const input=new Uint8Array(await file.arrayBuffer());
@@ -920,24 +1063,39 @@ async function analyze(file){
   window.__avatar=readAvatar(input,l6,window.__trainer);   // v33
   window.__includeDex=true;window.__trainerInput=null;window.__trainerMode=null;window.__includeAvatar=!!window.__avatar;
   showStructureReport(l6,input.length,hits);
+  const title=document.getElementById('summaryTitle');
   if(!hits.length){
     if(countEl)countEl.textContent='0 匹';
-    // ポケモンがいなくても写真が残っていれば表示する
     // ポケモンがいなくても、道具や写真が残っていれば表示する
     listEl.innerHTML=((window.__bag||window.__money)?'<h3 class="photo-heading">道具</h3><div class="items-viewer"></div>':'')+(window.__photo?'<h3 class="photo-heading">写真</h3><div class="photo-viewer"></div>':'');
     renderItemsViewer(listEl.querySelector('.items-viewer'));
     renderPhotoViewer(listEl.querySelector('.photo-viewer'));
+    title.textContent='ポケモンは見つかりませんでした';document.querySelector('.summary-card').classList.add('is-empty');{const ic=document.querySelector('.summary-card .summary-icon');if(ic)ic.innerHTML=ICON.warn}
+    modeSwitch.hidden=true;currentMode='rescue';renderModeHint();renderExportPanel();
+    restorePanel.hidden=true;exportPanel.hidden=false;
     updateItemsButton();
-    result.classList.remove('hidden');{const dd=document.querySelector('#structureReport details');if(dd)dd.open=true}msg('完全な状態で残っているポケモンは見つかりませんでした。下の「セーブデータの診断結果」を参照してください。',true);return}   // v28: 道具・お金が残っていれば救出ボタンは使える
+    result.classList.remove('hidden');setResultState(true,file.name);setStep(3);setDiagOpen(true);
+    msg('完全な状態で残っているポケモンは見つかりませんでした。上の「セーブデータの診断結果」を参照してください。',true);return}   // v28: 道具・お金が残っていれば救出ボタンは使える
   window.__hits=hits;window.__inputName=file.name;window.__inputSize=input.length;window.__game=game;window.__gen=scanGen;window.__input=input;
+  title.innerHTML=`${hits.length}匹のポケモンが<wbr>見つかりました`;document.querySelector('.summary-card').classList.remove('is-empty');
   renderList(hits);
   clearMsg();   // v22: 正常終了時のメッセージは出さない
-  result.classList.remove('hidden');
+  result.classList.remove('hidden');setResultState(true,file.name);setStep(3);
 }
-fileInput.addEventListener('change',()=>{if(fileInput.files[0])analyze(fileInput.files[0]).catch(e=>msg('解析中にエラーが発生しました: '+e.message,true))});
-['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('drag')}));
-['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('drag')}));
-drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)analyze(f).catch(err=>msg('解析中にエラーが発生しました: '+err.message,true))});
+fileInput.addEventListener('change',()=>{if(fileInput.files[0])analyze(fileInput.files[0]).catch(e=>{msg('解析中にエラーが発生しました: '+e.message,true);setStep(1)});fileInput.value=''});
+// v74: ドラッグ＆ドロップは、ファイルを選ぶ欄(結果の表示中は上のファイル名の欄)全体で受け付ける
+['dragenter','dragover'].forEach(t=>uploadCard.addEventListener(t,e=>{e.preventDefault();uploadCard.classList.add('drag')}));
+['dragleave','drop'].forEach(t=>uploadCard.addEventListener(t,e=>{e.preventDefault();if(t==='dragleave'&&uploadCard.contains(e.relatedTarget))return;uploadCard.classList.remove('drag')}));
+uploadCard.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)analyze(f).catch(err=>{msg('解析中にエラーが発生しました: '+err.message,true);setStep(1)})});
+// v74: セーブファイルの場所の案内(Checkpoint / JKSM / その他)
+(function(){
+  const tabs=[...document.querySelectorAll('.help-tabs [data-help]')];
+  const pick=t=>tabs.forEach(x=>{const on=x===t;x.classList.toggle('active',on);x.setAttribute('aria-selected',on?'true':'false');x.tabIndex=on?0:-1;document.getElementById('help-'+x.dataset.help).hidden=!on});
+  tabs.forEach((t,i)=>{
+    t.addEventListener('click',()=>pick(t));
+    t.addEventListener('keydown',e=>{const d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;e.preventDefault();const n=tabs[(i+d+tabs.length)%tabs.length];pick(n);n.focus()});
+  });
+})();
 // ---------------------------------------------------------------------------
 // 「ポケモンを救出する」ボタン(v28 でボタンを 1 つにまとめた)。
 // 空のセーブに、選んだポケモン(ボックス・手持ち・バトルボックス・育て屋は元の場所)と、
@@ -977,7 +1135,8 @@ function avatarIncluded(){return window.__includeAvatar!==false&&!!window.__avat
 function updateItemsButton(){   // 名前は v19 以来のまま。救出ボタンの有効・無効を更新する(v36: サンプル提供の欄も)
   showSampleOffer();
   const any=!!listEl.querySelector('.candidate-check:checked')||(!!window.__itemsGame&&(itemsIncluded()||moneyIncluded()||dexIncluded()||giftIncluded()||trainerIncluded()||avatarIncluded()));
-  download.disabled=!any;
+  download.disabled=currentMode==='full'?!restoreAnalysis():!any;   // v74: まるごと復元のときも同じボタン
+  syncExportPanel();
 }
 // ---------------------------------------------------------------------------
 // ゲームに戻す方法(v40)。ダウンロードの直後に、出したファイルの種類に合わせた手順を表示する。
@@ -1026,6 +1185,7 @@ function saveBlob(data,name){
   window.__lastOutput={name,data:new Uint8Array(data instanceof ArrayBuffer?data:(data.buffer?data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength):data)).slice()};renderRepairHelp();   // v71
   const url=URL.createObjectURL(new Blob([data],{type:'application/octet-stream'})),a=document.createElement('a');
   a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  setStep(4);   // v74
 }
 function downloadBoxdataBin(selected,reason){
   const {data,placed,unknown,conflicts}=makePCBinary(selected,window.__game,window.__gen);
@@ -1058,6 +1218,7 @@ function askUnknownBox(unk,selected){
   });
 }
 download.addEventListener('click',async()=>{
+  if(currentMode==='full'){runFullRestore();return}   // v74: まるごと復元も同じ「セーブデータをダウンロード」
   const selected=selectedHits(),game=window.__itemsGame,withItems=itemsIncluded(),withMoney=moneyIncluded();
   let unknownBox=null;
   {const unk=boxState.pages?selected.filter(isUnknownHit):[];if(unk.length){unknownBox=await askUnknownBox(unk,selected);if(unknownBox===undefined)return}}
@@ -1104,11 +1265,12 @@ function preferRestoreTab(){
   const a=restoreAnalysis();
   return !!a&&a.score>=RESTORE_TAB_MIN_SCORE&&a.score<100;
 }
+// v74: まるごと復元の内容(右のパネル、スマホでは切り替えの下)。書き出しは下の「セーブデータをダウンロード」(runFullRestore)
 function renderRestoreViewer(){
-  const viewer=listEl.querySelector('.restore-viewer');
+  const viewer=restorePanel&&restorePanel.querySelector('.restore-viewer');
   if(!viewer)return;
   const a=restoreAnalysis();
-  if(!a){viewer.innerHTML='<p class="photo-note">このセーブはブロック表が見つからないため、まるごとの復元はできません。ポケモンタブから個体を救出してください。</p>';return}
+  if(!a){viewer.innerHTML='<p class="photo-note">このセーブはブロック表が見つからないため、まるごとの復元はできません。「ポケモンを救出」から個体を救出してください。</p>';return}
   const g=a.score>=90?['高い','high']:a.score>=RESTORE_LOW_SCORE?['ふつう','mid']:['低い','low'];
   const lostNames=a.lost.map(b=>blockName(a.l6.game,b.id));
   const notes=[];
@@ -1116,21 +1278,23 @@ function renderRestoreViewer(){
   if(!a.pcOk&&a.pcInfo)notes.push(`<li>ボックスのポケモン: 救出できた ${a.pcInfo.pokemon} 匹を元のマスに戻します${a.pcInfo.unreadable?`(読めないマス ${a.pcInfo.unreadable} 個は空きになります)`:''}。</li>`);
   {const n=fullRestoreMissing();if(n)notes.push(`<li><b>${n}体のポケモンが戻ってきません。「ポケモンの救出」をおすすめします。</b>(手持ち・バトルボックス・育て屋の部分が壊れているため)</li>`)}
   if(a.moved.length)notes.push(`<li>${a.moved.length} 個の部分は位置がずれていたので、本来の位置に戻します。</li>`);
-  const recommend=a.score>=RESTORE_TAB_MIN_SCORE&&a.score<100?`<p class="restore-recommend"><span class="restore-recommend-icon" aria-hidden="true">🎉</span>復元信頼度が${RESTORE_TAB_MIN_SCORE}%を超えています。ほとんどの情報を復元可能です！</p>`:'';
-  viewer.innerHTML=`${recommend}<div class="restore-score ${g[1]}">
+  const recommend=a.score>=RESTORE_TAB_MIN_SCORE&&a.score<100?`<p class="restore-recommend"><span class="restore-recommend-icon">${ICON.celebrate}</span>復元信頼度が${RESTORE_TAB_MIN_SCORE}%を超えています。ほとんどの情報を復元可能です！</p>`:'';
+  viewer.innerHTML=`<h3 class="restore-title">元のセーブを作り直します</h3>${recommend}<div class="restore-score ${g[1]}">
       <div class="restore-score-head"><span>復元信頼度</span><strong>${a.score}<small>%</small></strong><em>${g[0]}</em></div>
-      <div class="restore-bar"><i style="width:${a.score}%"></i></div>
+      <div class="restore-bar" role="img" aria-label="復元信頼度 ${a.score}%"><i style="width:${a.score}%"></i></div>
       <p>セーブを作る ${a.total} 個の部分のうち、${a.ok} 個がそのまま残っています。</p>
     </div>
     ${notes.length?`<ul class="restore-notes">${notes.join('')}</ul>`:''}
-    <div class="avatar-sub">失われている部分</div>
-    <p class="restore-lost">${lostNames.length?lostNames.map(n=>`<span>${escapeHtml(n)}</span>`).join(''):'なし'}</p>
+    <dl class="restore-kv">
+      <div><dt>失われている部分</dt><dd class="restore-lost">${lostNames.length?lostNames.map(n=>`<span>${escapeHtml(n)}</span>`).join(''):'なし'}</dd></div>
+      <div><dt>位置のずれを補正</dt><dd>${a.moved.length?a.moved.length+' 個':'なし'}</dd></div>
+    </dl>
     <p class="photo-note">失われている部分は、救出用の空のセーブ(試験データ)の内容で補います。空のセーブがないゲームでは、空の状態になります。</p>
-    <button type="button" class="button restore-button">セーブデータをまるごと復元する</button>
-    <p class="photo-note">元のセーブとは別のファイル(main)として保存されます。ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。</p>`;
-  const btn=viewer.querySelector('.restore-button');
-  btn.addEventListener('click',()=>confirmLowRestore(async()=>{
-    btn.disabled=true;
+    <p class="photo-note">元のセーブとは別のファイル(<code>main</code>)として保存されます。ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。</p>`;
+}
+function runFullRestore(){
+  confirmLowRestore(async()=>{
+    download.disabled=true;
     try{
       const {data,report:r}=await buildFullRestore();
       saveBlob(data,'main');
@@ -1138,8 +1302,8 @@ function renderRestoreViewer(){
       if(window.NERCounter)window.NERCounter.countRescue();
       msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`+verifyText(verifyMain(new Uint8Array(data))),!r.allValid);
     }catch(e){msg('まるごとの復元に失敗しました: '+e.message,true)}
-    finally{btn.disabled=false}
-  }));
+    finally{updateItemsButton()}
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1242,7 +1406,7 @@ function renderRepairHelp(){
   r.textContent=o?o.name:'まだありません';r.classList.toggle('missing',!o);
   btn.disabled=!(f&&o);
   note.className='repair-note';
-  note.textContent=!f?'':!o?'先に「ポケモンを救出する」(または「まるごと復元」)で、救出したデータを作ってください。':'押すと修復依頼ページが開き、2 つのデータが添付された状態になります。';
+  note.textContent=!f?'':!o?'先に「セーブデータをダウンロード」で、救出したデータ(または、まるごと復元したデータ)を作ってください。':'押すと修復依頼ページが開き、2 つのデータが添付された状態になります。';
 }
 function handoffPut(rec){
   return new Promise((ok,ng)=>{
