@@ -5,9 +5,9 @@
 <meta name="google-adsense-account" content="ca-pub-9139206140818266">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9139206140818266" crossorigin="anonymous"></script>
 <title>ポケモン破損セーブ救出 | NER Pokémon Recovery</title>
-<!-- 末尾の ?v= はブラウザのキャッシュ対策。app.js の APP_VERSION を上げたら、
-     index.html と privacy.html のこの数字も同じ値に揃えること。 -->
-<link rel="stylesheet" href="style.css?v=72">
+<!-- 末尾の ?v= はブラウザのキャッシュ対策。版番号の元は version.json。
+     上げるときは node tools/set-version.js <番号> で、この数字と js/version.js などをまとめてそろえる。 -->
+<link rel="stylesheet" href="style.css?v=73">
 </head>
 <body>
 <div class="social-fixed">
@@ -19,7 +19,7 @@
 <main class="wrap">
 <section class="hero">
 <p class="eyebrow">POKÉMON SAVE RECOVERY</p>
-<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=71" type="image/webp"><img src="img/logo.png?v=71" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
+<h1 class="hero-logo"><picture><source srcset="img/logo.webp?v=73" type="image/webp"><img src="img/logo.png?v=73" width="1300" height="437" alt="破損セーブからポケモンを救出 NER Pokémon Recovery" decoding="async"></picture></h1>
 <p class="lead">破損したポケモンのセーブデータをブラウザ内で解析し、内部に残っているポケモンや道具を取り出して、そのままゲームで遊べるセーブ(<code>main</code>)にします。壊れた部分が少なければ、セーブをまるごと復元することもできます。</p>
 </section>
 <section class="card">
@@ -29,7 +29,7 @@
 <span class="drop-title">破損セーブを選択</span>
 <span class="drop-sub">.main / .sav / .bin / .dat をドラッグ＆ドロップ</span>
 </label>
-<div id="status" class="status hidden"></div>
+<div id="status" class="status hidden" role="status" aria-live="polite"></div>
 <div id="result" class="hidden">
 <div class="summary">
 <div><span>推定ソフト</span><strong id="game"></strong></div>
@@ -40,7 +40,7 @@
 </div>
 <div id="sampleOffer" class="sample-offer hidden">
 <span class="sample-text">破損データのサンプル提供にご協力ください。</span>
-<span class="sample-info" tabindex="0" role="button" aria-label="サンプル提供について" aria-describedby="sampleTip">i<span id="sampleTip" class="sample-tip" role="tooltip">より多くの破損データの修復を可能にするために、引き続きアプリケーションの改善が必要です。サンプルデータを提供していただければ、更なる改善が期待できます。ポケモンを掠取するなどの私的利用は行わないと約束します。第三者にセーブデータが渡ることはありません。</span></span>
+<span class="sample-info" tabindex="0" role="button" aria-label="サンプル提供について" aria-describedby="sampleTip">i<span id="sampleTip" class="sample-tip" role="tooltip">より多くの破損データの修復を可能にするために、引き続きアプリケーションの改善が必要です。サンプルデータを提供していただければ、更なる改善が期待できます。提供したセーブデータは運営者の Google ドライブに保存されます。ポケモンを掠取するなどの私的利用は行わないと約束します。運営者以外がセーブデータを閲覧することはありません。</span></span>
 <button type="button" id="sampleButton" class="small-button sample-button">提供する</button>
 </div>
 <div id="returnGuide" class="return-guide hidden" aria-live="polite"></div>
@@ -67,18 +67,22 @@
 </section>
 <section class="info">
 <h2>対応予定・現在の対応</h2>
-<ul><li><strong>第6世代：X / Y / オメガルビー / アルファサファイア</strong>（ゲームでそのまま開ける main）</li><li><strong>救出の出力</strong>：選んだポケモン（ボックス・手持ち・バトルボックス・育て屋）と、残っていたお金・バッグの道具・技マシン・薬・木の実をまとめて入れた <code>main</code> を出力します（お金と道具はバッグタブで入れるかどうかを切り替え。大切なものは対象外）。図鑑の登録状況とトレーナー名・ID も、読み取れれば入れます(それぞれのタブで選択)。</li><li>正常なセーブだけでなく、セーブ全体のチェックサムが壊れている場合でも内部をスキャンします。</li><li>処理はすべてブラウザ内で行われ、セーブデータはサーバーへ送信されません（「破損データのサンプル提供」で提供を選んだ場合を除く）。</li></ul>
+<ul><li><strong>第6世代：X / Y / オメガルビー / アルファサファイア</strong>（ゲームでそのまま開ける main）</li><li><strong>救出の出力</strong>：選んだポケモン（ボックス・手持ち・バトルボックス・育て屋）と、残っていたお金・バッグの道具・技マシン・薬・木の実をまとめて入れた <code>main</code> を出力します（お金と道具はバッグタブで入れるかどうかを切り替え。大切なものは対象外）。図鑑の登録状況とトレーナー名・ID も、読み取れれば入れます(それぞれのタブで選択)。</li><li>正常なセーブだけでなく、セーブ全体のチェックサムが壊れている場合でも内部をスキャンします。</li><li>セーブデータの解析と救出したデータの作成は、すべてブラウザ内で行います。セーブデータが送信されるのは、「破損データのサンプル提供」で「はい」を選んだときと、「修復をリクエストする」で開いた修復依頼ページから送信したときだけです。なお、このページは広告（Google AdSense）と訪問者数などの集計（CountAPI）のために外部と通信します（セーブデータは含みません）。詳しくは<a href="privacy.html">プライバシーポリシー</a>をご覧ください。</li></ul>
 <h2>重要</h2>
 <p class="note">これは「セーブを修復して元に戻す」ツールではなく、<strong>残存しているポケモン個体データを救出するためのツール</strong>です。検出結果には、チェックサムなどの内部構造がすべて一致した「完全な状態の個体」だけを表示します。復元に含める個体はユーザー自身がチェックボックスで選択できます。</p>
 <p class="note">検出されたデータは、内部構造・チェックサムなどを検証したうえで出力します。ゲームに戻す前に、必ず元のセーブのバックアップを取ってください。</p>
 </section>
 <footer><a href="../converter/">NER Converter</a> · <a href="privacy.html">プライバシーポリシー</a> · <a href="https://github.com/kwsch/PKHeX" target="_blank" rel="noopener">PKHeX reference</a> · アイコン: <a href="https://msikma.github.io/pokesprite/" target="_blank" rel="noopener">PokeSprite</a>(画像 © Nintendo/Creatures Inc./GAME FREAK Inc.) · 記号フォント: <a href="https://github.com/msikma/PokeDings" target="_blank" rel="noopener">PokéDings</a></footer>
 </main>
-<script src="pkdata.js?v=71"></script>
-<script src="pk_fashion.js?v=71"></script>
-<script src="pk_icons.js?v=71"></script>
-<script src="pk_atlas.js?v=71"></script>
-<script src="pk_detail.js?v=71"></script>
-<script src="app.js?v=71"></script>
-<script src="counter.js?v=71"></script>
+<script src="pkdata.js?v=73"></script>
+<script src="pk_fashion.js?v=73"></script>
+<script src="pk_icons.js?v=73"></script>
+<script src="pk_atlas.js?v=73"></script>
+<script src="pk_detail.js?v=73"></script>
+<script src="js/version.js?v=73"></script>
+<script src="js/core.js?v=73"></script>
+<script src="js/parse.js?v=73"></script>
+<script src="js/export.js?v=73"></script>
+<script src="js/ui.js?v=73"></script>
+<script src="counter.js?v=73"></script>
 </body></html>

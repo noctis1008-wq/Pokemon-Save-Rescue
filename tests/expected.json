@@ -1,0 +1,1012 @@
+{
+ "templates/main_oras#orig": {
+  "size": 483328,
+  "game": "ORAS / オメガルビー・アルファサファイア",
+  "layout": {
+   "game": "ORAS",
+   "blocks": 58,
+   "ok": 58,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 483328,
+   "status": "03ee2cc50918d9ace4ec5b1f",
+   "lin": "fd4ef1193e75a5ddbb513c1c"
+  },
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "97568d9c6322ebf05526b7c1",
+  "boxNames": "97e4e34c3ec344396043c997",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "e962b0ac92af8d0aac7d7a67",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "2183b7c9acc1bf3d3916f9fd",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "95b6096b027fc3fddcab7b52",
+  "avatar": "0b8e0036cf1996cd33cf9d94",
+  "main": {
+   "hash": "bda6be10d37a00e99d308dd3",
+   "report": {
+    "pc": 0,
+    "party": 1,
+    "battle": 0,
+    "daycare": 0,
+    "partyToBox": 0,
+    "skipped": 0
+   },
+   "verify": {
+    "ok": 58,
+    "total": 58,
+    "box": 0,
+    "party": 1,
+    "battle": 0,
+    "items": 0
+   }
+  },
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "templates/main_oras#rot": {
+  "size": 483328,
+  "game": "ORAS / オメガルビー・アルファサファイア",
+  "layout": {
+   "game": "ORAS",
+   "blocks": 58,
+   "ok": 58,
+   "moved": 0,
+   "shift": 327680,
+   "rotated": true,
+   "saveSize": 483328,
+   "status": "03ee2cc50918d9ace4ec5b1f",
+   "lin": "fd4ef1193e75a5ddbb513c1c"
+  },
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "1e112f6d0a13ff1742ad5715",
+  "boxNames": "97e4e34c3ec344396043c997",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "e962b0ac92af8d0aac7d7a67",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "2183b7c9acc1bf3d3916f9fd",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "95b6096b027fc3fddcab7b52",
+  "avatar": "0b8e0036cf1996cd33cf9d94",
+  "main": {
+   "hash": "bda6be10d37a00e99d308dd3",
+   "report": {
+    "pc": 0,
+    "party": 1,
+    "battle": 0,
+    "daycare": 0,
+    "partyToBox": 0,
+    "skipped": 0
+   },
+   "verify": {
+    "ok": 58,
+    "total": 58,
+    "box": 0,
+    "party": 1,
+    "battle": 0,
+    "items": 0
+   }
+  },
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "templates/main_oras#shift": {
+  "size": 483328,
+  "game": "ORAS / オメガルビー・アルファサファイア",
+  "layout": null,
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "6baec06a9b9e7f59022cc692",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "templates/main_oras#corrupt": {
+  "size": 483328,
+  "game": "ORAS / オメガルビー・アルファサファイア",
+  "layout": {
+   "game": "ORAS",
+   "blocks": 58,
+   "ok": 56,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 483328,
+   "status": "2d2448b32cf7cf5199fb4658",
+   "lin": "14c26f41623a7191e9250304"
+  },
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "97568d9c6322ebf05526b7c1",
+  "boxNames": "97e4e34c3ec344396043c997",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "e962b0ac92af8d0aac7d7a67",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "2183b7c9acc1bf3d3916f9fd",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "95b6096b027fc3fddcab7b52",
+  "avatar": "0b8e0036cf1996cd33cf9d94",
+  "main": {
+   "hash": "bda6be10d37a00e99d308dd3",
+   "report": {
+    "pc": 0,
+    "party": 1,
+    "battle": 0,
+    "daycare": 0,
+    "partyToBox": 0,
+    "skipped": 0
+   },
+   "verify": {
+    "ok": 58,
+    "total": 58,
+    "box": 0,
+    "party": 1,
+    "battle": 0,
+    "items": 0
+   }
+  },
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "templates/main_oras#trunc": {
+  "size": 446464,
+  "game": "サイズから特定できないセーブ",
+  "layout": null,
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "97568d9c6322ebf05526b7c1",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "templates/main_xy#orig": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": {
+   "game": "XY",
+   "blocks": 55,
+   "ok": 55,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 415232,
+   "status": "59bfdb363bc4ab841f361d55",
+   "lin": "32faeceb56c37c7d6d400dab"
+  },
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "ac2ac959a9fa6177e9f9e7df",
+  "boxNames": "97e4e34c3ec344396043c997",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "930bf8dac9022c672eaf9a97",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "bc2ac396241679a40724f915",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "ebb0e7443230f73dfa5b7af7",
+  "avatar": "622d33d92465d819ba8c816f",
+  "main": {
+   "hash": "5a8cefcac36eb8140f2716ff",
+   "report": {
+    "pc": 0,
+    "party": 1,
+    "battle": 0,
+    "daycare": 0,
+    "partyToBox": 0,
+    "skipped": 0
+   },
+   "verify": {
+    "ok": 55,
+    "total": 55,
+    "box": 0,
+    "party": 1,
+    "battle": 0,
+    "items": 0
+   }
+  },
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "templates/main_xy#rot": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": {
+   "game": "XY",
+   "blocks": 55,
+   "ok": 55,
+   "moved": 0,
+   "shift": 327680,
+   "rotated": true,
+   "saveSize": 415232,
+   "status": "59bfdb363bc4ab841f361d55",
+   "lin": "32faeceb56c37c7d6d400dab"
+  },
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "c5b28cefd23a951cb6473fc1",
+  "boxNames": "97e4e34c3ec344396043c997",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "930bf8dac9022c672eaf9a97",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "bc2ac396241679a40724f915",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "ebb0e7443230f73dfa5b7af7",
+  "avatar": "622d33d92465d819ba8c816f",
+  "main": {
+   "hash": "5a8cefcac36eb8140f2716ff",
+   "report": {
+    "pc": 0,
+    "party": 1,
+    "battle": 0,
+    "daycare": 0,
+    "partyToBox": 0,
+    "skipped": 0
+   },
+   "verify": {
+    "ok": 55,
+    "total": 55,
+    "box": 0,
+    "party": 1,
+    "battle": 0,
+    "items": 0
+   }
+  },
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "templates/main_xy#shift": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": null,
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "a9eb922067e31ad10dd4ca06",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "templates/main_xy#corrupt": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": {
+   "game": "XY",
+   "blocks": 55,
+   "ok": 54,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 415232,
+   "status": "7070226a73f3b1b785dbe4f3",
+   "lin": "5a08139ea33444fa7613b737"
+  },
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "ac2ac959a9fa6177e9f9e7df",
+  "boxNames": "97e4e34c3ec344396043c997",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "930bf8dac9022c672eaf9a97",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "bc2ac396241679a40724f915",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "ebb0e7443230f73dfa5b7af7",
+  "avatar": "622d33d92465d819ba8c816f",
+  "main": {
+   "hash": "5a8cefcac36eb8140f2716ff",
+   "report": {
+    "pc": 0,
+    "party": 1,
+    "battle": 0,
+    "daycare": 0,
+    "partyToBox": 0,
+    "skipped": 0
+   },
+   "verify": {
+    "ok": 55,
+    "total": 55,
+    "box": 0,
+    "party": 1,
+    "battle": 0,
+    "items": 0
+   }
+  },
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "templates/main_xy#trunc": {
+  "size": 378368,
+  "game": "サイズから特定できないセーブ",
+  "layout": null,
+  "hits": 1,
+  "complete": 1,
+  "hitsDigest": "ac2ac959a9fa6177e9f9e7df",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 1,
+   "conflicts": 0
+  }
+ },
+ "test/main#orig": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": {
+   "game": "XY",
+   "blocks": 55,
+   "ok": 55,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 415232,
+   "status": "59bfdb363bc4ab841f361d55",
+   "lin": "9fd9a6196f34e31e083132c0"
+  },
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "f0be56b8e376c6cbbed8e811",
+  "boxNames": "2ce767fcb6983e7514ec764d",
+  "bag": 218,
+  "bagDigest": "0b910714c513583b9f3b6137",
+  "money": "d07b4b87ec8bbb3a90b883cf",
+  "photo": "08b65d23ddb1112a56429028",
+  "dex": "1ad4bb69e57883528efe89ae",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "bfb57d93a63f8c20455d1aab",
+  "avatar": "9c56091fde8aec1d4690cd48",
+  "main": {
+   "hash": "20ef519821490f19e8f1d029",
+   "report": {
+    "pc": 38,
+    "party": 3,
+    "battle": 2,
+    "daycare": 2,
+    "partyToBox": 1,
+    "skipped": 1
+   },
+   "verify": {
+    "ok": 55,
+    "total": 55,
+    "box": 39,
+    "party": 3,
+    "battle": 2,
+    "items": 218
+   }
+  },
+  "bin": {
+   "hash": "79fca4dbbc668886cedc2980",
+   "placed": 38,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ },
+ "test/main#rot": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": {
+   "game": "XY",
+   "blocks": 55,
+   "ok": 55,
+   "moved": 0,
+   "shift": 327680,
+   "rotated": true,
+   "saveSize": 415232,
+   "status": "59bfdb363bc4ab841f361d55",
+   "lin": "9fd9a6196f34e31e083132c0"
+  },
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "4788d5f08e2b4e1ce7d1a679",
+  "boxNames": "2ce767fcb6983e7514ec764d",
+  "bag": 218,
+  "bagDigest": "0b910714c513583b9f3b6137",
+  "money": "d07b4b87ec8bbb3a90b883cf",
+  "photo": "08b65d23ddb1112a56429028",
+  "dex": "1ad4bb69e57883528efe89ae",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "bfb57d93a63f8c20455d1aab",
+  "avatar": "9c56091fde8aec1d4690cd48",
+  "main": {
+   "hash": "20ef519821490f19e8f1d029",
+   "report": {
+    "pc": 38,
+    "party": 3,
+    "battle": 2,
+    "daycare": 2,
+    "partyToBox": 1,
+    "skipped": 1
+   },
+   "verify": {
+    "ok": 55,
+    "total": 55,
+    "box": 39,
+    "party": 3,
+    "battle": 2,
+    "items": 218
+   }
+  },
+  "bin": {
+   "hash": "79fca4dbbc668886cedc2980",
+   "placed": 38,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ },
+ "test/main#shift": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": null,
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "cad8ee1f162868f67f0ebc32",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 47,
+   "conflicts": 0
+  }
+ },
+ "test/main#corrupt": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": {
+   "game": "XY",
+   "blocks": 55,
+   "ok": 54,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 415232,
+   "status": "7070226a73f3b1b785dbe4f3",
+   "lin": "2de8109e4cd97f4df6a444ea"
+  },
+  "hits": 42,
+  "complete": 42,
+  "hitsDigest": "1e0292279afba9a77d478137",
+  "boxNames": "2ce767fcb6983e7514ec764d",
+  "bag": 218,
+  "bagDigest": "0b910714c513583b9f3b6137",
+  "money": "d07b4b87ec8bbb3a90b883cf",
+  "photo": "08b65d23ddb1112a56429028",
+  "dex": "1ad4bb69e57883528efe89ae",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "bfb57d93a63f8c20455d1aab",
+  "avatar": "9c56091fde8aec1d4690cd48",
+  "main": {
+   "hash": "aa988b8115bacb4a1e3a1084",
+   "report": {
+    "pc": 33,
+    "party": 3,
+    "battle": 2,
+    "daycare": 2,
+    "partyToBox": 1,
+    "skipped": 1
+   },
+   "verify": {
+    "ok": 55,
+    "total": 55,
+    "box": 34,
+    "party": 3,
+    "battle": 2,
+    "items": 218
+   }
+  },
+  "bin": {
+   "hash": "4d8f8a9bd5b5f32ab69e4182",
+   "placed": 33,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ },
+ "test/main#trunc": {
+  "size": 378368,
+  "game": "サイズから特定できないセーブ",
+  "layout": null,
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "f0be56b8e376c6cbbed8e811",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 47,
+   "conflicts": 0
+  }
+ },
+ "test/main_gift#orig": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": {
+   "game": "XY",
+   "blocks": 55,
+   "ok": 55,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 415232,
+   "status": "59bfdb363bc4ab841f361d55",
+   "lin": "0118bf81969e5dc8d6d6c27c"
+  },
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "f0be56b8e376c6cbbed8e811",
+  "boxNames": "2ce767fcb6983e7514ec764d",
+  "bag": 218,
+  "bagDigest": "0b910714c513583b9f3b6137",
+  "money": "d07b4b87ec8bbb3a90b883cf",
+  "photo": "08b65d23ddb1112a56429028",
+  "dex": "1ad4bb69e57883528efe89ae",
+  "gift": "c5b9f9ffa351c5c1336e3692",
+  "trainer": "bfb57d93a63f8c20455d1aab",
+  "avatar": "9c56091fde8aec1d4690cd48",
+  "main": {
+   "hash": "a4927e40c510a14d4c298956",
+   "report": {
+    "pc": 38,
+    "party": 3,
+    "battle": 2,
+    "daycare": 2,
+    "partyToBox": 1,
+    "skipped": 1
+   },
+   "verify": {
+    "ok": 55,
+    "total": 55,
+    "box": 39,
+    "party": 3,
+    "battle": 2,
+    "items": 218
+   }
+  },
+  "bin": {
+   "hash": "79fca4dbbc668886cedc2980",
+   "placed": 38,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ },
+ "test/main_gift#rot": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": {
+   "game": "XY",
+   "blocks": 55,
+   "ok": 55,
+   "moved": 0,
+   "shift": 327680,
+   "rotated": true,
+   "saveSize": 415232,
+   "status": "59bfdb363bc4ab841f361d55",
+   "lin": "0118bf81969e5dc8d6d6c27c"
+  },
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "4788d5f08e2b4e1ce7d1a679",
+  "boxNames": "2ce767fcb6983e7514ec764d",
+  "bag": 218,
+  "bagDigest": "0b910714c513583b9f3b6137",
+  "money": "d07b4b87ec8bbb3a90b883cf",
+  "photo": "08b65d23ddb1112a56429028",
+  "dex": "1ad4bb69e57883528efe89ae",
+  "gift": "c5b9f9ffa351c5c1336e3692",
+  "trainer": "bfb57d93a63f8c20455d1aab",
+  "avatar": "9c56091fde8aec1d4690cd48",
+  "main": {
+   "hash": "a4927e40c510a14d4c298956",
+   "report": {
+    "pc": 38,
+    "party": 3,
+    "battle": 2,
+    "daycare": 2,
+    "partyToBox": 1,
+    "skipped": 1
+   },
+   "verify": {
+    "ok": 55,
+    "total": 55,
+    "box": 39,
+    "party": 3,
+    "battle": 2,
+    "items": 218
+   }
+  },
+  "bin": {
+   "hash": "79fca4dbbc668886cedc2980",
+   "placed": 38,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ },
+ "test/main_gift#shift": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": null,
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "cad8ee1f162868f67f0ebc32",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 47,
+   "conflicts": 0
+  }
+ },
+ "test/main_gift#corrupt": {
+  "size": 415232,
+  "game": "XY / X・Y",
+  "layout": {
+   "game": "XY",
+   "blocks": 55,
+   "ok": 54,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 415232,
+   "status": "7070226a73f3b1b785dbe4f3",
+   "lin": "f0ac7b93c128d5c5405311d2"
+  },
+  "hits": 42,
+  "complete": 42,
+  "hitsDigest": "1e0292279afba9a77d478137",
+  "boxNames": "2ce767fcb6983e7514ec764d",
+  "bag": 218,
+  "bagDigest": "0b910714c513583b9f3b6137",
+  "money": "d07b4b87ec8bbb3a90b883cf",
+  "photo": "08b65d23ddb1112a56429028",
+  "dex": "1ad4bb69e57883528efe89ae",
+  "gift": "c5b9f9ffa351c5c1336e3692",
+  "trainer": "bfb57d93a63f8c20455d1aab",
+  "avatar": "9c56091fde8aec1d4690cd48",
+  "main": {
+   "hash": "94d41a6811dbfd09f80f66ed",
+   "report": {
+    "pc": 33,
+    "party": 3,
+    "battle": 2,
+    "daycare": 2,
+    "partyToBox": 1,
+    "skipped": 1
+   },
+   "verify": {
+    "ok": 55,
+    "total": 55,
+    "box": 34,
+    "party": 3,
+    "battle": 2,
+    "items": 218
+   }
+  },
+  "bin": {
+   "hash": "4d8f8a9bd5b5f32ab69e4182",
+   "placed": 33,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ },
+ "test/main_gift#trunc": {
+  "size": 378368,
+  "game": "サイズから特定できないセーブ",
+  "layout": null,
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "f0be56b8e376c6cbbed8e811",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 47,
+   "conflicts": 0
+  }
+ },
+ "test/main_oras#orig": {
+  "size": 483328,
+  "game": "ORAS / オメガルビー・アルファサファイア",
+  "layout": {
+   "game": "ORAS",
+   "blocks": 58,
+   "ok": 58,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 483328,
+   "status": "03ee2cc50918d9ace4ec5b1f",
+   "lin": "ddf94a0b4ccf677c77180882"
+  },
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "8b1aa8dce13f4250bf6e7687",
+  "boxNames": "a37621f28a2653b9b74eb498",
+  "bag": 218,
+  "bagDigest": "56b0d3572b50fc7e1244879e",
+  "money": "707e468b6def0dbeaa81715a",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "cf4b223569661eadcb5830da",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "ced488ec7a8aa75766faf1df",
+  "avatar": "2e0ec880de941e65cac3ede3",
+  "main": {
+   "hash": "5e0cf8fe4631589931a2e113",
+   "report": {
+    "pc": 38,
+    "party": 4,
+    "battle": 2,
+    "daycare": 3,
+    "partyToBox": 0,
+    "skipped": 0
+   },
+   "verify": {
+    "ok": 58,
+    "total": 58,
+    "box": 38,
+    "party": 4,
+    "battle": 2,
+    "items": 218
+   }
+  },
+  "bin": {
+   "hash": "038791d179b6253ece1f0a59",
+   "placed": 38,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ },
+ "test/main_oras#rot": {
+  "size": 483328,
+  "game": "ORAS / オメガルビー・アルファサファイア",
+  "layout": {
+   "game": "ORAS",
+   "blocks": 58,
+   "ok": 58,
+   "moved": 0,
+   "shift": 327680,
+   "rotated": true,
+   "saveSize": 483328,
+   "status": "03ee2cc50918d9ace4ec5b1f",
+   "lin": "ddf94a0b4ccf677c77180882"
+  },
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "fd99b1250ee365af4d420978",
+  "boxNames": "a37621f28a2653b9b74eb498",
+  "bag": 218,
+  "bagDigest": "56b0d3572b50fc7e1244879e",
+  "money": "707e468b6def0dbeaa81715a",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "cf4b223569661eadcb5830da",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "ced488ec7a8aa75766faf1df",
+  "avatar": "2e0ec880de941e65cac3ede3",
+  "main": {
+   "hash": "5e0cf8fe4631589931a2e113",
+   "report": {
+    "pc": 38,
+    "party": 4,
+    "battle": 2,
+    "daycare": 3,
+    "partyToBox": 0,
+    "skipped": 0
+   },
+   "verify": {
+    "ok": 58,
+    "total": 58,
+    "box": 38,
+    "party": 4,
+    "battle": 2,
+    "items": 218
+   }
+  },
+  "bin": {
+   "hash": "038791d179b6253ece1f0a59",
+   "placed": 38,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ },
+ "test/main_oras#shift": {
+  "size": 483328,
+  "game": "ORAS / オメガルビー・アルファサファイア",
+  "layout": null,
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "6ae62e57df7b0bfb10d387c2",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "40ea2842bdb492ed3ccc123c",
+   "placed": 0,
+   "unknown": 47,
+   "conflicts": 0
+  }
+ },
+ "test/main_oras#corrupt": {
+  "size": 483328,
+  "game": "ORAS / オメガルビー・アルファサファイア",
+  "layout": {
+   "game": "ORAS",
+   "blocks": 58,
+   "ok": 56,
+   "moved": 0,
+   "shift": 0,
+   "rotated": true,
+   "saveSize": 483328,
+   "status": "2d2448b32cf7cf5199fb4658",
+   "lin": "808d34bdbb3b134e9b3fef38"
+  },
+  "hits": 42,
+  "complete": 42,
+  "hitsDigest": "cf00e98be323e433f9dc249d",
+  "boxNames": "a37621f28a2653b9b74eb498",
+  "bag": 218,
+  "bagDigest": "56b0d3572b50fc7e1244879e",
+  "money": "707e468b6def0dbeaa81715a",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "cf4b223569661eadcb5830da",
+  "gift": "ee303b5e50015003bd61f08d",
+  "trainer": "ced488ec7a8aa75766faf1df",
+  "avatar": "2e0ec880de941e65cac3ede3",
+  "main": {
+   "hash": "29afb8460c0e7f25fd5cde31",
+   "report": {
+    "pc": 33,
+    "party": 4,
+    "battle": 2,
+    "daycare": 3,
+    "partyToBox": 0,
+    "skipped": 0
+   },
+   "verify": {
+    "ok": 58,
+    "total": 58,
+    "box": 33,
+    "party": 4,
+    "battle": 2,
+    "items": 218
+   }
+  },
+  "bin": {
+   "hash": "4d8f8a9bd5b5f32ab69e4182",
+   "placed": 33,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ },
+ "test/main_oras#trunc": {
+  "size": 446464,
+  "game": "サイズから特定できないセーブ",
+  "layout": null,
+  "hits": 47,
+  "complete": 47,
+  "hitsDigest": "8b1aa8dce13f4250bf6e7687",
+  "boxNames": "74234e98afe7498fb5daf1f3",
+  "bag": null,
+  "bagDigest": "74234e98afe7498fb5daf1f3",
+  "money": "74234e98afe7498fb5daf1f3",
+  "photo": "74234e98afe7498fb5daf1f3",
+  "dex": "74234e98afe7498fb5daf1f3",
+  "gift": "74234e98afe7498fb5daf1f3",
+  "trainer": "74234e98afe7498fb5daf1f3",
+  "avatar": "74234e98afe7498fb5daf1f3",
+  "bin": {
+   "hash": "038791d179b6253ece1f0a59",
+   "placed": 38,
+   "unknown": 9,
+   "conflicts": 0
+  }
+ }
+}

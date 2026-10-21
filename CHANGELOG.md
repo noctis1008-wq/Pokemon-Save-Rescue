@@ -3,16 +3,30 @@
 バージョンは連番。更新のたびに 1 つ増やす。
 旧 ZIP の `v1` … `v5`(`NER_Pokemon_Recovery_v5_CSV_names.zip`)の続きとして **v6 から開始**している。
 
-次の **5 か所** を必ず同じ値に揃えること。
-
-1. `app.js` の `APP_VERSION`
-2. `index.html` の `?v=`(style.css / pkdata.js / pk_fashion.js / pk_icons.js / app.js / counter.js / ロゴ画像)
-3. `privacy.html` の `?v=`(1 か所: style.css)
-4. 配布 ZIP のファイル名
-5. この `CHANGELOG.md` の見出し
+v73 から、版番号の元は `version.json` の 1 か所。上げるときは `node tools/set-version.js <番号>` を実行すると、
+`version.json`・`js/version.js` の `APP_VERSION`・`index.html` / `privacy.html` / `style.css` の `?v=` がすべて同じ値になる。
+そのうえで、配布 ZIP のファイル名とこの `CHANGELOG.md` の見出しを同じ値にすること(`node --test tests/` でそろっているか確かめられる)。
 
 `?v=` を上げ忘れると、更新しても利用者のブラウザに反映されない。
 公開中のサイトのバージョンはページ下部のフッターに表示される。
+
+---
+
+## v73 — 2026-10-21
+
+内部の整理と、プライバシーの表示の修正。**救出・復元の結果は変わらない**(分割前の v71 と、試験用セーブ・空のセーブと、それを回転・ずらし・破損・末尾欠けにした 25 通りで、見つかる個体・表示・作られる main / boxdata.bin / まるごと復元が同じことを確認)。
+v72 は欠番(v71 の時点で style.css の `?v=` だけが 72 になっていたため、すべてを 73 にそろえた)。
+
+- `app.js` を役割ごとに `js/version.js`・`js/core.js`・`js/parse.js`・`js/export.js`・`js/ui.js` に分割(ビルド不要のまま)。
+- 個体の走査(1 バイト刻み)を Web Worker(`js/scan-worker.js`)に移し、解析中は進み具合(文字と進捗バー)を表示。スマホでも画面が固まりにくい。
+  Worker を使えないとき(file:// で開いたときなど)は、画面側で少しずつ走査する(結果は同じ)。`#status` に `aria-live="polite"` を追加。
+  解析中に別のファイルを読み込んだときは、古いほうの結果を使わない。
+- `privacy.html` を NER Converter の流用からこのアプリ用に書き直し(ブラウザ内での解析、サンプル提供で送る内容と送り先、修復依頼ページへの受け渡し、AdSense、CountAPI、ブラウザ内に保存する情報)。
+- 「セーブデータはサーバーへ送信されません」の表示を、実際の動作(サンプル提供と修復依頼のときだけ送る・広告と集計の通信がある)に合わせた。README も同様。
+- サンプル提供の完了表示を「送信しました(保存できたかどうかは確認できません)」に変更(no-cors のため受け取り側の結果は分からない)。ボタンは「送信済み」。
+- 版番号の元を `version.json` にし、`tools/set-version.js` ですべての `?v=` をそろえるようにした。
+- node の回帰テスト(`tests/`、`node --test tests/`)を追加。
+- `img/logo.webp` を PNG と同じ見た目の可逆圧縮で作り直し(165 KB → 100 KB。PNG の 118 KB より小さくなった)。
 
 ---
 
