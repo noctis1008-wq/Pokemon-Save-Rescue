@@ -13,8 +13,10 @@
 const fileInput=document.getElementById('file');const drop=document.getElementById('drop');const statusEl=document.getElementById('status');const result=document.getElementById('result');const gameEl=document.getElementById('game');const sizeEl=document.getElementById('size');const countEl=document.getElementById('count');const listEl=document.getElementById('list');const download=document.getElementById('download');
 // v74: 新しい画面(手順表示・結果の要約・右側の書き出しパネル・下に固定したダウンロード)
 const uploadCard=document.querySelector('.upload-card'),sidePanel=document.getElementById('sidePanel'),sideCard=document.querySelector('.side-card'),exportPanel=document.getElementById('exportPanel'),restorePanel=document.getElementById('restorePanel'),modeSwitch=document.getElementById('modeSwitch'),modeHint=document.getElementById('modeHint'),dockSummary=document.getElementById('dockSummary');
+const donePanel=document.getElementById('donePanel');let doneState=null;   // v75: ダウンロード後の結果の画面
 // v74: 絵文字の代わりに使う小さなアイコン(SVG)
 const ICON={
+  download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.3" fill="currentColor"/></svg>',
   info:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/></svg>',
@@ -240,6 +242,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){const d=document.ge
 // ---------------------------------------------------------------------------
 let currentMode='rescue';
 function setMode(m){
+  exitDone();   // v75: 切り替えたら結果の画面を閉じて選択に戻る
   const full=m==='full'&&!!restoreAnalysis()&&!!listEl.querySelector('.view-tabs');
   currentMode=full?'full':'rescue';
   modeSwitch.querySelectorAll('[data-mode]').forEach(b=>{const on=(b.dataset.mode==='full')===full;b.classList.toggle('active',on);b.setAttribute('aria-checked',on?'true':'false')});
@@ -891,7 +894,7 @@ function renderBoxViewer(){
         <button type="button" class="small-button box-all" data-box-action="on"${c.pokemon?'':' disabled'}>このボックスを全部選ぶ</button>
         <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>全部外す</button>
       </div>
-      <div class="box-legend"><span><i class="lg lg-on">${ICON.check}</i>救出する</span><span><i class="lg lg-off"></i>選ばない</span><span><i class="lg lg-dmg"></i>読めない</span><span class="lg-hint">タップで${tapMode==='detail'?'詳細':'選択'}・長押しで詳細</span></div>
+      <div class="box-legend"><span><i class="lg lg-on">${ICON.check}</i>救出する</span><span><i class="lg lg-off"></i>選ばない</span><span><i class="lg lg-dmg"></i>読めない</span><span class="lg-hint">${tapMode==='detail'?'タップで詳細':'タップで選択・長押しで詳細'}</span></div>
     </div>`;
   const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
   viewer.querySelector('.box-prev').addEventListener('click',()=>{go(-1);listEl.querySelector('.box-prev').focus()});
@@ -923,7 +926,7 @@ function refreshBoxSelection(){
   });
   const ms=listEl.querySelector('.box-meta-sel');
   if(ms)ms.textContent=`選択中 ${listEl.querySelectorAll('.box-viewer .box-cell.is-pokemon.selected').length}`;
-  listEl.querySelectorAll('.box-legend .lg-hint').forEach(lh=>{lh.textContent=`タップで${tapMode==='detail'?'詳細':'選択'}・長押しで詳細`});
+  listEl.querySelectorAll('.box-legend .lg-hint').forEach(lh=>{lh.textContent=`${tapMode==='detail'?'タップで詳細':'タップで選択・長押しで詳細'}`});
 }
 // ボール画像(v12〜)。img/ball/<ボール番号>.png(1〜26)を表示し、読めない番号はボール名に戻る。
 // 画像はサイト運営者が用意したもの(アイテム番号→ボール番号に付け替え済み。対応表は CHANGELOG v12)。
@@ -1002,9 +1005,9 @@ function showStructureReport(l6,size,hits){
   if(gname)bits.push(`<span>${escapeHtml(gname)}</span>`);
   if(l6)bits.push(l6.okCount===l6.blocks.length?`<span>${l6.okCount}/${l6.blocks.length} ブロック正常</span>`:`<span class="chip warn">壊れた部分 ${l6.blocks.length-l6.okCount} / ${l6.blocks.length}</span>`);
   if(window.__bag)bits.push(`<span>道具 ${window.__bag.total}種</span>`);
-  // 要約のアイコン: ブロック表が見つからない・壊れた部分やずれがあるときは注意の印にする
-  {const healthy=!!l6&&size===l6.saveSize&&l6.okCount===l6.blocks.length;const card=document.querySelector('.summary-card'),ic=card&&card.querySelector('.summary-icon');
-   if(card){card.classList.toggle('is-warn',!healthy);if(ic)ic.innerHTML=healthy?ICON.check:ICON.warn}}
+  // v75: 要約の注意の印(⚠)は、救出できるポケモンが 1 匹もいないときだけ。壊れた部分があっても、救出できるポケモンがいれば通常の印にする(診断の中身は「診断」で見られる)
+  {const ok=hits.length>0;const card=document.querySelector('.summary-card'),ic=card&&card.querySelector('.summary-icon');
+   if(card){card.classList.toggle('is-warn',!ok);if(ic)ic.innerHTML=ok?ICON.check:ICON.warn}}
   document.getElementById('summaryBits').innerHTML=bits.map(b=>'<span class="bit">'+b+'</span>').join('');
 }
 function setDiagOpen(open){
@@ -1024,6 +1027,7 @@ function setResultState(on,fileName){
   else if(statusEl.parentNode!==uploadCard)uploadCard.appendChild(statusEl);
 }
 async function analyze(file){
+  exitDone();
   const seq=++analyzeSeq;
   result.classList.add('hidden');listEl.innerHTML='';setResultState(false,file.name);setStep(2);msg('セーブデータを解析しています…');
   closeSheet();
@@ -1087,7 +1091,7 @@ fileInput.addEventListener('change',()=>{if(fileInput.files[0])analyze(fileInput
 ['dragenter','dragover'].forEach(t=>uploadCard.addEventListener(t,e=>{e.preventDefault();uploadCard.classList.add('drag')}));
 ['dragleave','drop'].forEach(t=>uploadCard.addEventListener(t,e=>{e.preventDefault();if(t==='dragleave'&&uploadCard.contains(e.relatedTarget))return;uploadCard.classList.remove('drag')}));
 uploadCard.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)analyze(f).catch(err=>{msg('解析中にエラーが発生しました: '+err.message,true);setStep(1)})});
-// v74: セーブファイルの場所の案内(Checkpoint / JKSM / その他)
+// v74: セーブデータの持ってき方の案内(v75 から 3DS / エミュレータ の 2 つ)
 (function(){
   const tabs=[...document.querySelectorAll('.help-tabs [data-help]')];
   const pick=t=>tabs.forEach(x=>{const on=x===t;x.classList.toggle('active',on);x.setAttribute('aria-selected',on?'true':'false');x.tabIndex=on?0:-1;document.getElementById('help-'+x.dataset.help).hidden=!on});
@@ -1181,6 +1185,45 @@ function showReturnGuide(kind){
   box.querySelector('.guide-close').addEventListener('click',()=>box.classList.add('hidden'));
   box.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
+// v75: ④ 書き出す = ダウンロードしたあとの結果の画面。書き出す内容の欄と切り替えは隠し、実際に保存した内容・ファイル名・次にすることを出す。
+//   kind: 'rescue' / 'full' / 'bin'、count: 書き出したセーブに実際に入れたポケモンの数、items: 保存した内容(文字列の配列)
+function showDone(kind,count,items){
+  if(!donePanel)return;
+  doneState={kind};
+  const title=document.getElementById('summaryTitle');
+  if(title&&title.dataset.found===undefined)title.dataset.found=title.innerHTML;
+  if(title)title.innerHTML=kind==='full'?'セーブデータを<wbr>復元しました':count>0?`${count}匹のポケモンを<wbr>救出しました`:'セーブデータを<wbr>書き出しました';
+  const file=window.__lastOutput?window.__lastOutput.name:'main';
+  const intro={
+    rescue:'選んだポケモンや道具を、救出用の空のセーブに入れたセーブデータです。',
+    full:'壊れたセーブを作り直したセーブデータです。',
+    bin:'ボックスのポケモンだけのファイルです。'
+  }[kind];
+  const next=kind==='bin'?`<li><span>救出先にする<b>同じゲームのセーブ</b>のバックアップを取ります。</span></li><li><span>PKHeX でそのセーブを開き、<code>boxdata.bin</code> をドラッグ＆ドロップします(ボックス 31 個が置き換わります)。</span></li>`
+    :`<li><span>ゲームに戻す前に、今のセーブ(元のセーブ)を Checkpoint などで<b>バックアップ</b>します。</span></li><li><span>バックアップのフォルダの <code>main</code> を、ダウンロードした <code>main</code> と置き換えて、Checkpoint で <b>Restore</b> します(くわしい手順は下の「ゲームに戻す方法」)。</span></li>`;
+  donePanel.innerHTML=`<div class="done-head"><span class="done-icon" aria-hidden="true">${ICON.check}</span><div><h3 id="doneTitle">ダウンロードしました</h3><p>${intro}</p></div></div>
+    <dl class="done-kv"><div><dt>ファイル名</dt><dd><code>${escapeHtml(file)}</code></dd></div></dl>
+    ${items.length?`<h4 class="done-h">保存した内容</h4><ul class="done-list">${items.map(t=>`<li>${ICON.check}<span>${escapeHtml(t)}</span></li>`).join('')}</ul>`:''}
+    <h4 class="done-h">次にすること</h4><ol class="how done-next">${next}</ol>
+    <div class="done-actions"><button type="button" class="button done-again">${ICON.download||''}もう一度ダウンロード</button><button type="button" class="button button-secondary done-back">${ICON.prev}選択に戻る</button></div>`;
+  const guide=document.getElementById('returnGuide');if(guide)donePanel.appendChild(guide);
+  donePanel.querySelector('.done-again').addEventListener('click',()=>{const o=window.__lastOutput;if(!o)return;const url=URL.createObjectURL(new Blob([o.data],{type:'application/octet-stream'})),a=document.createElement('a');a.href=url;a.download=o.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
+  donePanel.querySelector('.done-back').addEventListener('click',()=>{exitDone();const b=modeSwitch.querySelector('.seg-btn.active')||download;if(b)b.focus()});
+  donePanel.hidden=false;document.body.classList.add('is-done');
+  setStep(4);
+  // 結果の画面の先頭へ(スマホでは要約が見えるように)
+  const sc=document.querySelector('.summary-card');if(sc)sc.scrollIntoView({block:'start'});
+  const h=document.getElementById('doneTitle');if(h){h.tabIndex=-1;h.focus({preventScroll:true})}
+}
+function exitDone(){
+  if(!doneState)return;
+  doneState=null;document.body.classList.remove('is-done');
+  const title=document.getElementById('summaryTitle');
+  if(title&&title.dataset.found!==undefined){title.innerHTML=title.dataset.found;delete title.dataset.found}
+  const guide=document.getElementById('returnGuide');if(guide){guide.classList.add('hidden');sideCard.appendChild(guide)}
+  if(donePanel){donePanel.hidden=true;donePanel.innerHTML=''}
+  if(document.body.classList.contains('has-result'))setStep(3);
+}
 function saveBlob(data,name){
   window.__lastOutput={name,data:new Uint8Array(data instanceof ArrayBuffer?data:(data.buffer?data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength):data)).slice()};renderRepairHelp();   // v71
   const url=URL.createObjectURL(new Blob([data],{type:'application/octet-stream'})),a=document.createElement('a');
@@ -1194,6 +1237,7 @@ function downloadBoxdataBin(selected,reason){
   if(window.NERCounter)window.NERCounter.countRescue();
   saveBlob(data,'boxdata.bin');
   showReturnGuide('bin');
+  showDone('bin',placed,[`ボックスのポケモン ${placed}匹`]);
   msg(`${reason}代わりに boxdata.bin(ボックスのポケモン ${placed} 匹)をダウンロードしました${unknown?`。ボックスの外にいる ${unknown} 匹は boxdata.bin には入りません`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。PKHeX で同じゲームのセーブを開いてから読み込んでください。`);
 }
 // v61: 場所不明のポケモンを選んでいたら、入れるボックスを選んでもらう
@@ -1252,6 +1296,8 @@ download.addEventListener('click',async()=>{
     if(r.skipped)notes.push(`場所不明のポケモンなど ${r.skipped}匹は入れていません。`);
     {const v=verifyMain(new Uint8Array(data));if(!v||v.ok!==v.total)notes.push('作った main を読み直したところ、一部のチェックサムが一致しませんでした。');}
     if(notes.length)msg(notes.join(' '));else clearMsg();
+    {const items=parts.slice(),at=[r.pc,r.party,r.battle,r.daycare].filter(Boolean).length,extra=[];if(r.partyToBox)extra.push(`ボックス(手持ちから移したもの) ${r.partyToBox}匹`);if(r.unknown)extra.push(`ボックス(場所不明だったもの) ${r.unknown}匹`);items.splice(at,0,...extra);
+     showDone('rescue',placed+(r.unknown||0),items)}
   }catch(e){
     if(e.noTemplate&&selected.length){
       try{downloadBoxdataBin(selected,`${e.message} `)}catch(e2){msg('boxdata.bin の作成に失敗しました: '+e2.message,true)}
@@ -1273,6 +1319,7 @@ function renderRestoreViewer(){
   if(!a){viewer.innerHTML='<p class="photo-note">このセーブはブロック表が見つからないため、まるごとの復元はできません。「ポケモンを救出」から個体を救出してください。</p>';return}
   const g=a.score>=90?['高い','high']:a.score>=RESTORE_LOW_SCORE?['ふつう','mid']:['低い','low'];
   const lostNames=a.lost.map(b=>blockName(a.l6.game,b.id));
+  if(a.pc&&!a.pcOk)lostNames.unshift(`${blockName(a.l6.game,a.pc.id)}(一部)`);   // v75: PC ボックスが壊れているときも「なし」と出さない
   const notes=[];
   if(a.story.length)notes.push(`<li><b>${a.story.map(id=>blockName(a.l6.game,id)).join('・')}</b> が失われているため、続きから遊ぶと話の流れや現在地が合わず、不具合が出る可能性があります。</li>`);
   if(!a.pcOk&&a.pcInfo)notes.push(`<li>ボックスのポケモン: 救出できた ${a.pcInfo.pokemon} 匹を元のマスに戻します${a.pcInfo.unreadable?`(読めないマス ${a.pcInfo.unreadable} 個は空きになります)`:''}。</li>`);
@@ -1300,6 +1347,7 @@ function runFullRestore(){
       saveBlob(data,'main');
       showReturnGuide('full');
       if(window.NERCounter)window.NERCounter.countRescue();
+      showDone('full',r.pcPokemon||0,[`残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}`].concat(r.fromTemplate?[`空のセーブで補った部分 ${r.fromTemplate} 個`]:[],r.zero?[`空にした部分 ${r.zero} 個`]:[],r.pcPokemon?[`ボックスのポケモン ${r.pcPokemon} 匹`]:[]));
       msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`+verifyText(verifyMain(new Uint8Array(data))),!r.allValid);
     }catch(e){msg('まるごとの復元に失敗しました: '+e.message,true)}
     finally{updateItemsButton()}
