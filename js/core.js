@@ -146,14 +146,27 @@ function classifyHits(hits){
   for(const h of list)h.sameEcCount=ecCount.get(h.ec>>>0);
   return list;
 }
-function scan(input,gen,maxSpecies){
-  const out=[];
+// v73: 走査は Web Worker(scan-worker.js)でも画面側でも同じ関数で行う。onProgress には 0〜1 の進み具合を渡す。
+const SCAN_STEP=0x4000;   // 進み具合を知らせる間隔(オフセット数)
+function scanCount(input){return Math.max(0,input.length-232+1)}
+function scanRange(input,gen,maxSpecies,from,to,out){
   // v38: 1 バイト刻み(v37 までは 2 バイト刻み)。奇数バイトずれた範囲(実例 ORAS -0x1F)の個体を見落としていたため
-  for(let i=0;i+232<=input.length;i++){
+  for(let i=from;i<to;i++){
     const p=decryptPK(input.subarray(i,i+232));
     if(!p||p.species>maxSpecies)continue;
     out.push({offset:i,...p,gen});
   }
+  return out;
+}
+function scan(input,gen,maxSpecies,onProgress){
+  const out=[],n=scanCount(input);
+  for(let i=0;i<n;i+=SCAN_STEP){const e=Math.min(n,i+SCAN_STEP);scanRange(input,gen,maxSpecies,i,e,out);if(onProgress)onProgress(e/n)}
+  return classifyHits(out);
+}
+// 画面側で少しずつ走査する(Worker を作れないとき。file:// で開いたときなど)。結果は scan() と同じ
+async function scanChunked(input,gen,maxSpecies,onProgress){
+  const out=[],n=scanCount(input);
+  for(let i=0;i<n;i+=SCAN_STEP){const e=Math.min(n,i+SCAN_STEP);scanRange(input,gen,maxSpecies,i,e,out);if(onProgress)onProgress(e/n);await new Promise(r=>setTimeout(r,0))}
   return classifyHits(out);
 }
 function shuffleForEncrypt(buf,sv){if(sv===0)return;const order=POS.slice(sv*4,sv*4+4),src=buf.slice(0,224);for(let i=0;i<4;i++)buf.set(src.slice(i*56,i*56+56),order[i]*56)}

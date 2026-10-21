@@ -33,8 +33,40 @@ function renderGiftViewer(viewer){
   const cb=viewer.querySelector('.include-gift');
   cb.addEventListener('change',()=>{window.__includeGift=cb.checked;updateItemsButton()});
 }
-function clearMsg(){statusEl.textContent='';statusEl.className='status hidden'}
-function msg(t,err=false){statusEl.textContent=t;statusEl.className='status'+(err?' error':'')}
+function clearMsg(){statusEl.textContent='';statusEl.className='status hidden';statusEl.removeAttribute('aria-busy')}
+function msg(t,err=false){statusEl.textContent=t;statusEl.className='status'+(err?' error':'');statusEl.removeAttribute('aria-busy')}
+// v73: 走査の進み具合(文字と進捗バー)。読み上げが多くなりすぎないよう、文字は 10% ごとに更新する
+function msgProgress(t,ratio){
+  const pct=Math.max(0,Math.min(100,Math.floor(ratio*100)));
+  let text=statusEl.querySelector('.status-text'),bar=statusEl.querySelector('.status-progress');
+  if(!text||!bar){
+    statusEl.textContent='';
+    text=document.createElement('span');text.className='status-text';
+    bar=document.createElement('progress');bar.className='status-progress';bar.max=100;bar.setAttribute('aria-label','解析の進み具合');
+    statusEl.append(text,bar);
+  }
+  statusEl.className='status';statusEl.setAttribute('aria-busy','true');
+  bar.value=pct;
+  const shown=`${t} ${Math.floor(pct/10)*10}%`;if(text.textContent!==shown)text.textContent=shown;
+}
+// v73: 個体の走査は Web Worker で行い、画面を止めない。Worker を作れない・途中で失敗したときは画面側で少しずつ走査する(結果は同じ)
+function scanInBackground(input,gen,maxSpecies,onProgress){
+  return new Promise((resolve,reject)=>{
+    let w=null,settled=false;
+    const fallback=()=>{if(settled)return;settled=true;if(w)try{w.terminate()}catch(e){}scanChunked(input,gen,maxSpecies,onProgress).then(resolve,reject)};
+    if(typeof Worker==='undefined'||location.protocol==='file:'){fallback();return}
+    try{w=new Worker('js/scan-worker.js?v='+APP_VERSION)}catch(e){fallback();return}
+    w.onmessage=e=>{
+      const m=e.data||{};
+      if(m.type==='progress'){if(!settled&&onProgress)onProgress(m.p)}
+      else if(m.type==='done'){if(settled)return;settled=true;w.terminate();resolve(m.hits)}
+      else fallback();
+    };
+    w.onerror=e=>{if(e&&e.preventDefault)e.preventDefault();fallback()};
+    try{w.postMessage({input,gen,maxSpecies})}catch(e){fallback()}
+  });
+}
+let analyzeSeq=0;   // v73: 走査中に別のファイルを読み込んだら、古いほうの結果は使わない
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function confidenceLabel(c){return c==='complete'?'完全復元':c==='partial'?'一部破損':'低信頼候補'}
 function confidenceClass(c){return c==='complete'?'complete':c==='partial'?'partial':'low'}
@@ -869,10 +901,12 @@ function showStructureReport(l6,size,hits){
   const list=document.getElementById('list');list.parentNode.insertBefore(box,list);
 }
 async function analyze(file){
+  const seq=++analyzeSeq;
   result.classList.add('hidden');listEl.innerHTML='';msg('セーブデータを解析しています…');
   {const g=document.getElementById('returnGuide');if(g)g.classList.add('hidden')}   // v40: 別のファイルを読み込んだら手順を閉じる
   devBarSet(null);   // v35: 読み込むたびに開発用のチェックを外す(試験用セーブなら読み込み後に付け直す)
   const input=new Uint8Array(await file.arrayBuffer());
+  if(seq!==analyzeSeq)return;
   let [game,gen,maxSpecies]=detectGame(input.length);
   // サイズより先にブロック表で判定する(サイズが合っていても中身が別ゲーム・回転していることがある)
   const l6=findGen6Layout(input);window.__layout6=l6;
@@ -884,7 +918,8 @@ async function analyze(file){
   // 足した部分から始まる候補(offset >= 元の長さ)は先頭の重複なので捨てる。
   const wrapScan=!!(l6&&l6.rotated&&((l6.shift%l6.saveSize)+l6.saveSize)%l6.saveSize!==0);
   const scanInput=wrapScan?(()=>{const a=new Uint8Array(input.length+232);a.set(input);a.set(input.subarray(0,232),input.length);return a})():input;
-  let hits=scan(scanInput,scanGen,maxSpecies).filter(h=>h.offset<input.length);
+  let hits=(await scanInBackground(scanInput,scanGen,maxSpecies,p=>{if(seq===analyzeSeq)msgProgress('セーブデータを解析しています…',p)})).filter(h=>h.offset<input.length);
+  if(seq!==analyzeSeq)return;   // v73: 走査中に別のファイルが読み込まれた
   hits=addSpecialHits(input,l6,hits);   // v38
   gameEl.textContent=game;   // v22: 「(ブロック表から判定)」と入力サイズの表示は削除
   window.__boxNames=readBoxNames(input,l6);
