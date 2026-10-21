@@ -460,25 +460,7 @@ function renderPhotoViewer(viewer){
   img.addEventListener('error',()=>{viewer.innerHTML='<p class="photo-note">写真のデータは見つかりましたが、画像として読み込めませんでした(破損している可能性があります)。</p>'});
 }
 const boxState={pages:null,current:0};
-let BLANK_SLOT=null;
-function blankSlotBytes(){
-  if(BLANK_SLOT)return BLANK_SLOT;
-  const b=new Uint8Array(232);crypt(b,8,232,0);BLANK_SLOT=b;return b;
-}
-function isEmptySlot(raw){
-  if(raw.every(v=>v===0))return true;
-  // v25: ゲームの空きスロットは EC=0・種族 0 のデータ(ニックネーム欄に「タマゴ」などが入っていることがある)
-  if(u32(raw,0)===0){const d=new Uint8Array(raw.subarray(0,232));crypt(d,8,232,0);if(u16(d,8)===0)return true}
-  const blank=blankSlotBytes();
-  for(let i=0;i<232;i++)if(raw[i]!==blank[i])return false;
-  return true;
-}
 // 位置合わせで見つかったずれの一覧(多い順)。PC ボックスの個体の当てはめに使う
-function pcShifts(){
-  const l6=window.__layout6;if(!l6)return [];
-  const c=new Map();for(const b of l6.blocks)if(b.moved)c.set(b.moved,(c.get(b.moved)||0)+1);
-  return [...c.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
-}
 function slotFileOffset(index){
   const gen=window.__gen,layout=getStorageLayout(window.__game,gen);
   if(!layout)return null;
@@ -594,7 +576,6 @@ function isHitChecked(hit){
 // どれも低いポケモンばかりのときは選ばない(点数が FAVORITE_MIN_SCORE 未満は除く)。
 // ---------------------------------------------------------------------------
 const FAVORITE_MAX=5,FAVORITE_MIN_SCORE=4,FAVORITE_PERIOD_MS=500;   // 跳ねる間隔(0.5 秒ごとに着地。全員そろって跳ねる。描き直しても拍がずれないよう、今の時刻に合わせて途中から始める)
-function popcount8(v){let n=0;while(v){n+=v&1;v>>=1}return n}
 function favoriteScore(hit){
   const b=hit.data;if(!b)return 0;
   const iv32=u32(b,0x74);
@@ -1288,4 +1269,4 @@ function handoffPut(rec){
       btn.disabled=false;
     }
   });
-})();undefined
+})();

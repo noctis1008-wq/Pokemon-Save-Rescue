@@ -480,4 +480,24 @@ function pkString(b,off,len){
 }
 function pkNickname(b){return pkString(b,0x40,12)}
 // 親名(OT 名)。0xB0 から UTF-16LE 12 文字
-function pkOTName(b){return pkString(b,0xB0,12)}undefined
+function pkOTName(b){return pkString(b,0xB0,12)}
+// v73: 空きマスの判定・位置のずれ・ビット数(parse.js と export.js からも使うので ui.js から移動)
+let BLANK_SLOT=null;
+function blankSlotBytes(){
+  if(BLANK_SLOT)return BLANK_SLOT;
+  const b=new Uint8Array(232);crypt(b,8,232,0);BLANK_SLOT=b;return b;
+}
+function isEmptySlot(raw){
+  if(raw.every(v=>v===0))return true;
+  // v25: ゲームの空きスロットは EC=0・種族 0 のデータ(ニックネーム欄に「タマゴ」などが入っていることがある)
+  if(u32(raw,0)===0){const d=new Uint8Array(raw.subarray(0,232));crypt(d,8,232,0);if(u16(d,8)===0)return true}
+  const blank=blankSlotBytes();
+  for(let i=0;i<232;i++)if(raw[i]!==blank[i])return false;
+  return true;
+}
+function pcShifts(){
+  const l6=window.__layout6;if(!l6)return [];
+  const c=new Map();for(const b of l6.blocks)if(b.moved)c.set(b.moved,(c.get(b.moved)||0)+1);
+  return [...c.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+}
+function popcount8(v){let n=0;while(v){n+=v&1;v>>=1}return n}
