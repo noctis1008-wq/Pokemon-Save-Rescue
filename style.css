@@ -4,7 +4,7 @@
    6×5 のボックス・下から出る詳細シート・下に固定したダウンロード・パソコンでは 2 列)。
    色: ブランドの青(--blue)を主ボタンと選択中に使う。小さい文字も 13〜14px 以上、文字色は #475467 以上の濃さ(AA)。
    =========================================================================== */
-@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=77") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=78") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
 *{box-sizing:border-box}
 :root{--bg:#f4f6f8;--card:#fff;--ink:#17202a;--sub:#475467;--mute:#5d6b82;--line:#e4e7ec;--line2:#d0d5dd;--blue:#2563eb;--blue2:#1d4ed8;--blue-soft:#eaf1ff;--ok:#067647;--ok-soft:#e7f8ef;--warn:#b54708;--warn-soft:#fff4e5;--ng:#b42318;--ng-soft:#fef3f2;--r:18px;
   font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
@@ -329,7 +329,7 @@ svg{flex:none}
 .box-cell{position:relative;aspect-ratio:1/1;min-height:44px;min-width:0;border-radius:10px;border:1.5px solid #dbe2ec;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1px;overflow:hidden;font:inherit;color:inherit}
 .box-cell.is-pokemon,.box-cell.is-egg{background:#fff;border-color:#c9d3e1;cursor:pointer;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .box-cell.is-pokemon:hover,.box-cell.is-egg:hover{background:#f3f7ff}
-.box-cell.selected{border-color:var(--blue);box-shadow:0 0 0 1.5px var(--blue) inset;background:#f7faff}
+.box-cell.selected{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue) inset;background:#f2f7ff}   /* v78: チェックマークをなくしたので、枠を少しだけ太く */
 .box-cell.is-pokemon:not(.selected) .spr-box,.box-cell.is-pokemon:not(.selected) .box-icon,.box-cell.is-egg:not(.selected) .box-icon{opacity:.55}
 .box-cell.is-empty{background:#f8fafc}
 .box-cell.is-damaged{background:repeating-linear-gradient(135deg,#fff4e5 0 6px,#ffe7c2 6px 12px);border:1.5px dashed #f0a14a;color:var(--warn)}
@@ -338,12 +338,9 @@ svg{flex:none}
 .box-cell.is-missing{background:#eceff3;border-style:dashed}
 .box-name{font-size:11px;font-weight:800;line-height:1.2;text-align:center;word-break:keep-all;overflow-wrap:anywhere}
 .box-icon{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;padding:var(--icon-pad,4px)}
-.box-shiny,.box-ball,.box-check,.box-origin{z-index:1}
+.box-shiny,.box-ball,.box-origin{z-index:1}
 .box-shiny{position:absolute;top:3px;right:3px;width:13px;height:13px}
 .box-ball{position:absolute;right:2px;bottom:2px;width:16px;height:16px;filter:drop-shadow(0 1px 1.5px rgba(16,24,40,.5))}
-.box-check{position:absolute;top:3px;left:3px;display:grid;place-items:center;width:17px;height:17px;border-radius:5px;border:1.5px solid #b9c3d3;background:#fff;color:transparent}
-.box-check svg{width:12px;height:12px}
-.box-cell.selected .box-check{background:var(--blue);border-color:var(--blue);color:#fff}
 .box-origin{position:absolute;left:2px;bottom:2px;font-size:9px;font-weight:900;line-height:1;padding:2px 3px;border-radius:4px;background:var(--blue);color:#fff}
 .box-actions{display:flex;gap:8px;margin-top:10px}
 .box-actions .small-button{flex:1}
@@ -351,7 +348,7 @@ svg{flex:none}
 .box-legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;align-items:center;margin-top:10px;font-size:14px;color:var(--sub)}
 .box-legend .lg{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;margin-right:5px;vertical-align:-4px;border:1.5px solid #b9c3d3;background:#fff;color:#fff}
 .box-legend .lg svg{width:12px;height:12px}
-.box-legend .lg.lg-on{background:var(--blue);border-color:var(--blue)}
+.box-legend .lg.lg-on{background:#f2f7ff;border-color:var(--blue);box-shadow:0 0 0 1px var(--blue) inset}   /* v78: ボックスのマスと同じ見た目(青い枠) */
 .box-legend .lg.lg-dmg{background:#ffe7c2;border:1.5px dashed #f0a14a}
 .lg-hint{color:var(--sub);font-size:14px}
 @media(max-width:380px){.box-grid{gap:3px;padding:4px}}

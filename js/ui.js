@@ -617,7 +617,7 @@ function renderPartyViewer(){
       return renderSlotCell(occupied?slot(base+8):{status:'empty'},s+1);
     }).join('');
     const egg=eggs[c]&&eggs[c].egg
-      ?`<button type="button" class="box-cell is-egg${window.__includeEgg[c]?' selected':''}" data-couple="${c}" aria-pressed="${window.__includeEgg[c]}" title="育て屋で見つかったタマゴ(受け取り前)">${POKEMON_ICON_DIR?`<img class="box-icon" src="${POKEMON_ICON_DIR}egg.png?v=${APP_VERSION}" alt="タマゴ">`:'<span class="box-name">タマゴ</span>'}<span class="box-check" aria-hidden="true">${ICON.check}</span></button>`
+      ?`<button type="button" class="box-cell is-egg${window.__includeEgg[c]?' selected':''}" data-couple="${c}" aria-pressed="${window.__includeEgg[c]}" title="育て屋で見つかったタマゴ(受け取り前)">${POKEMON_ICON_DIR?`<img class="box-icon" src="${POKEMON_ICON_DIR}egg.png?v=${APP_VERSION}" alt="タマゴ">`:'<span class="box-name">タマゴ</span>'}</button>`
       :`<div class="box-cell is-empty" aria-label="タマゴなし"></div>`;
     daycare+=`${dcNames[c]?`<div class="party-sub">${dcNames[c]}</div>`:''}<div class="party-grid daycare">${cells}${egg}</div>`;
   }
@@ -626,7 +626,7 @@ function renderPartyViewer(){
       <section class="party-col"><h4>バトルボックス</h4>${grid('two',six(B[BLK.BATTLE],232))}</section>
       <section class="party-col"><h4>育て屋</h4>${daycare}</section>
     </div>
-    <div class="box-legend"><span><i class="lg lg-on">${ICON.check}</i>救出する</span><span><i class="lg lg-off"></i>選ばない</span><span class="lg-hint">長押しで詳細</span></div>
+    <div class="box-legend"><span><i class="lg lg-on"></i>救出する</span><span><i class="lg lg-off"></i>選ばない</span><span class="lg-hint">長押しで詳細</span></div>
     <p class="box-help">マスをクリックすると、救出に含めるか切り替えられます。タマゴは、育て屋に「タマゴが見つかった」状態を引き継ぐかどうかです(預けている 2 匹も救出するときだけ引き継がれます)。</p>`;
   bindPokemonCells(viewer);applyRestoreInert();
   viewer.querySelectorAll('.box-cell.is-egg').forEach(cell=>cell.addEventListener('click',()=>{
@@ -722,7 +722,7 @@ function renderSlotCell(s,slotNo){
     const ballIcon=BALL_IMAGE_DIR&&sm.ballId>0?`<img class="box-ball" src="${BALL_IMAGE_DIR}${sm.ballId}.png" alt="">`:'';
     const fav=favoriteRank(s.hit);
     const uo=boxState.pages&&isUnknownHit(s.hit)?unknownOrigin(s.hit):null;
-    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}${fav?' is-favorite':''}"${fav?` style="--fav-delay:-${(performance.now()%FAVORITE_PERIOD_MS)/1000}s"`:''} data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${fav?`<span class="fav-wrap">${icon}</span>`:icon}${ballIcon}${uo&&uo.short?`<span class="box-origin">${uo.short}</span>`:''}<span class="box-check" aria-hidden="true">${ICON.check}</span></button>`;
+    return `<button type="button" class="box-cell is-pokemon${isHitChecked(s.hit)?' selected':''}${fav?' is-favorite':''}"${fav?` style="--fav-delay:-${(performance.now()%FAVORITE_PERIOD_MS)/1000}s"`:''} data-offset="${s.hit.offset}" title="${escapeHtml(tip)}" aria-pressed="${isHitChecked(s.hit)}" aria-label="${slotNo}番 ${escapeHtml(tip)}">${shinyIcon}${fav?`<span class="fav-wrap">${icon}</span>`:icon}${ballIcon}${uo&&uo.short?`<span class="box-origin">${uo.short}</span>`:''}</button>`;
   }
   // v74: 読めないマス(空きでもポケモンでもないデータ)と、ファイルにない部分のマスを、空きと見分けられるようにした(v18〜v73 は空きと同じ表示)
   if(s.status==='damaged')return `<div class="box-cell is-damaged" role="img" title="${slotNo}番 読めないデータ(壊れている可能性があります)" aria-label="${slotNo}番 読めないデータ">${ICON.warn}<span class="box-damaged" aria-hidden="true">読めない</span></div>`;
@@ -894,7 +894,7 @@ function renderBoxViewer(){
         <button type="button" class="small-button box-all" data-box-action="on"${c.pokemon?'':' disabled'}>このボックスを全部選ぶ</button>
         <button type="button" class="small-button" data-box-action="off"${c.pokemon?'':' disabled'}>全部外す</button>
       </div>
-      <div class="box-legend"><span><i class="lg lg-on">${ICON.check}</i>救出する</span><span><i class="lg lg-off"></i>選ばない</span><span><i class="lg lg-dmg"></i>読めない</span><span class="lg-hint">${tapMode==='detail'?'タップで詳細':'タップで選択・長押しで詳細'}</span></div>
+      <div class="box-legend"><span><i class="lg lg-on"></i>救出する</span><span><i class="lg lg-off"></i>選ばない</span><span><i class="lg lg-dmg"></i>読めない</span><span class="lg-hint">${tapMode==='detail'?'タップで詳細':'タップで選択・長押しで詳細'}</span></div>
     </div>`;
   const go=d=>{boxState.current=(b+d+boxes)%boxes;renderBoxViewer()};
   viewer.querySelector('.box-prev').addEventListener('click',()=>{go(-1);listEl.querySelector('.box-prev').focus()});
