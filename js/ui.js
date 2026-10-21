@@ -1187,41 +1187,41 @@ function showReturnGuide(kind){
 }
 // v75: ④ 書き出す = ダウンロードしたあとの結果の画面。書き出す内容の欄と切り替えは隠し、実際に保存した内容・ファイル名・次にすることを出す。
 //   kind: 'rescue' / 'full' / 'bin'、count: 書き出したセーブに実際に入れたポケモンの数、items: 保存した内容(文字列の配列)
-function showDone(kind,count,items){
+// v76: 結果の画面は「N匹のポケモンを救出しました」の要約と 1 つの枠にまとめる(「ダウンロードしました」・ファイル名・保存した内容の欄はなくした)。
+//   次にすること・ゲームに戻す方法・もう一度ダウンロード・選択に戻る・注意のメッセージを、要約の枠(.summary-card)の中に移す。選択に戻ると元の場所へ戻す。
+function showDone(kind,count){
   if(!donePanel)return;
   doneState={kind};
+  const card=document.querySelector('.summary-card');
   const title=document.getElementById('summaryTitle');
   if(title&&title.dataset.found===undefined)title.dataset.found=title.innerHTML;
   if(title)title.innerHTML=kind==='full'?'セーブデータを<wbr>復元しました':count>0?`${count}匹のポケモンを<wbr>救出しました`:'セーブデータを<wbr>書き出しました';
-  const file=window.__lastOutput?window.__lastOutput.name:'main';
-  const intro={
-    rescue:'選んだポケモンや道具を、救出用の空のセーブに入れたセーブデータです。',
-    full:'壊れたセーブを作り直したセーブデータです。',
-    bin:'ボックスのポケモンだけのファイルです。'
-  }[kind];
   const next=kind==='bin'?`<li><span>救出先にする<b>同じゲームのセーブ</b>のバックアップを取ります。</span></li><li><span>PKHeX でそのセーブを開き、<code>boxdata.bin</code> をドラッグ＆ドロップします(ボックス 31 個が置き換わります)。</span></li>`
     :`<li><span>ゲームに戻す前に、今のセーブ(元のセーブ)を Checkpoint などで<b>バックアップ</b>します。</span></li><li><span>バックアップのフォルダの <code>main</code> を、ダウンロードした <code>main</code> と置き換えて、Checkpoint で <b>Restore</b> します(くわしい手順は下の「ゲームに戻す方法」)。</span></li>`;
-  donePanel.innerHTML=`<div class="done-head"><span class="done-icon" aria-hidden="true">${ICON.check}</span><div><h3 id="doneTitle">ダウンロードしました</h3><p>${intro}</p></div></div>
-    <dl class="done-kv"><div><dt>ファイル名</dt><dd><code>${escapeHtml(file)}</code></dd></div></dl>
-    ${items.length?`<h4 class="done-h">保存した内容</h4><ul class="done-list">${items.map(t=>`<li>${ICON.check}<span>${escapeHtml(t)}</span></li>`).join('')}</ul>`:''}
-    <h4 class="done-h">次にすること</h4><ol class="how done-next">${next}</ol>
+  donePanel.innerHTML=`<h3 class="done-h" id="doneTitle">次にすること</h3><ol class="how done-next">${next}</ol>
     <div class="done-actions"><button type="button" class="button done-again">${ICON.download||''}もう一度ダウンロード</button><button type="button" class="button button-secondary done-back">${ICON.prev}選択に戻る</button></div>`;
+  if(card)card.appendChild(donePanel);
   const guide=document.getElementById('returnGuide');if(guide)donePanel.appendChild(guide);
+  donePanel.appendChild(statusEl);   // 注意のメッセージ(手持ちをボックスに移した など)も同じ枠に
+  const trust=sideCard.querySelector('.trust-small');if(trust)donePanel.appendChild(trust);
   donePanel.querySelector('.done-again').addEventListener('click',()=>{const o=window.__lastOutput;if(!o)return;const url=URL.createObjectURL(new Blob([o.data],{type:'application/octet-stream'})),a=document.createElement('a');a.href=url;a.download=o.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
   donePanel.querySelector('.done-back').addEventListener('click',()=>{exitDone();const b=modeSwitch.querySelector('.seg-btn.active')||download;if(b)b.focus()});
   donePanel.hidden=false;document.body.classList.add('is-done');
   setStep(4);
-  // 結果の画面の先頭へ(スマホでは要約が見えるように)
-  const sc=document.querySelector('.summary-card');if(sc)sc.scrollIntoView({block:'start'});
-  const h=document.getElementById('doneTitle');if(h){h.tabIndex=-1;h.focus({preventScroll:true})}
+  // 結果の画面の先頭へ(スマホでは要約が見えるように)。見出し(N匹のポケモンを救出しました)にフォーカス
+  if(card)card.scrollIntoView({block:'start'});
+  if(title){title.tabIndex=-1;title.focus({preventScroll:true})}
 }
 function exitDone(){
   if(!doneState)return;
   doneState=null;document.body.classList.remove('is-done');
   const title=document.getElementById('summaryTitle');
   if(title&&title.dataset.found!==undefined){title.innerHTML=title.dataset.found;delete title.dataset.found}
-  const guide=document.getElementById('returnGuide');if(guide){guide.classList.add('hidden');sideCard.appendChild(guide)}
-  if(donePanel){donePanel.hidden=true;donePanel.innerHTML=''}
+  // 移した部品を右のパネル(スマホでは要約の下)の元の並び(dlNote → メッセージ → 安心の一言 → 戻し方)へ戻す
+  const note=document.getElementById('dlNote'),trust=donePanel&&donePanel.querySelector('.trust-small'),guide=document.getElementById('returnGuide');
+  if(note){note.after(statusEl);if(trust)statusEl.after(trust)}
+  if(guide){guide.classList.add('hidden');sideCard.appendChild(guide)}
+  if(donePanel){donePanel.hidden=true;donePanel.innerHTML='';if(restorePanel)restorePanel.after(donePanel)}
   if(document.body.classList.contains('has-result'))setStep(3);
 }
 function saveBlob(data,name){
@@ -1237,7 +1237,7 @@ function downloadBoxdataBin(selected,reason){
   if(window.NERCounter)window.NERCounter.countRescue();
   saveBlob(data,'boxdata.bin');
   showReturnGuide('bin');
-  showDone('bin',placed,[`ボックスのポケモン ${placed}匹`]);
+  showDone('bin',placed);
   msg(`${reason}代わりに boxdata.bin(ボックスのポケモン ${placed} 匹)をダウンロードしました${unknown?`。ボックスの外にいる ${unknown} 匹は boxdata.bin には入りません`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。PKHeX で同じゲームのセーブを開いてから読み込んでください。`);
 }
 // v61: 場所不明のポケモンを選んでいたら、入れるボックスを選んでもらう
@@ -1296,8 +1296,7 @@ download.addEventListener('click',async()=>{
     if(r.skipped)notes.push(`場所不明のポケモンなど ${r.skipped}匹は入れていません。`);
     {const v=verifyMain(new Uint8Array(data));if(!v||v.ok!==v.total)notes.push('作った main を読み直したところ、一部のチェックサムが一致しませんでした。');}
     if(notes.length)msg(notes.join(' '));else clearMsg();
-    {const items=parts.slice(),at=[r.pc,r.party,r.battle,r.daycare].filter(Boolean).length,extra=[];if(r.partyToBox)extra.push(`ボックス(手持ちから移したもの) ${r.partyToBox}匹`);if(r.unknown)extra.push(`ボックス(場所不明だったもの) ${r.unknown}匹`);items.splice(at,0,...extra);
-     showDone('rescue',placed+(r.unknown||0),items)}
+    showDone('rescue',placed+(r.unknown||0));
   }catch(e){
     if(e.noTemplate&&selected.length){
       try{downloadBoxdataBin(selected,`${e.message} `)}catch(e2){msg('boxdata.bin の作成に失敗しました: '+e2.message,true)}
@@ -1347,7 +1346,7 @@ function runFullRestore(){
       saveBlob(data,'main');
       showReturnGuide('full');
       if(window.NERCounter)window.NERCounter.countRescue();
-      showDone('full',r.pcPokemon||0,[`残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}`].concat(r.fromTemplate?[`空のセーブで補った部分 ${r.fromTemplate} 個`]:[],r.zero?[`空にした部分 ${r.zero} 個`]:[],r.pcPokemon?[`ボックスのポケモン ${r.pcPokemon} 匹`]:[]));
+      showDone('full',r.pcPokemon||0);
       msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`+verifyText(verifyMain(new Uint8Array(data))),!r.allValid);
     }catch(e){msg('まるごとの復元に失敗しました: '+e.message,true)}
     finally{updateItemsButton()}

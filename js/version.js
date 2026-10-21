@@ -7,5 +7,5 @@
 // node tools/set-version.js <番号> でまとめて書き換える(手で直さない)。配布 ZIP のファイル名と CHANGELOG.md の見出しも同じ値に。
 // ?v= を上げ忘れると、ブラウザが古い JS / CSS を使い続けて更新が反映されない(node --test tests/ で確かめられる)。
 // ===========================================================================
-const APP_VERSION = "75";
+const APP_VERSION = "76";
 const APP_VERSION_DATE = "2026-10-21";

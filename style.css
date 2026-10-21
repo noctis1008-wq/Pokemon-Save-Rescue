@@ -4,7 +4,7 @@
    6×5 のボックス・下から出る詳細シート・下に固定したダウンロード・パソコンでは 2 列)。
    色: ブランドの青(--blue)を主ボタンと選択中に使う。小さい文字も 13〜14px 以上、文字色は #475467 以上の濃さ(AA)。
    =========================================================================== */
-@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=75") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=76") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
 *{box-sizing:border-box}
 :root{--bg:#f4f6f8;--card:#fff;--ink:#17202a;--sub:#475467;--mute:#5d6b82;--line:#e4e7ec;--line2:#d0d5dd;--blue:#2563eb;--blue2:#1d4ed8;--blue-soft:#eaf1ff;--ok:#067647;--ok-soft:#e7f8ef;--warn:#b54708;--warn-soft:#fff4e5;--ng:#b42318;--ng-soft:#fef3f2;--r:18px;
   font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
@@ -604,26 +604,19 @@ body.is-done #modeSwitch,body.is-done #modeHint,body.is-done #exportPanel,body.i
 body.is-done.has-result .wrap{padding-bottom:24px}
 .done-panel[hidden]{display:none}
 body.is-done .summary-card{scroll-margin-top:88px}
-.done-head{display:flex;gap:12px;align-items:flex-start}
-.done-icon{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:var(--ok-soft);color:var(--ok)}
-.done-icon svg{width:24px;height:24px}
-.done-head h3{margin:2px 0 2px;font-size:18px;font-weight:900;outline:none}
-.done-head p{margin:0;color:var(--sub);font-size:14.5px;line-height:1.6}
-.done-kv{margin:14px 0 0;padding:10px 12px;border-radius:12px;background:#f8fafc}
-.done-kv div{display:flex;justify-content:space-between;gap:12px;align-items:center}
-.done-kv dt{color:var(--sub);font-weight:700;font-size:14px}
-.done-kv dd{margin:0;font-weight:800}
 .done-h{margin:16px 0 4px;font-size:15px;font-weight:900}
-.done-list{list-style:none;margin:0;padding:0}
-.done-list li{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:1px solid #eef0f3;font-size:14.5px;line-height:1.6}
-.done-list li:first-child{border-top:0}
-.done-list svg{flex:none;width:18px;height:18px;margin-top:3px;color:var(--ok)}
 .done-actions{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 4px}
 .done-actions .button{flex:1 1 200px;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px}
 .done-actions svg{width:20px;height:20px}
 .done-panel .return-guide{margin-top:14px}
+/* v76: 結果の画面は要約と 1 つの枠。右のパネル(スマホでは要約の下の枠)は隠す */
+body.is-done .side-panel{display:none!important}
+.summary-card .done-panel{margin-top:14px;padding-top:4px;border-top:1px solid var(--line)}
+body.is-done #summaryTitle{outline:none}
+.done-panel>.status,.done-panel>#status{margin-top:12px}
+.done-panel>.trust-small{margin-top:12px}
+@media(max-width:959px){.done-panel>.trust-small{display:none}}
 @media(min-width:960px){
-  body.is-done .result-grid{grid-template-columns:minmax(0,1fr);max-width:760px;margin:0 auto}
+  body.is-done .result-grid{grid-template-columns:minmax(0,1fr);max-width:760px;margin:12px auto 0}
   body.is-done .summary-card{grid-column:1;grid-row:1}
-  body.is-done .side-panel{grid-column:1;grid-row:2;position:static;max-height:none;overflow:visible}
 }
