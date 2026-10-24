@@ -248,7 +248,8 @@ function emptySlotStub(){
   b[0xE0]=1;b[0xE1]=2;b[0xE3]=1;
   return crypt(b,8,232,0);
 }
-async function buildFullRestore(){
+// opts.unknown: 入れる場所不明のポケモン、opts.unknownBox: 入れはじめるボックス(0 から。null なら入れない)
+async function buildFullRestore(opts={}){
   const a=restoreAnalysis();
   if(!a)throw new Error('ブロック表が見つからないセーブは、まるごとの復元ができません。');
   const l6=a.l6,game=l6.game,size=l6.saveSize;
@@ -269,6 +270,16 @@ async function buildFullRestore(){
       continue;
     }
     if(tpl)report.fromTemplate++;else{out.fill(0,b.orig,b.orig+b.len);report.zero++}
+  }
+  // v81: 場所不明のポケモンを、選んだボックスの空いているマスから入れる(足りなければ次のボックスへ。救出と同じ入れ方)
+  if(opts.unknownBox!=null&&opts.unknown&&opts.unknown.length&&a.pc){
+    const pcb=a.pc,n=pcb.len/232,used=new Set();report.unknown=0;report.unknownSkipped=0;
+    for(const q of opts.unknown){
+      let slot=-1;
+      for(let k=0;k<n;k++){const i=(opts.unknownBox*30+k)%n;if(!used.has(i)&&isEmptySlot(out.subarray(pcb.orig+i*232,pcb.orig+i*232+232))){slot=i;break}}
+      if(slot<0){report.unknownSkipped++;continue}
+      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.unknown++;
+    }
   }
   // フッター: ブロック表(長さ・ID)は元のセーブのもの、CRC は付け直す。先頭 16 バイトは元のセーブのもの
   const F=l6.footerOrig;

@@ -4,7 +4,7 @@
    6×5 のボックス・下から出る詳細シート・下に固定したダウンロード・パソコンでは 2 列)。
    色: ブランドの青(--blue)を主ボタンと選択中に使う。小さい文字も 13〜14px 以上、文字色は #475467 以上の濃さ(AA)。
    =========================================================================== */
-@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=80") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=81") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
 *{box-sizing:border-box}
 :root{--bg:#f4f6f8;--card:#fff;--ink:#17202a;--sub:#475467;--mute:#5d6b82;--line:#e4e7ec;--line2:#d0d5dd;--blue:#2563eb;--blue2:#1d4ed8;--blue-soft:#eaf1ff;--ok:#067647;--ok-soft:#e7f8ef;--warn:#b54708;--warn-soft:#fff4e5;--ng:#b42318;--ng-soft:#fef3f2;--r:18px;
   font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}

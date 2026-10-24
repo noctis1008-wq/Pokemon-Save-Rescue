@@ -1266,15 +1266,14 @@ function downloadBoxdataBin(selected,reason){
   msg(`${reason}代わりに boxdata.bin(ボックスのポケモン ${placed} 匹)をダウンロードしました${unknown?`。ボックスの外にいる ${unknown} 匹は boxdata.bin には入りません`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。PKHeX で同じゲームのセーブを開いてから読み込んでください。`);
 }
 // v61: 場所不明のポケモンを選んでいたら、入れるボックスを選んでもらう
-function askUnknownBox(unk,selected){
+// v81: まるごと復元でも使う。usedIn はボックスごとの埋まっているマスの数、note は説明に足す一文
+function askUnknownBox(unk,usedIn,note){
   return new Promise(resolve=>{
     const d=surveyDialog();
     const names=(boxState.pages||[]).map(p=>p.name);
-    const usedIn=new Array(31).fill(0);
-    for(const q of selected){if(getSpecialLocation(q)||isUnknownHit(q))continue;const loc=getLocation(q,window.__game,6);if(loc.box)usedIn[loc.box-1]++}
     let first=usedIn.findIndex(n=>30-n>=unk.length);if(first<0)first=usedIn.indexOf(Math.min(...usedIn));   // 全員入る一番若いボックス(なければ一番空いているボックス)
     d.innerHTML=`<div class="sample-dialog-box survey-box"><h3 id="surveyTitle">場所不明のポケモンを入れるボックスを選択してください</h3>
-      <p class="survey-text">場所不明のポケモン ${unk.length}匹を、選んだボックスの空いているマスに入れます(入りきらなければ次のボックスへ)。</p>
+      <p class="survey-text">場所不明のポケモン ${unk.length}匹を、選んだボックスの空いているマスに入れます(入りきらなければ次のボックスへ)。</p>${note?`<p class="survey-text">${note}</p>`:''}
       <select class="trainer-pick unknown-box">${names.map((n,i)=>`<option value="${i}"${i===(first<0?0:first)?' selected':''}>${escapeHtml(n)}(空き ${30-usedIn[i]})</option>`).join('')}</select>
       <div class="sample-dialog-actions"><button type="button" class="button ub-ok">このボックスに入れる</button><button type="button" class="button button-secondary ub-skip">入れない</button></div>
       <div class="sample-dialog-actions survey-sub"><button type="button" class="small-button ub-cancel">やめる</button></div></div>`;
@@ -1290,7 +1289,10 @@ download.addEventListener('click',async()=>{
   if(currentMode==='full'){runFullRestore();return}   // v74: まるごと復元も同じ「セーブデータをダウンロード」
   const selected=selectedHits(),game=window.__itemsGame,withItems=itemsIncluded(),withMoney=moneyIncluded();
   let unknownBox=null;
-  {const unk=boxState.pages?selected.filter(isUnknownHit):[];if(unk.length){unknownBox=await askUnknownBox(unk,selected);if(unknownBox===undefined)return}}
+  {const unk=boxState.pages?selected.filter(isUnknownHit):[];if(unk.length){
+    const usedIn=new Array(31).fill(0);
+    for(const q of selected){if(getSpecialLocation(q)||isUnknownHit(q))continue;const loc=getLocation(q,window.__game,6);if(loc.box)usedIn[loc.box-1]++}
+    unknownBox=await askUnknownBox(unk,usedIn);if(unknownBox===undefined)return}}
   const withDex=dexIncluded(),withTrainer=trainerIncluded(),withAvatar=avatarIncluded(),withGift=giftIncluded();
   if(!selected.length&&!withItems&&!withMoney&&!withDex&&!withGift&&!withTrainer&&!withAvatar)return;
   download.disabled=true;
@@ -1349,6 +1351,7 @@ function renderRestoreViewer(){
   if(!a.pcOk&&a.pcInfo)notes.push(`<li>ボックスのポケモン: 救出できた ${a.pcInfo.pokemon} 匹を元のマスに戻します${a.pcInfo.unreadable?`(読めないマス ${a.pcInfo.unreadable} 個は空きになります)`:''}。</li>`);
   {const n=fullRestoreMissing();if(n)notes.push(`<li><b>${n}体のポケモンが戻ってきません。「ポケモンの救出」をおすすめします。</b>(手持ち・バトルボックス・育て屋の部分が壊れているため)</li>`)}
   if(a.moved.length)notes.push(`<li>${a.moved.length} 個の部分は位置がずれていたので、本来の位置に戻します。</li>`);
+  {const n=a.pc&&boxState.pages?(window.__hits||[]).filter(isUnknownHit).length:0;if(n)notes.push(`<li>場所不明のポケモン ${n}匹は、ダウンロードするときに入れるボックスを選べます(入れないこともできます)。</li>`)}   // v81
   const recommend=a.score>=RESTORE_TAB_MIN_SCORE&&a.score<100?`<p class="restore-recommend"><span class="restore-recommend-icon">${ICON.celebrate}</span>復元信頼度が${RESTORE_TAB_MIN_SCORE}%を超えています。ほとんどの情報を復元可能です！</p>`:'';
   viewer.innerHTML=`<h3 class="restore-title">元のセーブを作り直します</h3>${recommend}<div class="restore-score ${g[1]}">
       <div class="restore-score-head"><span>復元信頼度</span><strong>${a.score}<small>%</small></strong><em>${g[0]}</em></div>
@@ -1365,14 +1368,26 @@ function renderRestoreViewer(){
 }
 function runFullRestore(){
   confirmLowRestore(async()=>{
+    // v81: 場所不明のポケモンがいれば、救出と同じように入れるボックスを選んでもらう
+    let unknown=[],unknownBox=null;
+    const a=restoreAnalysis();
+    if(a&&a.pc&&boxState.pages){
+      unknown=(window.__hits||[]).filter(isUnknownHit);
+      if(unknown.length){
+        // まるごと復元でボックスに戻るのは、元のボックスで読めたポケモン(読めないマスは空きになる)
+        const usedIn=boxState.pages.map(p=>p.slots.filter(x=>x.status==='pokemon'||(a.pcOk&&x.status!=='empty')).length);
+        unknownBox=await askUnknownBox(unknown,usedIn,'すでに逃がしたり交換したりしたポケモンの、古いデータが残っていることもあります。');
+        if(unknownBox===undefined)return;
+      }
+    }
     download.disabled=true;
     try{
-      const {data,report:r}=await buildFullRestore();
+      const {data,report:r}=await buildFullRestore({unknown,unknownBox});
       saveBlob(data,'main');
       showReturnGuide('full');
       if(window.NERCounter)window.NERCounter.countRescue();
-      showDone('full',r.pcPokemon||0);
-      msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`+verifyText(verifyMain(new Uint8Array(data))),!r.allValid);
+      showDone('full',(r.pcPokemon||0)+(r.unknown||0));
+      msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''}${r.unknown?`・場所不明のポケモン ${r.unknown} 匹を選んだボックスへ`:''}${r.unknownSkipped?`・空きがなく入れられなかった場所不明のポケモン ${r.unknownSkipped} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`+verifyText(verifyMain(new Uint8Array(data))),!r.allValid);
     }catch(e){msg('まるごとの復元に失敗しました: '+e.message,true)}
     finally{updateItemsButton()}
   });
