@@ -4,7 +4,7 @@
    6×5 のボックス・下から出る詳細シート・下に固定したダウンロード・パソコンでは 2 列)。
    色: ブランドの青(--blue)を主ボタンと選択中に使う。小さい文字も 13〜14px 以上、文字色は #475467 以上の濃さ(AA)。
    =========================================================================== */
-@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=82") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=83") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
 *{box-sizing:border-box}
 :root{--bg:#f4f6f8;--card:#fff;--ink:#17202a;--sub:#475467;--mute:#5d6b82;--line:#e4e7ec;--line2:#d0d5dd;--blue:#2563eb;--blue2:#1d4ed8;--blue-soft:#eaf1ff;--ok:#067647;--ok-soft:#e7f8ef;--warn:#b54708;--warn-soft:#fff4e5;--ng:#b42318;--ng-soft:#fef3f2;--r:18px;
   font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
@@ -628,4 +628,104 @@ body.is-done #summaryTitle{outline:none}
 @media(min-width:960px){
   body.is-done .result-grid{grid-template-columns:minmax(0,1fr);max-width:760px;margin:12px auto 0}
   body.is-done .summary-card{grid-column:1;grid-row:1}
+}
+/* v83: ④ 書き出す — パソコン(960px 以上)だけの A案(ダッシュボード)。スマホ(959px 以下)は v82 の画面のまま(.done-dash は出さない) */
+.done-dash{display:none}
+@media(min-width:960px){
+  body.is-done .result-grid{max-width:none}
+  body.is-done .done-dash{display:block;margin-top:14px;padding-top:4px;border-top:1px solid var(--line)}
+  body.is-done #donePanel{display:none!important}
+  body.is-done #repairHelp{display:none}
+  body.is-done .more-card:not(:has(#sampleOffer:not(.hidden))){display:none}
+  .dd-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:0 16px;align-items:start}
+  .dd-side{position:sticky;top:76px}
+  .dd-sec{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:12px}
+  .dd-sec h3{margin:0 0 12px;font-size:16px;font-weight:900;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dd-sec h3 small{font-size:14px;color:var(--sub);font-weight:700}
+  .dd-sec h4{margin:12px 0 4px;font-size:14px;font-weight:900}
+  .dd-note{margin:8px 0 0;font-size:13px;line-height:1.6;color:var(--sub)}
+  .dd-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  /* 救出の結果 */
+  .dd-donut-row{display:flex;align-items:center;gap:20px}
+  .dd-donut{position:relative;width:132px;height:132px;flex:none;margin:0}
+  .dd-donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .dd-seg-ok{stroke:var(--blue)}.dd-seg-skip{stroke:#c7d2e0}.dd-seg-bad{stroke:url(#ddHatch)}
+  .dd-donut-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+  .dd-donut-c b{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums}
+  .dd-donut-c span{font-size:13px;color:var(--sub);font-weight:700}
+  .dd-legend{list-style:none;margin:0;padding:0;flex:1;min-width:0}
+  .dd-legend li{display:flex;align-items:center;gap:8px;min-height:32px;font-size:14px}
+  .dd-legend b{margin-left:auto;font-size:16px;font-variant-numeric:tabular-nums}
+  .dd-sw{width:14px;height:14px;border-radius:4px;flex:none}
+  .dd-sw-ok{background:var(--blue)}.dd-sw-skip{background:#c7d2e0}
+  .dd-sw-bad{background:repeating-linear-gradient(135deg,#f0a14a 0 3px,#ffe7c2 3px 6px);border:1px solid #f0a14a}
+  /* 入れたもの */
+  .dd-bars{display:grid;gap:8px}
+  .dd-bar{display:grid;grid-template-columns:9.5em minmax(0,1fr) 3.8em;align-items:center;gap:10px;font-size:14px}
+  .dd-track{height:12px;border-radius:999px;background:#edf1f6;overflow:hidden}
+  .dd-track i{display:block;height:100%;border-radius:999px;background:var(--blue)}
+  .dd-bar b{text-align:right;font-variant-numeric:tabular-nums}
+  .dd-bar.off{color:var(--mute)}
+  .dd-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .dd-chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 12px;border-radius:999px;background:#f2f5f9;color:var(--mute);font-size:14px;font-weight:800}
+  .dd-chip.on{background:var(--ok-soft);color:var(--ok)}
+  .dd-chip svg{width:14px;height:14px}
+  /* ボックス(色の濃さ = 入っている数) */
+  .dd-heat{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:4px}
+  .dd-heat div{position:relative;aspect-ratio:1.25;border-radius:6px;display:grid;place-items:center;font-size:14px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .dd-heat em{position:absolute;top:1px;left:4px;font-style:normal;font-size:11px;font-weight:700;color:var(--sub)}
+  .dd-heat div.dmg{outline:2px dashed #f0a14a;outline-offset:-2px}
+  .dd-h0{background:#f2f4f7}.dd-h1{background:#dbe7fd}.dd-h2{background:#b7cffb}.dd-h3{background:#8db3f7}
+  .dd-h4{background:var(--blue);color:#fff!important}.dd-h5{background:var(--blue2);color:#fff!important}
+  .dd-heat .dd-h4 em,.dd-heat .dd-h5 em{color:#e8efff}
+  .dd-heat-key{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;font-size:13px;color:var(--sub)}
+  .dd-heat-key i{display:inline-block;width:18px;height:10px;border-radius:3px}
+  .dd-heat-key .dd-key-dmg{background:#fff;outline:2px dashed #f0a14a;outline-offset:-2px;margin-left:10px}
+  /* 大切にしていたポケモン(マスはボックスと同じ。跳ねる動きもそのまま) */
+  .dd-fav{display:grid;grid-template-columns:repeat(5,64px);gap:8px;margin-bottom:12px}
+  .dd-fav .box-cell{width:64px;height:64px;cursor:default;border-color:#c9d3e1;background:#fff}
+  .dd-fav .box-cell:hover{background:#fff}
+  .dd-fav .box-cell .spr-box,.dd-fav .box-cell .box-icon{opacity:1!important}
+  .dd-kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .dd-kv div{background:#f6f8fb;border-radius:12px;padding:8px 12px}
+  .dd-kv b{display:block;font-size:20px;font-weight:900;line-height:1.25;font-variant-numeric:tabular-nums}
+  .dd-kv span{font-size:13px;color:var(--sub);font-weight:700}
+  /* 次にすること */
+  .dd-steps{list-style:none;margin:0;padding:0;counter-reset:dd}
+  .dd-steps li{position:relative;padding:3px 0 12px 40px;font-size:14.5px;line-height:1.6}
+  .dd-steps li::before{counter-increment:dd;content:counter(dd);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;font-weight:900;font-size:14px;display:grid;place-items:center}
+  .dd-steps li:not(:last-child)::after{content:"";position:absolute;left:13px;top:30px;bottom:2px;width:2px;background:#d6e2fb}
+  .dd-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+  .dd-actions .button{margin-top:0;min-height:48px;font-size:16px;white-space:nowrap;padding:10px 12px}
+  .dd-actions svg{width:20px;height:20px}
+  .dd-status{margin-top:12px}
+  .dd-guide{margin-top:8px}
+  .dd-guide summary{display:flex;align-items:center;min-height:44px;font-weight:800;color:var(--blue2);cursor:pointer}
+  .dd-guide-body{font-size:14px;line-height:1.65}
+  .dd-guide-body ol{margin:0;padding-left:20px}
+  .dd-guide-body .guide-note{margin:6px 0 0;font-size:13px;color:var(--sub)}
+  /* 読み込んだセーブの状態 */
+  .dd-meter{display:flex;align-items:center;gap:14px}
+  .dd-meter p{margin:0;font-size:14px;line-height:1.6;color:var(--sub)}
+  .dd-meter p b{color:var(--ink)}
+  .dd-gauge{position:relative;width:150px;height:84px;flex:none}
+  .dd-gauge svg{width:150px;height:84px}
+  .dd-gauge-n{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:28px;font-weight:900;line-height:1}
+  .dd-gauge-n small{font-size:14px}
+  .dd-gauge.good .dd-gauge-v{stroke:var(--ok)}.dd-gauge.good .dd-gauge-n{color:var(--ok)}
+  .dd-gauge.mid .dd-gauge-v{stroke:var(--warn)}.dd-gauge.mid .dd-gauge-n{color:var(--warn)}
+  .dd-gauge.low .dd-gauge-v{stroke:var(--ng)}.dd-gauge.low .dd-gauge-n{color:var(--ng)}
+  .dd-blocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(9px,1fr));gap:3px;margin-top:12px}
+  .dd-blocks i{height:12px;border-radius:2px;background:#9ed5b6}
+  .dd-blocks i.mv{background:#7fb0f5}
+  .dd-blocks i.bad{background:repeating-linear-gradient(135deg,#f0a14a 0 2px,#ffe7c2 2px 4px);outline:1px solid #f0a14a}
+  .dd-blocks i.big{grid-column:span 6}
+  /* 修復のお願い(足りないものがあるときだけオレンジ) */
+  .dd-repair{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:#f6f8fb;border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-top:12px}
+  .dd-repair.warn{background:var(--warn-soft);border-color:#f6d3a6}
+  .dd-repair>p{margin:0;font-size:14px;line-height:1.6;flex:1 1 220px}
+  .dd-repair .small-button{flex:none}
+  .dd-repair .dd-repair-note{flex-basis:100%}
+  .dd-repair-note.error{color:var(--ng)}
+  .dd-trust{margin-top:12px}
 }

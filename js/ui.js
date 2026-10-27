@@ -1171,9 +1171,8 @@ function updateItemsButton(){   // 名前は v19 以来のまま。救出ボタ�
 // ゲームに戻す方法(v40)。ダウンロードの直後に、出したファイルの種類に合わせた手順を表示する。
 //   kind: 'rescue'(ポケモンを救出する → 空のセーブをもとにした main) / 'full'(まるごと復元 → 元のセーブを作り直した main) / 'bin'(boxdata.bin)
 // ---------------------------------------------------------------------------
-function showReturnGuide(kind){
-  const box=document.getElementById('returnGuide');
-  if(!box)return;
+// v83: 文章はパソコンの結果の画面(A案のダッシュボード)でも使うので、関数に分けた(中身は v82 と同じ)
+function returnGuideBodies(kind){
   const intro={
     rescue:'選んだポケモンや道具を入れたセーブデータです。そのままゲームで遊べます。',
     full:'壊れたセーブを作り直した <code>main</code> です。元のセーブと入れ替えて遊べます。',
@@ -1201,6 +1200,12 @@ function showReturnGuide(kind){
       <li>預けたいポケモンをボックスに入れ、ポケモンバンクに預けます。</li>
       <li>バックアップから自分のセーブに戻し、バンクから引き出します。</li>
     </ol><p class="guide-note">ポケモンバンクは 3DS 本体でのみ使えます。</p>`;
+  return {intro,ds,emu,pkhex,bank,sec};
+}
+function showReturnGuide(kind){
+  const box=document.getElementById('returnGuide');
+  if(!box)return;
+  const {intro,ds,emu,pkhex,bank,sec}=returnGuideBodies(kind);
   box.innerHTML=`<div class="guide-head"><strong>ゲームに戻す方法</strong><button type="button" class="guide-close" aria-label="閉じる">×</button></div>
     <p class="guide-intro">${intro}</p>
     ${sec('ds','3DS 本体に戻す(Checkpoint)',ds)}
@@ -1214,7 +1219,7 @@ function showReturnGuide(kind){
 //   kind: 'rescue' / 'full' / 'bin'、count: 書き出したセーブに実際に入れたポケモンの数、items: 保存した内容(文字列の配列)
 // v76: 結果の画面は「N匹のポケモンを救出しました」の要約と 1 つの枠にまとめる(「ダウンロードしました」・ファイル名・保存した内容の欄はなくした)。
 //   次にすること・ゲームに戻す方法・もう一度ダウンロード・選択に戻る・注意のメッセージを、要約の枠(.summary-card)の中に移す。選択に戻ると元の場所へ戻す。
-function showDone(kind,count){
+function showDone(kind,count,info){
   if(!donePanel)return;
   doneState={kind};
   const card=document.querySelector('.summary-card');
@@ -1232,14 +1237,143 @@ function showDone(kind,count){
   donePanel.querySelector('.done-again').addEventListener('click',()=>{const o=window.__lastOutput;if(!o)return;const url=URL.createObjectURL(new Blob([o.data],{type:'application/octet-stream'})),a=document.createElement('a');a.href=url;a.download=o.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
   donePanel.querySelector('.done-back').addEventListener('click',()=>{exitDone();const b=modeSwitch.querySelector('.seg-btn.active')||download;if(b)b.focus()});
   donePanel.hidden=false;document.body.classList.add('is-done');
+  renderDoneDash(kind,count,info||{});   // v83: パソコン(960px 以上)だけ表示する A案のダッシュボード
   setStep(4);
   // 結果の画面の先頭へ(スマホでは要約が見えるように)。見出し(N匹のポケモンを救出しました)にフォーカス
   if(card)card.scrollIntoView({block:'start'});
   if(title){title.tabIndex=-1;title.focus({preventScroll:true})}
 }
+// ---------------------------------------------------------------------------
+// v83: ④ 書き出す — パソコン(960px 以上)だけの「A案」ダッシュボード。
+//   スマホ(959px 以下)は CSS で隠し、v82 までの画面(#donePanel)をそのまま使う。
+//   数字はすべて実際のデータから: 作った main(window.__lastOutput)のボックスの中身、書き出しの報告(report)、
+//   読み込んだセーブの解析(restoreAnalysis・boxState)。
+//   ボタンは v82 の画面と同じ動き(もう一度ダウンロード・選択に戻る・修復をリクエストする = #repairButton をそのまま押す)。
+// ---------------------------------------------------------------------------
+function outputBoxCounts(kind){
+  const o=window.__lastOutput;if(!o||!o.data)return null;
+  const d=o.data;let base=-1;
+  if(kind==='bin'){if(d.length>=31*30*232)base=0}
+  else{const l=findGen6Layout(d),pc=l&&pcBlockOf(l);if(pc&&l.toFile)base=l.toFile(pc.orig)}
+  if(base<0||base+31*30*232>d.length)return null;
+  const out=[];
+  for(let bx=0;bx<31;bx++){let n=0;for(let i=0;i<30;i++){const at=base+(bx*30+i)*232;if(!isEmptySlot(d.subarray(at,at+232)))n++}out.push(n)}
+  return out;
+}
+function renderDoneDash(kind,count,info){
+  const card=document.querySelector('.summary-card');if(!card)return;
+  {const old=document.getElementById('doneDash');if(old)old.remove()}
+  const esc=v=>escapeHtml(String(v));
+  const rep=info.rep||{},hits=window.__hits||[],outHits=info.outHits||[];
+  const boxCounts=outputBoxCounts(kind);
+  const pages=boxState.pages||[];
+  const damaged=pages.reduce((s,p)=>s+p.slots.filter(x=>x.status==='damaged').length,0);
+  // どこに入れたか(実際に書き込んだ数)
+  let locs;
+  if(kind==='full'){
+    const sp=info.special||{party:[],battle:[],daycare:[]};
+    const box=boxCounts?boxCounts.reduce((s,n)=>s+n,0):(rep.pcPokemon||0)+(rep.unknown||0);
+    locs=[['ボックス',box],['手持ち',sp.party.length],['バトルボックス',sp.battle.length],['育て屋',sp.daycare.length]];
+    if(rep.unknown)locs.push(['場所不明→ボックス',rep.unknown]);
+  }else if(kind==='bin'){
+    locs=[['ボックス',rep.pc||0]];
+  }else{
+    locs=[['ボックス',rep.pc||0],['手持ち',rep.party||0],['バトルボックス',rep.battle||0],['育て屋',rep.daycare||0]];
+    if(rep.partyToBox)locs.push(['手持ち→ボックス',rep.partyToBox]);
+    if(rep.unknown)locs.push(['場所不明→ボックス',rep.unknown]);
+  }
+  const placed=kind==='full'?locs.reduce((s,x)=>s+x[1],0):count;
+  const notIn=Math.max(0,hits.length-placed);
+  // ① 救出の結果(リング)
+  const segs=[[placed,'dd-seg-ok'],[notIn,'dd-seg-skip'],[damaged,'dd-seg-bad']].filter(x=>x[0]>0);
+  const tot=segs.reduce((s,x)=>s+x[0],0)||1,R=52,C=2*Math.PI*R;let off=0;
+  const arcs=segs.map(([v,c])=>{const len=C*v/tot,gap=segs.length>1?2:0;const el=`<circle class="${c}" cx="60" cy="60" r="${R}" fill="none" stroke-width="16" stroke-dasharray="${Math.max(len-gap,1).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;off+=len;return el}).join('');
+  const ring=`<figure class="dd-donut" role="img" aria-label="救出 ${placed}匹、入れていない ${notIn}匹、読めないマス ${damaged}"><svg viewBox="0 0 120 120" aria-hidden="true"><defs><pattern id="ddHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#ffe7c2"/><rect width="3" height="6" fill="#f0a14a"/></pattern></defs><circle cx="60" cy="60" r="${R}" fill="none" stroke="#edf1f6" stroke-width="16"/>${arcs}</svg><div class="dd-donut-c"><b>${placed}</b><span>匹を救出</span></div></figure>`;
+  const legend=`<ul class="dd-legend"><li><i class="dd-sw dd-sw-ok"></i>救出<b>${placed}匹</b></li><li><i class="dd-sw dd-sw-skip"></i>入れていない<b>${notIn}匹</b></li><li><i class="dd-sw dd-sw-bad"></i>読めないマス<b>${damaged}</b></li></ul>`;
+  // ② 入れたもの(棒グラフ + 道具などのしるし)
+  const mx=Math.max(1,...locs.map(x=>x[1]));
+  const bars=`<div class="dd-bars">${locs.map(([k,v])=>`<div class="dd-bar${v?'':' off'}"><span>${k}</span><span class="dd-track" aria-hidden="true"><i style="width:${v?Math.max(4,v/mx*100):0}%"></i></span><b>${v}匹</b></div>`).join('')}</div>`;
+  const chip=(on,label)=>`<span class="dd-chip ${on?'on':'off'}">${on?ICON.check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>'}${label}</span>`;
+  let chips='';
+  if(kind==='rescue'){
+    const it=info.items||{};
+    chips=[chip(!!it.bag,`道具 ${it.bag?it.bag.total:0}種`),chip(!!it.money,'お金'),chip(!!it.dex,`図鑑 捕まえた ${it.dex?it.dex.caught:0}種`),chip(!!it.gift,`おくりもの ${it.gift?it.gift.cards.length:0}枚`),chip(!!it.trainer,'トレーナー'),chip(!!it.avatar,'アバター')].join('');
+  }else if(kind==='full'){
+    chips=[chip(true,`残っていた部分 ${rep.restored||0}個`),chip(!!rep.moved,`位置を補正 ${rep.moved||0}個`),chip(!!rep.fromTemplate,`空のセーブで補った ${rep.fromTemplate||0}個`),chip(!!rep.zero,`空にした ${rep.zero||0}個`)].join('');
+  }
+  // ③ ボックス(作った main のボックスごとの数)
+  let heat='';
+  if(boxCounts){
+    const shade=n=>n===0?0:n<=5?1:n<=12?2:n<=20?3:n<=27?4:5;
+    const used=boxCounts.filter(n=>n).length;
+    const name=i=>pages[i]&&pages[i].name?pages[i].name:`ボックス${i+1}`;
+    const dmg=i=>pages[i]?pages[i].slots.filter(x=>x.status==='damaged').length:0;
+    heat=`<section class="dd-sec dd-boxes" aria-labelledby="ddBoxH"><h3 id="ddBoxH">ボックス<small>${used} / 31 個に入っています</small></h3>
+      <div class="dd-heat" aria-hidden="true">${boxCounts.map((n,i)=>`<div class="dd-h${shade(n)}${dmg(i)?' dmg':''}" title="${esc(name(i))}: ${n}匹${dmg(i)?`・読めないマス ${dmg(i)}`:''}"><em>${i+1}</em>${n||''}</div>`).join('')}</div>
+      <div class="dd-heat-key" aria-hidden="true"><span>少ない</span><i class="dd-h1"></i><i class="dd-h2"></i><i class="dd-h3"></i><i class="dd-h4"></i><i class="dd-h5"></i><span>30匹</span>${damaged?'<i class="dd-key-dmg"></i><span>読めないマスあり</span>':''}</div>
+      <table class="dd-sr"><caption>ボックスごとのポケモンの数</caption><tbody>${boxCounts.map((n,i)=>`<tr><th scope="row">${esc(name(i))}</th><td>${n}匹</td><td>${dmg(i)?'読めないマス '+dmg(i):''}</td></tr>`).join('')}</tbody></table></section>`;
+  }
+  // ④ 大切にしていたポケモン(ボックスと同じマスを使うので、跳ねる動きもそのまま)
+  const outSet=new Set(outHits);
+  const favAll=hits.filter(h=>favoriteRank(h)).sort((x,y)=>favoriteRank(x)-favoriteRank(y));
+  const favIn=favAll.filter(h=>outSet.has(h));
+  const favCells=favIn.map((h,i)=>renderSlotCell({status:'pokemon',hit:h},i+1).replace('<button type="button" class="box-cell is-pokemon selected','<div role="img" class="box-cell is-pokemon').replace('<button type="button" class="box-cell is-pokemon','<div role="img" class="box-cell is-pokemon').replace(/ aria-pressed="[^"]*"/,'').replace(/ data-offset="[^"]*"/,'').replace(/<\/button>$/,'</div>')).join('');
+  const lv=outHits.map(h=>pkLevel(h.species,u32(h.data,0x10))).filter(x=>x);
+  const kv=`<div class="dd-kv"><div><b>${new Set(outHits.map(h=>h.species)).size}</b><span>種類</span></div><div><b>${outHits.filter(h=>h.shiny).length}</b><span>色違い</span></div><div><b>${lv.length?Math.max(...lv):'-'}</b><span>最高 Lv.</span></div></div>`;
+  const fav=(favIn.length||outHits.length)?`<section class="dd-sec" aria-labelledby="ddFavH"><h3 id="ddFavH">大切にしていたポケモン</h3>${favIn.length?`<div class="dd-fav">${favCells}</div>`:''}${favAll.length>favIn.length?`<p class="dd-note">ほかに ${favAll.length-favIn.length}匹は入れていません。</p>`:''}${kv}</section>`:'';
+  // ⑤ 次にすること(v82 と同じ手順の文章)・ボタン・ほかの戻し方(閉じた状態)
+  const g=returnGuideBodies(kind);
+  const steps=kind==='bin'?`<li>救出先にする<b>同じゲームのセーブ</b>のバックアップを取ります。</li><li>PKHeX でそのセーブを開き、<code>boxdata.bin</code> をドラッグ＆ドロップします(ボックス 31 個が置き換わります)。</li>`
+    :`<li>今のセーブ(元のセーブ)を Checkpoint などで<b>バックアップ</b>します。</li><li>バックアップのフォルダの <code>main</code> を、ダウンロードした <code>main</code> と置き換えます。</li><li>Checkpoint で <b>Restore</b> して、ゲームを起動します。</li>`;
+  const stepNote=kind==='bin'?'':'<p class="dd-note">ファイル名は <code>main</code>(拡張子なし)にしてください。ダウンロード版は、セーブを吸い出した本体に戻してください。</p>';
+  const guide=kind==='bin'
+    ?`<details class="dd-guide"><summary>3DS 本体・エミュレータで戻す方法</summary><div class="dd-guide-body"><h4>3DS 本体に戻す(Checkpoint)</h4>${g.ds}<h4>エミュレータに戻す</h4>${g.emu}</div></details>`
+    :`<details class="dd-guide"><summary>エミュレータ・ポケモンバンクで戻す方法</summary><div class="dd-guide-body"><h4>エミュレータに戻す</h4>${g.emu}<h4>ポケモンバンクで移す</h4>${g.bank}</div></details>`;
+  const next=`<section class="dd-sec dd-next" aria-labelledby="ddNextH"><h3 id="ddNextH">次にすること</h3><ol class="dd-steps">${steps}</ol>${stepNote}
+    <div class="dd-actions"><button type="button" class="button dd-again">${ICON.download||''}もう一度ダウンロード</button><button type="button" class="button button-secondary dd-back">${ICON.prev}選択に戻る</button></div>
+    <p class="status hidden dd-status" aria-live="polite"></p>${guide}</section>`;
+  // ⑥ 読み込んだセーブの状態
+  const a=restoreAnalysis();let health='';
+  if(a){
+    const score=a.score,cls=score>=95?'good':score>=70?'mid':'low',arc=Math.PI*62;
+    const lost=a.lost.map(b=>blockName(a.l6.game,b.id));
+    const lostTxt=lost.length?`失われた部分: ${lost.map(esc).join('・')}`:a.pcOk?'失われた部分はありません。':`ボックスの部分が一部こわれています(読めないマス ${a.pcInfo?a.pcInfo.unreadable:damaged})。`;
+    health=`<section class="dd-sec" aria-labelledby="ddHealthH"><h3 id="ddHealthH">読み込んだセーブの状態</h3><div class="dd-meter"><div class="dd-gauge ${cls}" role="img" aria-label="復元信頼度 ${score}%"><svg viewBox="0 0 150 84" aria-hidden="true"><path d="M13 78a62 62 0 0 1 124 0" fill="none" stroke="#edf1f6" stroke-width="14" stroke-linecap="round"/><path class="dd-gauge-v" d="M13 78a62 62 0 0 1 124 0" fill="none" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(arc*score/100).toFixed(2)} ${arc.toFixed(2)}"/></svg><div class="dd-gauge-n">${score}<small>%</small></div></div>
+      <p><b>${a.ok} / ${a.total}</b> の部分が無事でした。<br>${lostTxt}</p></div>
+      <div class="dd-blocks" aria-hidden="true">${a.l6.blocks.map(b=>`<i class="${b===a.pc?'big ':''}${b.status!=='ok'?'bad':b.moved?'mv':''}" title="${esc(blockName(a.l6.game,b.id))}"></i>`).join('')}</div>
+      <p class="dd-note">復元信頼度。大きいマスがボックスの部分、しま模様は壊れていた部分です。</p></section>`;
+  }
+  // ⑦ 修復のお願い(足りないものがあるときだけオレンジ)
+  const lostParts=[damaged?`読めないマスが ${damaged}`:'',notIn?`入れていないポケモンが ${notIn}匹`:''].filter(Boolean);
+  const rb=document.getElementById('repairButton');
+  const repair=`<section class="dd-repair${lostParts.length?' warn':''}" aria-label="思うように救出できなかった方へ"><p>${lostParts.length?`<b>${lostParts.join('、')}</b>あります。`:''}思うように救出できなかったときは、壊れたセーブと救出したデータを送って、修復をリクエストできます。</p><button type="button" class="small-button dd-repair-btn"${rb&&rb.disabled?' disabled':''}>修復をリクエストする</button><p class="dd-repair-note" hidden></p></section>`;
+  const trust=`<div class="trust trust-small dd-trust"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5.5 11h13v9h-13z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><p>解析と書き出しはこの端末の中だけで行います。</p></div>`;
+  const resultSec=`<section class="dd-sec" aria-labelledby="ddResH"><h3 id="ddResH">救出の結果</h3><div class="dd-donut-row">${ring}${legend}</div></section>`;
+  const contents=`<section class="dd-sec" aria-labelledby="ddInH"><h3 id="ddInH">入れたもの</h3>${bars}${chips?`<div class="dd-chips">${chips}</div>`:''}</section>`;
+  const el=document.createElement('div');el.id='doneDash';el.className='done-dash';
+  el.innerHTML=`<div class="dd-grid"><div class="dd-main">${resultSec}${contents}${heat}${fav}</div><div class="dd-side">${next}${health}${repair}${trust}</div></div>`;
+  card.appendChild(el);
+  el.querySelector('.dd-again').addEventListener('click',()=>{const o=window.__lastOutput;if(!o)return;const url=URL.createObjectURL(new Blob([o.data],{type:'application/octet-stream'})),x=document.createElement('a');x.href=url;x.download=o.name;x.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
+  el.querySelector('.dd-back').addEventListener('click',()=>{exitDone();const b=modeSwitch.querySelector('.seg-btn.active')||download;if(b)b.focus()});
+  el.querySelector('.dd-repair-btn').addEventListener('click',e=>{const b=document.getElementById('repairButton');if(b&&!b.disabled){e.currentTarget.disabled=true;b.click()}});
+  syncDoneDash();
+}
+// v83: 注意のメッセージ(#status)と修復ボタンの結果(#repairNote)を、パソコンのダッシュボードにも映す
+function syncDoneDash(){
+  const d=document.getElementById('doneDash');if(!d)return;
+  const st=d.querySelector('.dd-status');
+  if(st){const on=!!statusEl.textContent&&!statusEl.classList.contains('hidden');st.textContent=on?statusEl.textContent:'';st.className='dd-status '+(on?'status'+(statusEl.classList.contains('error')?' error':''):'status hidden')}
+  const rn=document.getElementById('repairNote'),dn=d.querySelector('.dd-repair-note'),rb=document.getElementById('repairButton'),db=d.querySelector('.dd-repair-btn');
+  if(rn&&dn){const err=rn.classList.contains('error');dn.hidden=!err;dn.innerHTML=err?rn.innerHTML:'';dn.className='dd-repair-note'+(err?' error':'')}
+  if(rb&&db)db.disabled=rb.disabled;
+}
+{const mo=new MutationObserver(syncDoneDash);mo.observe(statusEl,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['class']});
+ const rn=document.getElementById('repairNote');if(rn)mo.observe(rn,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['class']});
+ const rb=document.getElementById('repairButton');if(rb)mo.observe(rb,{attributes:true,attributeFilter:['disabled']})}
 function exitDone(){
   if(!doneState)return;
   doneState=null;document.body.classList.remove('is-done');
+  {const d=document.getElementById('doneDash');if(d)d.remove()}   // v83
   const title=document.getElementById('summaryTitle');
   if(title&&title.dataset.found!==undefined){title.innerHTML=title.dataset.found;delete title.dataset.found}
   // 移した部品を右のパネル(スマホでは要約の下)の元の並び(dlNote → メッセージ → 安心の一言 → 戻し方)へ戻す
@@ -1262,7 +1396,7 @@ function downloadBoxdataBin(selected,reason){
   if(window.NERCounter)window.NERCounter.countRescue();
   saveBlob(data,'boxdata.bin');
   showReturnGuide('bin');
-  showDone('bin',placed);
+  showDone('bin',placed,{rep:{pc:placed},outHits:selected});
   msg(`${reason}代わりに boxdata.bin(ボックスのポケモン ${placed} 匹)をダウンロードしました${unknown?`。ボックスの外にいる ${unknown} 匹は boxdata.bin には入りません`:''}${conflicts?`。重複位置 ${conflicts} 匹は未配置`:''}。PKHeX で同じゲームのセーブを開いてから読み込んでください。`);
 }
 // v61: 場所不明のポケモンを選んでいたら、入れるボックスを選んでもらう
@@ -1323,7 +1457,7 @@ download.addEventListener('click',async()=>{
     if(r.skipped)notes.push(`場所不明のポケモンなど ${r.skipped}匹は入れていません。`);
     {const v=verifyMain(new Uint8Array(data));if(!v||v.ok!==v.total)notes.push('作った main を読み直したところ、一部のチェックサムが一致しませんでした。');}
     if(notes.length)msg(notes.join(' '));else clearMsg();
-    showDone('rescue',placed+(r.unknown||0));
+    showDone('rescue',placed+(r.unknown||0),{rep:r,outHits:selected,items:{bag,money,dex,gift:withGift?window.__gift:null,trainer,avatar}});
   }catch(e){
     if(e.noTemplate&&selected.length){
       try{downloadBoxdataBin(selected,`${e.message} `)}catch(e2){msg('boxdata.bin の作成に失敗しました: '+e2.message,true)}
@@ -1386,7 +1520,12 @@ function runFullRestore(){
       saveBlob(data,'main');
       showReturnGuide('full');
       if(window.NERCounter)window.NERCounter.countRescue();
-      showDone('full',(r.pcPokemon||0)+(r.unknown||0));
+      // v83: パソコンの結果の画面用。作った main に入ったポケモン(ボックス・場所不明・無事だった手持ち・バトルボックス・育て屋)
+      {const inBox=new Set();(boxState.pages||[]).forEach(p=>p.slots.forEach(x=>{if(x.status==='pokemon')inBox.add(x.hit)}));
+       const l6=window.__layout6,bk={party:BLK.PARTY,battle:BLK.BATTLE,daycare:BLK.DAYCARE},special={party:[],battle:[],daycare:[]};
+       if(l6)for(const h of (window.__hits||[])){const sp=getSpecialLocation(h);if(sp&&bk[sp.kind]&&l6.blocks[bk[sp.kind]]&&l6.blocks[bk[sp.kind]].status==='ok')special[sp.kind].push(h)}
+       const unk=unknownBox!=null?unknown.slice(0,r.unknown||0):[];
+       showDone('full',(r.pcPokemon||0)+(r.unknown||0),{rep:r,special,outHits:[...inBox,...unk,...special.party,...special.battle,...special.daycare]})}
       msg(`セーブデータをまるごと復元した main をダウンロードしました(残っていた部分 ${r.restored} 個${r.moved?`(うち ${r.moved} 個は位置を補正)`:''}${r.fromTemplate?`・空のセーブで補った部分 ${r.fromTemplate} 個`:''}${r.zero?`・空にした部分 ${r.zero} 個`:''}${r.pcPokemon?`・ボックスのポケモン ${r.pcPokemon} 匹`:''}${r.unknown?`・場所不明のポケモン ${r.unknown} 匹を選んだボックスへ`:''}${r.unknownSkipped?`・空きがなく入れられなかった場所不明のポケモン ${r.unknownSkipped} 匹`:''})。${r.allValid?'すべての部分のチェックサムが一致しています。':'一部のチェックサムが一致していません。'}`+verifyText(verifyMain(new Uint8Array(data))),!r.allValid);
     }catch(e){msg('まるごとの復元に失敗しました: '+e.message,true)}
     finally{updateItemsButton()}
