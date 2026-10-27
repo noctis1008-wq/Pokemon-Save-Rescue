@@ -4,7 +4,7 @@
    6×5 のボックス・下から出る詳細シート・下に固定したダウンロード・パソコンでは 2 列)。
    色: ブランドの青(--blue)を主ボタンと選択中に使う。小さい文字も 13〜14px 以上、文字色は #475467 以上の濃さ(AA)。
    =========================================================================== */
-@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=81") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
+@font-face{font-family:"PokeDings";src:url("fonts/pokedings.woff2?v=82") format("woff2");unicode-range:U+E081-E0A5;font-display:swap}   /* v65: ゲームのニックネーム用の記号(PokéDings, MIT, msikma) */
 *{box-sizing:border-box}
 :root{--bg:#f4f6f8;--card:#fff;--ink:#17202a;--sub:#475467;--mute:#5d6b82;--line:#e4e7ec;--line2:#d0d5dd;--blue:#2563eb;--blue2:#1d4ed8;--blue-soft:#eaf1ff;--ok:#067647;--ok-soft:#e7f8ef;--warn:#b54708;--warn-soft:#fff4e5;--ng:#b42318;--ng-soft:#fef3f2;--r:18px;
   font-family:"PokeDings",system-ui,-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
@@ -252,20 +252,23 @@ svg{flex:none}
 /* v80: 下線のタブ。幅いっぱいに並べ、入りきらないときは横にスクロール */
 .view-tabs{display:flex;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line2);margin-bottom:12px}
 .view-tabs::-webkit-scrollbar{display:none}
-.view-tab{flex:1 0 auto;min-width:44px;min-height:44px;border:0;border-bottom:3px solid transparent;margin-bottom:-1px;border-radius:0;background:transparent;color:var(--sub);font:inherit;font-size:15px;font-weight:800;padding:6px 6px 3px;cursor:pointer;white-space:nowrap;transition:color .15s,border-color .15s}
+.view-tab{flex:1 0 auto;min-width:44px;min-height:44px;border:0;border-bottom:3px solid transparent;margin-bottom:-1px;border-radius:10px 10px 0 0;background:transparent;color:var(--mute);font:inherit;font-size:15px;font-weight:500;padding:6px 6px 3px;cursor:pointer;white-space:nowrap;transition:color .15s,border-color .15s,background-color .15s}
 .view-tab:hover{color:var(--ink)}
-.view-tab.active{color:var(--blue2);border-bottom-color:var(--blue)}
+/* 選んだタブ: 太字・濃い青の文字・青い下線(3px)・薄い青の背景。選んでいないタブは灰色の普通の太さ */
+.view-tab.active{color:var(--blue2);font-weight:900;border-bottom-color:var(--blue2);background:var(--blue-soft)}
 .view-panel{display:none}.view-panel.active{display:block}
 .sub-panel{display:none}.sub-panel.active{display:block}
 .view-panel>.items-viewer,.view-panel>.trainer-viewer,.view-panel>.dex-viewer,.view-panel>.gift-viewer{background:#fff;border:1px solid #e9edf2;border-radius:var(--r);padding:14px}
 .view-panel[data-view="trainer"]>.photo-heading,.view-panel[data-view="trainer"]>.photo-viewer{padding:0 4px}
-/* v80: 一覧 / ボックス / 手持ち・育て屋 は丸い切り替えスイッチ。白い部分(.seg-thumb)が選んだ方へ動く */
+/* v80: 一覧 / ボックス / 手持ち・育て屋 は丸い切り替えスイッチ。青い部分(.seg-thumb)が選んだ方へ動く */
 .sub-tabs{position:relative;margin-bottom:12px;border-radius:999px}
-.sub-tabs .seg-thumb{position:absolute;top:4px;bottom:4px;left:4px;width:0;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.18);pointer-events:none}
+.sub-tabs .seg-thumb{position:absolute;top:4px;bottom:4px;left:4px;width:0;border-radius:999px;background:var(--blue);box-shadow:0 2px 6px rgba(29,78,216,.38);pointer-events:none}
 .sub-tabs.is-ready .seg-thumb{transition:transform .22s ease,width .22s ease}
-.sub-tabs .seg-btn{position:relative;z-index:1;border-radius:999px}
+.sub-tabs .seg-btn{position:relative;z-index:1;border-radius:999px;color:var(--sub);font-weight:500;transition:color .15s}
+/* 選んだ方: 青く塗りつぶして白い太字。選んでいない方は灰色の地に灰色の普通の太さ */
+.sub-tabs .seg-btn.active{color:#fff;font-weight:900;background:var(--blue);box-shadow:0 2px 6px rgba(29,78,216,.38)}
 .sub-tabs:not(.is-ready) .seg-thumb{visibility:hidden}
-.sub-tabs.is-ready .seg-btn.active{background:transparent;box-shadow:none}   /* 白い部分の位置が決まるまではボタン自体を白くしておく */
+.sub-tabs.is-ready .seg-btn.active{background:transparent;box-shadow:none}   /* 青い部分の位置が決まるまではボタン自体を青くしておく */
 @media(prefers-reduced-motion:reduce){.sub-tabs.is-ready .seg-thumb,.view-tab{transition:none}}
 .recovery-controls{margin-bottom:10px}
 .selection-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
