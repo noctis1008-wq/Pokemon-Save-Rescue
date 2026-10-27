@@ -299,7 +299,7 @@ function showSub(sub){
   listEl.querySelectorAll('.sub-panel').forEach(p=>p.classList.toggle('active',p.dataset.sub===sub));
   refreshBoxSelection();
 }
-// v80: 切り替えスイッチの白い部分(.seg-thumb)を、選ばれているボタンの位置と幅に合わせる。
+// v80: 切り替えスイッチの青い部分(.seg-thumb)を、選ばれているボタンの位置と幅に合わせる。
 // 表示されていない(幅 0)ときは何もせず、表示されたときに ResizeObserver から呼ばれる
 function moveSegThumb(seg){
   const on=seg.querySelector('.sub-tab.active'),th=seg.querySelector('.seg-thumb');
