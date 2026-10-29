@@ -1172,6 +1172,9 @@ function updateItemsButton(){   // 名前は v19 以来のまま。救出ボタ�
 //   kind: 'rescue'(ポケモンを救出する → 空のセーブをもとにした main) / 'full'(まるごと復元 → 元のセーブを作り直した main) / 'bin'(boxdata.bin)
 // ---------------------------------------------------------------------------
 // v83: 文章はパソコンの結果の画面(A案のダッシュボード)でも使うので、関数に分けた(中身は v82 と同じ)
+// v84: 作った main がどのゲーム用か(X・Y と ORAS はセーブの大きさが違い、別のゲームに入れると「レポートがこわれています」になる)
+function outputGameLabel(){const g=window.__itemsGame;return g==='XY'?'X・Y':g==='ORAS'?'オメガルビー・アルファサファイア':''}
+function outputGameNote(){const g=outputGameLabel();return g?`このセーブは <b>${g} 用</b>です。同じゲームに戻してください(ほかのゲームに入れると「レポートがこわれています」になります)。`:''}
 function returnGuideBodies(kind){
   const intro={
     rescue:'選んだポケモンや道具を入れたセーブデータです。そのままゲームで遊べます。',
@@ -1227,7 +1230,8 @@ function showDone(kind,count,info){
   if(title&&title.dataset.found===undefined)title.dataset.found=title.innerHTML;
   if(title)title.innerHTML=kind==='full'?'セーブデータを<wbr>復元しました':count>0?`${count}匹のポケモンを<wbr>救出しました`:'セーブデータを<wbr>書き出しました';
   const next=kind==='bin'?`<li><span>救出先にする<b>同じゲームのセーブ</b>のバックアップを取ります。</span></li><li><span>PKHeX でそのセーブを開き、<code>boxdata.bin</code> をドラッグ＆ドロップします(ボックス 31 個が置き換わります)。</span></li>`
-    :`<li><span>ゲームに戻す前に、今のセーブ(元のセーブ)を Checkpoint などで<b>バックアップ</b>します。</span></li><li><span>バックアップのフォルダの <code>main</code> を、ダウンロードした <code>main</code> と置き換えて、Checkpoint で <b>Restore</b> します(くわしい手順は下の「ゲームに戻す方法」)。</span></li>`;
+    :`<li><span>ゲームに戻す前に、今のセーブ(元のセーブ)を Checkpoint などで<b>バックアップ</b>します。</span></li><li><span>バックアップのフォルダの <code>main</code> を、ダウンロードした <code>main</code> と置き換えて、Checkpoint で <b>Restore</b> します(くわしい手順は下の「ゲームに戻す方法」)。</span></li>`
+      +(outputGameNote()?`<li><span>${outputGameNote()}</span></li>`:'');
   donePanel.innerHTML=`<h3 class="done-h" id="doneTitle">次にすること</h3><ol class="how done-next">${next}</ol>
     <div class="done-actions"><button type="button" class="button done-again">${ICON.download||''}もう一度ダウンロード</button><button type="button" class="button button-secondary done-back">${ICON.prev}選択に戻る</button></div>`;
   if(card)card.appendChild(donePanel);
@@ -1325,7 +1329,7 @@ function renderDoneDash(kind,count,info){
   const g=returnGuideBodies(kind);
   const steps=kind==='bin'?`<li>救出先にする<b>同じゲームのセーブ</b>のバックアップを取ります。</li><li>PKHeX でそのセーブを開き、<code>boxdata.bin</code> をドラッグ＆ドロップします(ボックス 31 個が置き換わります)。</li>`
     :`<li>今のセーブ(元のセーブ)を Checkpoint などで<b>バックアップ</b>します。</li><li>バックアップのフォルダの <code>main</code> を、ダウンロードした <code>main</code> と置き換えます。</li><li>Checkpoint で <b>Restore</b> して、ゲームを起動します。</li>`;
-  const stepNote=kind==='bin'?'':'<p class="dd-note">ファイル名は <code>main</code>(拡張子なし)にしてください。ダウンロード版は、セーブを吸い出した本体に戻してください。</p>';
+  const stepNote=kind==='bin'?'':`<p class="dd-note">${outputGameNote()?outputGameNote()+'<br>':''}ファイル名は <code>main</code>(拡張子なし)にしてください。ダウンロード版は、セーブを吸い出した本体に戻してください。</p>`;
   const guide=kind==='bin'
     ?`<details class="dd-guide"><summary>3DS 本体・エミュレータで戻す方法</summary><div class="dd-guide-body"><h4>3DS 本体に戻す(Checkpoint)</h4>${g.ds}<h4>エミュレータに戻す</h4>${g.emu}</div></details>`
     :`<details class="dd-guide"><summary>エミュレータ・ポケモンバンクで戻す方法</summary><div class="dd-guide-body"><h4>エミュレータに戻す</h4>${g.emu}<h4>ポケモンバンクで移す</h4>${g.bank}</div></details>`;

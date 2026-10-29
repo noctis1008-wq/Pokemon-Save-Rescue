@@ -18,6 +18,11 @@ async function loadTemplate(game){
   if(!tl||tl.game!==game||((tl.shift%tl.saveSize)+tl.saveSize)%tl.saveSize!==0)throw new Error('空のセーブの構造が想定と違います。');
   return {t,tl};
 }
+// v84: ボックスを 31 個すべて開いた状態にする。ボックス名・壁紙のブロック(長さ 0x440)の
+//   +0x43E = 使えるボックスの数(31)、+0x43D の最上位ビット = 31 個目を開けたしるし(X・Y はゼルネアス/イベルタル、ORAS はエピソードデルタのレックウザを捕まえると立つ)。
+//   ゲームが作るのは「数 31 としるしあり」か「数 30 以下でしるしなし」だけなので、必ず両方をそろえる(PKHeX の BoxesUnlocked と同じ)。
+const BOX_LAYOUT_LEN=0x440,BOX_COUNT6=31,BOX_FINAL_FLAG=0x80;
+function unlockAllBoxes(out,orig){out[orig+0x43D]|=BOX_FINAL_FLAG;out[orig+0x43E]=BOX_COUNT6}
 // 空のセーブに、選んだポケモン・道具・お金を書き込んだ main を作る(v25。v19〜v24 の buildItemsSave を拡張)。
 // opts: {game, bag, money, selected(一覧で選んだ個体), input(読み込んだセーブ), l6(そのブロック表)}
 async function buildRescueMain(opts){
@@ -80,7 +85,7 @@ async function buildRescueMain(opts){
   if(selected.length){
     const pcb=tl.blocks.find(b=>b.len===0x34AD0);
     if(!pcb)throw new Error('空のセーブのボックスの位置が想定と違います。');
-    const used=new Set();let maxBox=0;
+    const used=new Set();
     const party=[],partyToBox=[];
     // --- PC ボックス: 元のボックス・番号へ
     const unknownSel=[];
@@ -92,7 +97,7 @@ async function buildRescueMain(opts){
       if(loc.box===null||!loc.aligned){report.skipped++;continue}
       const slot=(loc.box-1)*30+(loc.slot-1);
       if(used.has(slot)){report.skipped++;continue}
-      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.pc++;maxBox=Math.max(maxBox,loc.box);
+      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.pc++;
     }
     // --- 手持ち: 元の順番で詰める。戦闘用の値が壊れていれば手持ちには入れず、空いているボックスへ
     for(const q of selected.filter(q=>q.__sp&&q.__sp.kind==='party').sort((a,b)=>a.__sp.index-b.__sp.index)){
@@ -143,33 +148,26 @@ async function buildRescueMain(opts){
       let slot=-1;
       for(let i=0;i<31*30;i++)if(!used.has(i)&&isEmptySlot(out.subarray(pcb.orig+i*232,pcb.orig+i*232+232))){slot=i;break}
       if(slot<0){report.skipped++;continue}
-      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.partyToBox++;maxBox=Math.max(maxBox,Math.floor(slot/30)+1);
+      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.partyToBox++;
     }
     // --- v61: 場所不明のポケモンは、選んだボックスの空いているマスから(足りなければ次のボックスへ)
     for(const q of unknownSel){
       let slot=-1;
       for(let k=0;k<31*30;k++){const i=(opts.unknownBox*30+k)%(31*30);if(!used.has(i)&&isEmptySlot(out.subarray(pcb.orig+i*232,pcb.orig+i*232+232))){slot=i;break}}
       if(slot<0){report.skipped++;continue}
-      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.unknown=(report.unknown||0)+1;maxBox=Math.max(maxBox,Math.floor(slot/30)+1);
+      out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.unknown=(report.unknown||0)+1;
     }
     for(const q of selected)delete q.__sp;
     if(used.size)changed.add(pcb.id);
     // --- ボックス名・壁紙: 元のブロックが無事なら丸ごと、名前だけ読めたなら名前だけ。
-    // 空のセーブは使えるボックスが 7 個なので、書き込んだボックスまで使えるようにする(+0x43E)。
-    const lb=tl.blocks.find(b=>b.len===0x440),src=l6&&l6.blocks.find(b=>b.len===0x440);
+    // v84: 壊れたブロック(CRC 不一致)からは壁紙・使えるボックスの数を写さない。ボックスは常に 31 個すべて開く(unlockAllBoxes)。
+    const lb=tl.blocks.find(b=>b.len===BOX_LAYOUT_LEN),src=l6&&l6.blocks.find(b=>b.len===BOX_LAYOUT_LEN);
     if(lb){
       if(src&&src.status==='ok'){const sb=readBlockBytes(input,l6,src);if(sb)out.set(sb,lb.orig)}
-      else{
-        if(window.__boxNames){
-          window.__boxNames.forEach((name,i)=>{const o=lb.orig+i*0x22;out.fill(0,o,o+0x22);for(let k=0;k<Math.min(name.length,16);k++){const c=name.charCodeAt(k);out[o+k*2]=c&255;out[o+k*2+1]=c>>8}});
-        }
-        // v29: 壁紙(+0x41E から 31 バイト)。ブロックが壊れていても、31 個すべてが壁紙番号(0〜23)として妥当なら写す
-        const sb=src?readBlockBytes(input,l6,src):null;
-        if(sb){const w=sb.subarray(0x41E,0x41E+31);if(w.every(v=>v<=WALLPAPER_MAX))out.set(w,lb.orig+0x41E)}
-        // 使えるボックスの数(+0x43E)も、1〜31 なら元のセーブに合わせる
-        if(sb&&sb[0x43E]>=1&&sb[0x43E]<=31&&out[lb.orig+0x43E]<sb[0x43E])out[lb.orig+0x43E]=sb[0x43E];
+      else if(window.__boxNames){
+        window.__boxNames.forEach((name,i)=>{const o=lb.orig+i*0x22;out.fill(0,o,o+0x22);for(let k=0;k<Math.min(name.length,16);k++){const c=name.charCodeAt(k);out[o+k*2]=c&255;out[o+k*2+1]=c>>8}});
       }
-      if(out[lb.orig+0x43E]<maxBox)out[lb.orig+0x43E]=maxBox;
+      unlockAllBoxes(out,lb.orig);
       changed.add(lb.id);
     }
   }
@@ -281,6 +279,8 @@ async function buildFullRestore(opts={}){
       out.set(encryptPK(q.data),pcb.orig+slot*232);used.add(slot);report.unknown++;
     }
   }
+  // v84: ボックスは 31 個すべて開く(元のブロックが無事でも、空のセーブの値でも)。CRC はこのあと付け直す
+  {const lb=l6.blocks.find(b=>b.len===BOX_LAYOUT_LEN);if(lb)unlockAllBoxes(out,lb.orig)}
   // フッター: ブロック表(長さ・ID)は元のセーブのもの、CRC は付け直す。先頭 16 バイトは元のセーブのもの
   const F=l6.footerOrig;
   out.set(l6.lin.subarray(F,F+0x200),F);
