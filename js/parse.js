@@ -300,7 +300,6 @@ function bagSummaryText(bag){
 //                  XY は 1 か所、ORAS は 2 か所(0x3E0)
 // スキャンで見つかった個体の位置が、これらの枠の位置にぴったり合うものだけを対象にする(ずれの補正はしない)。
 // ---------------------------------------------------------------------------
-const WALLPAPER_MAX=23;   // 第6世代の壁紙は 0〜23(通常 16 + 追加 8)
 const BLK={BAG:1,MISC:11,BOXLAYOUT:12,BATTLE:13,PARTY:18,DAYCARE:38};
 const PARTY_SIZE=0x104,PARTY_COUNT_OFF=0x618,DAYCARE_SLOT=240,DAYCARE_COUPLE=0x1F0;
 function getSpecialLocation(q){
